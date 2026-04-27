@@ -1,0 +1,135 @@
+[
+  {
+    "section": "Personal Details & Emergency Contacts",
+    "prompts": [
+      "Full name, DOB, address?",
+      "Emergency contacts and relationship?",
+      "Any allergies?",
+      "GP and key professionals?",
+      "Key risks to be aware of?",
+      "Next of kin aware of care?"
+    ]
+  },
+  {
+    "section": "Medical Conditions & Overview",
+    "prompts": [
+      "What conditions does the client have?",
+      "How do they impact daily life?",
+      "Any monitoring required?",
+      "Any deterioration signs?"
+    ]
+  },
+  {
+    "section": "Medication Support",
+    "prompts": [
+      "What medications are prescribed?",
+      "Any support required?",
+      "Any risks or refusals?",
+      "Side effects observed?"
+    ]
+  },
+  {
+    "section": "Personal Care (ADLs)",
+    "prompts": [
+      "Support needed with washing/dressing?",
+      "Skin integrity concerns?",
+      "Dignity preferences?",
+      "Oral care routine?"
+    ]
+  },
+  {
+    "section": "Mobility & Moving",
+    "prompts": [
+      "Is the client mobile?",
+      "Describe current mobility",
+      "Any walking aids?",
+      "Does the client use aids?",
+      "Falls risk?",
+      "What support is needed?",
+      "Transfers assistance needed?",
+      "repositioning required?"
+    ]
+  },
+  {
+    "section": "Nutrition & Hydration",
+    "prompts": [
+      "Diet requirements?",
+      "Fluid intake levels?",
+      "Any swallowing issues?",
+      "monitoring food/fluid?"
+    ]
+  },
+  {
+    "section": "Cognitive Wellbeing",
+    "prompts": [
+      "Memory issues?",
+      "Confusion patterns?",
+      "Support strategies?",
+      "Orientation awareness?"
+    ]
+  },
+  {
+    "section": "Risks & Safety",
+    "prompts": [
+      "What are the main risks?",
+      "Falls risk?",
+      "Medication risks?",
+      "Environmental hazards?",
+      "Safeguarding concerns?"
+    ]
+  },
+ {
+    "section": "Emotional Wellbeing",
+    "prompts": [
+      "Mood patterns?",
+      "Anxiety or distress triggers?",
+      "Social engagement?",
+      "Support required?"
+    ]
+  },
+  {
+    "section": "Environment",
+    "prompts": [
+      "Is home safe and accessible?",
+      "Trip hazards present?",
+      "Lighting adequate?",
+      "Equipment needed?"
+    ]
+  },
+  {
+    "section": "Daily Routine",
+    "prompts": [
+      "Morning routine?",
+      "Meal times?",
+      "Activity preferences?",
+      "Sleep routine?"
+    ]
+  },
+  {
+    "section": "Emergency Plan",
+    "prompts": [
+      "What to do in emergency?",
+      "Who to contact?",
+      "Known triggers?",
+      "DNACPR or escalation plans?"
+    ]
+  },
+  {
+    "section": "End-of-Life Wishes",
+    "prompts": [
+      "Advanced care planning?",
+      "Preferred place of care?",
+      "Family involvement?",
+      "Spiritual needs?"
+    ]
+  },
+  {
+    "section": "Review Section",
+    "prompts": [
+      "When was last review?",
+      "Any changes needed?",
+      "Outcomes being met?",
+      "Next review date?"
+    ]
+  }
+]
