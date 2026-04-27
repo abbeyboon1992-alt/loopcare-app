@@ -1,6 +1,5 @@
-export const dynamic = "force-dynamic";
 "use client";
-
+export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
