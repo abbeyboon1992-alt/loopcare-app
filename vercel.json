@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/run-escalation",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/daily-summary",
