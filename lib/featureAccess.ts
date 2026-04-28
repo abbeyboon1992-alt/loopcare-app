@@ -1,24 +1,19 @@
 export function canAccessFeature(
   feature: string,
   plan: string,
-  accountType: string,
   isTrialActive?: boolean
 ) {
-  // ✅ PRO OR TRIAL = FULL ACCESS
-const config = featureAccess[feature as keyof typeof featureAccess];
+  const config = featureAccess[feature as keyof typeof featureAccess];
 
-if (!config) return false;
+  if (!config) return false;
 
-// ✅ treat trial as "pro" plan
-const effectivePlan = isTrialActive ? "pro" : plan;
+  // ✅ treat trial as pro
+  const effectivePlan = isTrialActive ? "pro" : plan;
 
-// check plan access
-if (!config.plans.includes(effectivePlan)) return false;
+  // ✅ check plan only
+  if (!config.plans.includes(effectivePlan)) return false;
 
-// check account type
-if (!config.accountTypes.includes(accountType)) return false;
-
-return true;
+  return true;
 }
 
 export const featureAccess = {

@@ -43,16 +43,9 @@ export default function Clients() {
 
 const [alerts, setAlerts] = useState<any[]>([]);
 const access = useAccess();
-
-useEffect(() => {
-  if (access) {
-    console.log("ACCESS:", access);
-  }
-}, [access]);
-
-if (!access) return null;
-
-const isTrialActive = access.isTrialActive;
+const [user, setUser] = useState<any>(null);
+const [profile, setProfile] = useState<any>(null);
+const isTrialActive = access?.isTrialActive;
 
 const [mapReady, setMapReady] = useState(false);
 
@@ -83,17 +76,18 @@ const [loadingAddresses, setLoadingAddresses] = useState(false);
 // LOAD CLIENTS
 const loadClients = async () => {
   const {
-  data: { session },
-} = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-const user = session?.user;
+  console.log("SESSION USER:", user);
 
-console.log("SESSION USER:", user);
+  if (!user) {
+    console.log("❌ NO USER");
+    return;
+  }
 
-if (!user) {
-  console.log("❌ NO SESSION");
-  return;
-}
+  // ✅ SAVE USER
+  setUser(user);
 
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
@@ -104,7 +98,7 @@ if (!user) {
   console.log("PROFILE RESULT:", profile);
   console.log("PROFILE ERROR:", profileError);
   console.log("ORG ID USED:", profile?.organisation_id);
-
+setProfile(profile);
   if (!profile?.organisation_id) {
   console.log("❌ NO ORG ID — user not linked properly");
   setClients([]); // prevent map crash
@@ -383,7 +377,17 @@ const updateClientStatus = async (
 };
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-20">
+  <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-20">
+
+    {(!access || !user || !profile) ? (
+  <div className="p-6 text-white">Loading...</div>
+) : (() => {
+  const isTrialActive = access.isTrialActive;
+
+  return (
+    <>
+
+    {/* ✅ SAFE LOADING STATE (INSIDE JSX) */}
 
       <div className="flex justify-between items-center mb-6">
   <h1 className="text-2xl font-bold text-white">Clients</h1>
@@ -409,7 +413,7 @@ const updateClientStatus = async (
     {showForm ? "Close" : "+ Add Client"}
   </button>
 </div>
-      {(access.plan === "free" || access.isTrialActive) && (
+      {(access?.plan === "free" || access?.isTrialActive) && (
   <div
     className={`mb-4 p-4 rounded flex justify-between items-center ${
       isTrialActive
@@ -593,12 +597,12 @@ const updateClientStatus = async (
 {/* 🗺️ CLIENT MAP */}
 <div
   className={`mb-6 rounded-lg overflow-hidden relative ${
-  access.plan === "free" ? "blur-[2px] brightness-75" : ""
+  access?.plan === "free" ? "blur-[2px] brightness-75" : ""
 }`}
 >
 
   {/* 🔒 LOCK OVERLAY */}
-  {!access.isTrialActive && access.plan === "free" && (
+  {!access?.isTrialActive && access?.plan === "free" && (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
@@ -639,7 +643,7 @@ const updateClientStatus = async (
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-{!access.isTrialActive && access.plan === "free" && getRouteLines().length > 1 && (
+{!access?.isTrialActive && access?.plan === "free" && getRouteLines().length > 1 && (
   <Polyline
   positions={getRouteLines() as any}
     pathOptions={{
@@ -916,13 +920,15 @@ const bestInterestComplete =
           }}
           className="px-3 py-1 bg-red-600 rounded"
         >
-          Confirm
+           Confirm
         </button>
       </div>
     </div>
   </div>
 )}
-</div>
-
+          </>
+  );
+})()}
+  </div>
 );
 }

@@ -56,9 +56,28 @@ if (!user) {
   alert("Signup failed - no user returned");
   return;
 } 
+// ✅ WAIT FOR REAL SESSION (NOT TIMEOUT)
+let session = null;
 
-// 🧠 FIX: wait for Supabase session to be ready
-await new Promise((resolve) => setTimeout(resolve, 500));
+for (let i = 0; i < 10; i++) {
+  const {
+    data: { session: currentSession },
+  } = await supabase.auth.getSession();
+
+  if (currentSession) {
+    session = currentSession;
+    break;
+  }
+
+  await new Promise((r) => setTimeout(r, 200));
+}
+
+if (!session) {
+  setLoading(false);
+  alert("Session not ready - please login");
+  router.push("/login");
+  return;
+}
 
   // 🏢 2. CREATE ORGANISATION (NO user_id HERE)
   const { data: org, error: orgError } = await supabase
@@ -108,9 +127,6 @@ if (!hasUsedTrial) {
   ])
   .select();
 
-console.log("PROFILE INSERT RESULT:", profileData);
-console.log("PROFILE INSERT ERROR:", profileError);
-
   if (profileError) {
     setLoading(false);
     console.error("PROFILE ERROR:", profileError);
@@ -120,7 +136,8 @@ console.log("PROFILE INSERT ERROR:", profileError);
 
   setLoading(false);
 
-  router.push("/clients");
+  await supabase.auth.getSession();
+router.push("/clients");
 };
 
 useEffect(() => {

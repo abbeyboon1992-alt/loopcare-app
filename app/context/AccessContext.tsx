@@ -128,5 +128,16 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAccess = () => {
-  return useContext(AccessContext);
+  const context = useContext(AccessContext);
+
+  // ✅ SAFE FALLBACK (prevents crash)
+  if (!context) {
+    return {
+      plan: "free",
+      isTrialActive: false,
+      trial_end: null,
+    };
+  }
+
+  return context;
 };
