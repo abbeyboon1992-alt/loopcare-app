@@ -6,6 +6,7 @@ declare global {
 }
 import "leaflet/dist/leaflet.css";
 import { useState, useEffect } from "react";
+import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -648,9 +649,7 @@ const updateClientStatus = async (
 
   {/* 🔒 LOCK OVERLAY */}
   {!access?.isTrialActive && access?.plan === "free" && (
-    <div
-  className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none"
->
+   <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
   <p className="font-semibold text-sm mb-2">
@@ -670,7 +669,7 @@ const updateClientStatus = async (
     e.stopPropagation();
     window.location.href = "/upgrade";
   }}
-  className="pointer-events-auto bg-blue-600 ..."
+  className="bg-blue-600 px-4 py-2 rounded text-xs"
 >
     Unlock Map & Routes
   </button>
@@ -707,22 +706,25 @@ const updateClientStatus = async (
           <Marker key={client.id} position={[client.lat, client.lng]}>
             <Popup>
               <div
-                onClick={() => router.push(`/clients/${client.id}`)}
+                onClick={() => {
+  console.log("CLICKED", client.id);
+  router.push(`/clients/${client.id}`);
+}}
                 className="cursor-pointer"
               >
-                <strong>
-                  {client.first_name} {client.last_name}
-                </strong>
+                {client.date_of_birth && (() => {
+  const dob = new Date(client.date_of_birth);
 
-                {client.date_of_birth && (
-                  <p className="text-xs text-[var(--muted)]">
-                    🎂 {new Date(client.date_of_birth).toLocaleDateString()} (
-                    {Math.floor(
-                      (Date.now() - new Date(client.date_of_birth).getTime()) /
-                        (1000 * 60 * 60 * 24 * 365.25)
-                    )} yrs)
-                  </p>
-                )}
+  return (
+    <p className="text-xs text-[var(--muted)]">
+      🎂 {dob.toLocaleDateString()} (
+      {Math.floor(
+        (Date.now() - dob.getTime()) /
+          (1000 * 60 * 60 * 24 * 365.25)
+      )} yrs)
+    </p>
+  );
+})()}
 
                 Tap to open
               </div>
@@ -745,9 +747,26 @@ const updateClientStatus = async (
     ? client.assessments[0]
     : client.assessments;
     const mcaComplete = assessments?.mca_completed === true;
+
 const bestInterestComplete =
   assessments?.best_interest_completed === true ||
   assessments?.best_interest_completed === "yes";
+
+const hasAssessment = !!assessments;
+
+const isAssessmentComplete =
+  mcaComplete && bestInterestComplete;
+
+const isAssessmentStarted =
+  hasAssessment && !isAssessmentComplete;
+
+const progress = !hasAssessment
+  ? 0
+  : isAssessmentComplete
+  ? 100
+  : mcaComplete || bestInterestComplete
+  ? 50
+  : 25;
 
     const riskScore = calculateRiskScore(client);
     const borderColor = getRiskBorder(riskScore);
@@ -851,6 +870,17 @@ const bestInterestComplete =
         )}
 
         {/* 🚨 TAGS */}
+        {!hasAssessment && (
+  <span className="text-xs bg-red-600 px-2 py-1 rounded">
+    ⚠️ No Assessment
+  </span>
+)}
+
+{isAssessmentStarted && (
+  <span className="text-xs bg-yellow-600 px-2 py-1 rounded">
+    🧠 Incomplete Assessment
+  </span>
+)}
         <div className="flex gap-2 mt-2 flex-wrap">
 {mcaComplete && bestInterestComplete && (
   <span className="text-xs bg-green-600 px-2 py-1 rounded">
@@ -909,7 +939,81 @@ const bestInterestComplete =
   </span>
 )}
         </div>
+        <div className="mt-2">
+  <div className="flex justify-between text-xs mb-1 text-[var(--muted)]">
+    <span>Assessment</span>
+    <span>{progress}%</span>
+  </div>
 
+  <div className="w-full bg-gray-700 rounded h-2">
+    <div
+      className={`h-2 rounded ${
+        progress === 100
+          ? "bg-green-600"
+          : progress >= 50
+          ? "bg-yellow-500"
+          : "bg-blue-500"
+      }`}
+      style={{ width: `${progress}%` }}
+    />
+  </div>
+</div>
+<div className="mt-3">
+  {canAccessFeature(
+    "assessments",
+    access.plan,
+    access.accountType,
+    access.isTrialActive
+  ) ? (
+    <>
+      {!hasAssessment && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/assessments?client=${client.id}`);
+          }}
+          className="text-xs bg-blue-500 px-3 py-1 rounded"
+        >
+          Start Assessment
+        </button>
+      )}
+
+      {isAssessmentStarted && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/assessments?client=${client.id}`);
+          }}
+          className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
+        >
+          Continue Assessment
+        </button>
+      )}
+
+      {isAssessmentComplete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/assessments?client=${client.id}`);
+          }}
+          className="text-xs bg-green-600 px-3 py-1 rounded"
+        >
+          View Assessment
+        </button>
+      )}
+    </>
+  ) : (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        window.location.href = "/upgrade";
+      }}
+      className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
+    >
+      🔒 Upgrade for Assessments
+    </button>
+  )}
+</div>
         {/* INACTIVE REASON */}
         {(client.status ?? "active") === "inactive" && client.inactive_reason && (
           <p className="text-xs text-red-400 mt-2">
