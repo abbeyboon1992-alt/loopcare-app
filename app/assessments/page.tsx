@@ -1,6 +1,5 @@
 "use client";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+
 import { useState, useEffect, useRef } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
@@ -175,7 +174,9 @@ export default function AssessmentPage() {
   const isUserTypingRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-    const clientId = searchParams.get("client") || "";
+const clientId = typeof window !== "undefined"
+  ? searchParams.get("client") || ""
+  : "";
 const [referral, setReferral] = useState({
   type: "",
   details: "",
@@ -1954,7 +1955,7 @@ if (form.medication_side_effects) {
 const daysSinceReview = safeDateDiffDays(form.last_reviewed);
 
 const isOverdue =
-  daysSinceReview !== null && daysSinceReview > 30
+  daysSinceReview !== null && daysSinceReview > 30;
 
   const SectionWrapper = ({
   id,
@@ -1997,7 +1998,7 @@ const isOverdue =
 };
 
 
-if (!access || !access.plan || !access.accountType) {
+if (!access) {
   return <div className="p-6 text-center">Loading...</div>;
 }
 
@@ -2651,21 +2652,12 @@ const FamilyPDFView = () => (
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <select
-  multiple
-  value={Array.isArray(form.cognition_source) ? form.cognition_source : []}
-  onChange={(e) => {
-    const values = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    handleInput("cognition_source", values);
-  }}
->
-    <p className="text-xs text-[var(--muted)] mb-2">
+  <p className="text-xs text-[var(--muted)] mb-2">
   Select source of information
 </p>
-    <option value="observation">Observation</option>
+
+<select>
+  <option value="observation">Observation</option>
     <option value="family">Family</option>
     <option value="gp">GP</option>
     <option value="other">Other</option>
@@ -2817,21 +2809,12 @@ const FamilyPDFView = () => (
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <select
-  multiple
-  value={Array.isArray(form.nutrition_source) ? form.nutrition_source : []}
-  onChange={(e) => {
-    const values = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    handleInput("nutrition_source", values);
-  }}
->
-    <p className="text-xs text-[var(--muted)] mb-2">
+  <p className="text-xs text-[var(--muted)] mb-2">
   Select source of information
 </p>
-    <option value="observation">Observation</option>
+
+<select>
+  <option value="observation">Observation</option>
     <option value="family">Family</option>
     <option value="gp">GP</option>
     <option value="dietician">Dietician</option>
@@ -3005,21 +2988,12 @@ disabled={viewMode}
   <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <select
-  multiple
-  value={Array.isArray(form.mobility_source) ? form.mobility_source : []}
-  onChange={(e) => {
-    const values = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    handleInput("mobility_source", values);
-  }}
->
-    <p className="text-xs text-[var(--muted)] mb-2">
+  <p className="text-xs text-[var(--muted)] mb-2">
   Select source of information
 </p>
-    <option value="observation">Observation</option>
+
+<select>
+  <option value="observation">Observation</option>
     <option value="ot">Occupational Therapist</option>
     <option value="physio">Physio</option>
     <option value="family">Family</option>
@@ -3141,20 +3115,12 @@ onChange={(e) => handleInput("pad_delivery", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <select
-  multiple
-  value={Array.isArray(form.skin_source) ? form.skin_source : []}
-  onChange={(e) => {
-    const values = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    handleInput("skin_source", values);
-  }}
->
-    <p className="text-xs text-[var(--muted)] mb-2">
+  <p className="text-xs text-[var(--muted)] mb-2">
   Select source of information
 </p>
+
+<select>
+  <option value="observation">Observation</option>
     <option value="observation">Observation</option>
     <option value="dn">District Nurse</option>
     <option value="tissue viability">Tissue Viability Nurse</option>
@@ -3337,20 +3303,12 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <select
-  multiple
-  value={Array.isArray(form.medication_source) ? form.medication_source : []}
-  onChange={(e) => {
-    const values = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    handleInput("medication_source", values);
-  }}
->
-    <p className="text-xs text-[var(--muted)] mb-2">
+  <p className="text-xs text-[var(--muted)] mb-2">
   Select source of information
 </p>
+
+<select>
+  <option value="observation">Observation</option>
     <option value="mar_chart">MAR Chart</option>
     <option value="gp">GP</option>
     <option value="pharmacy">Pharmacy</option>
@@ -3813,21 +3771,12 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <select
-  multiple
-  value={Array.isArray(form.safeguarding_source) ? form.safeguarding_source : []}
-  onChange={(e) => {
-    const values = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    handleInput("safeguarding_source", values);
-  }}
->
-    <p className="text-xs text-[var(--muted)] mb-2">
+  <p className="text-xs text-[var(--muted)] mb-2">
   Select source of information
 </p>
-    <option value="observation">Observation</option>
+
+<select>
+  <option value="observation">Observation</option>
     <option value="family">Family</option>
     <option value="social_worker">Social Worker</option>
   </select>
