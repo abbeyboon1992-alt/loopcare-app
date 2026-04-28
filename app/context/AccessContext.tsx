@@ -130,12 +130,14 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 export const useAccess = () => {
   const context = useContext(AccessContext);
 
-  // ✅ SAFE FALLBACK (prevents crash)
+  // ✅ SAFE FALLBACK (FULL STRUCTURE)
   if (!context) {
     return {
-      plan: "free",
+      plan: "free" as const,
+      accountType: "solo",
       isTrialActive: false,
       trial_end: null,
+      daysLeft: 0,
     };
   }
 

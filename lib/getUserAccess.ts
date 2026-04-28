@@ -6,7 +6,7 @@ export async function getUserAccess() {
 
   const { data: profile } = await supabase
     .from("user_profiles")
-    .select("organisation_id, account_type")
+    .select("organisation_id")
     .eq("user_id", userData.user.id)
     .maybeSingle();
 
@@ -42,10 +42,9 @@ export async function getUserAccess() {
       : "free";
 
   return {
-    plan,
-    accountType: profile.account_type,
-    organisation_id: profile.organisation_id,
-    trial_end: org.trial_end,
-    isTrialActive,
-  };
+  plan,
+  organisation_id: profile.organisation_id,
+  trial_end: org.trial_end,
+  isTrialActive,
+};
 }
