@@ -127,18 +127,18 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export const useAccess = () => {
+export const useAccess = (): AccessType => {
   const context = useContext(AccessContext);
 
-  // ✅ SAFE FALLBACK (FULL STRUCTURE)
+  // ✅ SAFE fallback with FULL shape
   if (!context) {
-   return {
-  plan: "free",
-  accountType: "solo", // ✅ ADD THIS
-  isTrialActive: false,
-  trial_end: null,
-  daysLeft: 0,
-};
+    return {
+      plan: "free",
+      accountType: "solo", // ✅ ADD THIS
+      isTrialActive: false,
+      trial_end: null,
+      daysLeft: 0, // ✅ ADD THIS
+    };
   }
 
   return context;
