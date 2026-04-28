@@ -132,13 +132,13 @@ export const useAccess = () => {
 
   // ✅ SAFE FALLBACK (FULL STRUCTURE)
   if (!context) {
-    return {
-      plan: "free" as const,
-      accountType: "solo",
-      isTrialActive: false,
-      trial_end: null,
-      daysLeft: 0,
-    };
+   return {
+  plan: "free",
+  accountType: "solo", // ✅ ADD THIS
+  isTrialActive: false,
+  trial_end: null,
+  daysLeft: 0,
+};
   }
 
   return context;

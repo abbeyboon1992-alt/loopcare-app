@@ -59,7 +59,10 @@ if (!access) {
 const plan = access.plan;
 const accountType = access.accountType;
 
-if (!canAccessFeature("teamDashboard", plan, accountType, access.isTrialActive)) {
+if (!canAccessFeature("teamDashboard", access.plan,
+  access.accountType,
+  access.isTrialActive
+)) {
   return (
     <div className="p-6 text-center">
       <p className="mb-4">Upgrade to access dashboard</p>

@@ -639,9 +639,9 @@ const [hasSavedAssessment, setHasSavedAssessment] = useState(false);
 const access = useAccess();
 const hasAssessmentAccess = canAccessFeature(
   "assessments",
-  access?.plan || "free",
-  access?.accountType || "solo",
-  access?.isTrialActive // 👈 ADD THIS
+  access.plan,
+  access.accountType,
+  access.isTrialActive
 );
 
 const hasMCAAccess = canAccessFeature(

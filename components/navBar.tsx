@@ -277,9 +277,9 @@ setFeedbackCount(feedbacks || 0);
       {/* FREE USER CTA */}
       {!canAccessFeature(
   "smartAlerts",
-  safeAccess.plan,
-  safeAccess.accountType,
-  safeAccess.isTrialActive
+  access.plan,
+  access.accountType,
+  access.isTrialActive
 ) &&
  alerts.some(a => a.type === "insight") && (
         <button
