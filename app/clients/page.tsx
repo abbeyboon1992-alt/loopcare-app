@@ -177,10 +177,11 @@ useEffect(() => {
 
   const updateCountdown = () => {
     const now = Date.now();
-    if (!access?.trial_end) return;
 
-const end = new Date(access.trial_end as string).getTime();
-    const diff = end - now;
+    const end = new Date(access.trial_end as string).getTime();
+    if (isNaN(end)) return;
+
+    const diff = end - now; // ✅ FIX ADDED BACK
 
     if (diff <= 0) {
       setTimeLeft("Expired");
@@ -198,8 +199,8 @@ const end = new Date(access.trial_end as string).getTime();
     }
   };
 
-  updateCountdown(); // run immediately
-  const interval = setInterval(updateCountdown, 60000); // update every minute
+  updateCountdown();
+  const interval = setInterval(updateCountdown, 60000);
 
   return () => clearInterval(interval);
 }, [access?.trial_end]);
@@ -415,6 +416,7 @@ const updateClientStatus = async (
 ) : (() => {
   const isTrialActive =
   !!access?.trial_end &&
+  !isNaN(new Date(access.trial_end as string).getTime()) &&
   new Date(access.trial_end as string).getTime() > Date.now();
 
   return (
@@ -650,7 +652,7 @@ const updateClientStatus = async (
 >
 
   {/* 🔒 LOCK OVERLAY */}
-  {!access?.isTrialActive && access?.plan === "free" && (
+  {!isTrialActive && access?.plan === "free" && (
    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
@@ -691,7 +693,7 @@ const updateClientStatus = async (
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-{!access?.isTrialActive && access?.plan === "free" && getRouteLines().length > 1 && (
+{!isTrialActive && access?.plan === "free" && getRouteLines().length > 1 && (
   <Polyline
   positions={getRouteLines() as any}
     pathOptions={{
@@ -783,7 +785,16 @@ const progress = !hasAssessment
     return (
       <div
   key={client.id}
-  onClick={() => router.push(`/clients/${client.id}`)}
+  onClick={() => {
+  console.log("CLIENT CLICK:", client.id);
+
+  if (!client.id) {
+    alert("Missing client ID");
+    return;
+  }
+
+  router.push(`/clients/${client.id}`);
+}}
   className={`bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg cursor-pointer hover:bg-[#334155] border ${
     access.plan === "pro" ? borderColor : "border-transparent"
   } ${(client.status ?? "active") === "inactive" ? "opacity-50" : ""}`}
@@ -969,7 +980,7 @@ const progress = !hasAssessment
     "assessments",
     access.plan,
     access.accountType,
-    access.isTrialActive
+    isTrialActive
   ) ? (
     <>
       {!hasAssessment && (
