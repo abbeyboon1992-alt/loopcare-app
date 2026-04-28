@@ -407,19 +407,16 @@ const updateClientStatus = async (
 
   setShowInactiveModal(false);
 };
-
-  return (
-  <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
-
-    {(!access || !user || !profile) ? (
-  <div className="p-6 text-white">Loading...</div>
-) : (() => {
-  const isTrialActive =
+const isTrialActive =
   !!access?.trial_end &&
   !isNaN(new Date(access.trial_end as string).getTime()) &&
   new Date(access.trial_end as string).getTime() > Date.now();
-
   return (
+  <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
+
+  {(!access || !user || !profile) ? (
+  <div className="p-6 text-white">Loading...</div>
+) : (
     <>
 
     {/* ✅ SAFE LOADING STATE (INSIDE JSX) */}
@@ -712,7 +709,7 @@ const updateClientStatus = async (
               <div
                 onClick={() => {
   console.log("CLICKED", client.id);
-  router.push(`/clients/${client.id}`);
+  window.location.href = `/clients/${client.id}`;
 }}
                 className="cursor-pointer"
               >
@@ -728,7 +725,7 @@ const updateClientStatus = async (
       🎂 {dob.toLocaleDateString()} (
       {Math.floor(
         (Date.now() - dob.getTime()) /
-          (1000 * 60 * 60 * 24 * 365.25)
+        (1000 * 60 * 60 * 24 * 365.25)
       )} yrs)
     </p>
   );
@@ -828,13 +825,13 @@ const progress = !hasAssessment
 
             {/* RISK BADGE */}
             {(() => {
-              const badge = getRiskBadge(riskScore);
-              return (
-                <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
-                  {badge.label}
-                </span>
-              );
-            })()}
+  const badge = getRiskBadge(riskScore);
+  return (
+    <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
+      {badge.label}
+    </span>
+  );
+})()}
 
           </div>
         </div>
@@ -977,11 +974,11 @@ const progress = !hasAssessment
 </div>
 <div className="mt-3">
   {canAccessFeature(
-    "assessments",
-    access.plan,
-    access.accountType,
-    isTrialActive
-  ) ? (
+  "assessments",
+  access?.plan || "free",
+  access?.accountType || "solo",
+  isTrialActive
+) ? (
     <>
       {!hasAssessment && (
         <button
@@ -1095,8 +1092,8 @@ const progress = !hasAssessment
   </div>
 )}
           </>
-  );
-})()}
+        )
+      }
   </div>
 );
 }
