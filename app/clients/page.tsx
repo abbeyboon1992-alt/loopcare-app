@@ -40,7 +40,10 @@ const Polyline = dynamic(
 export default function Clients() {
   
   const router = useRouter();
-
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  window.location.href = "/login";
+};
 const [alerts, setAlerts] = useState<any[]>([]);
 const access = useAccess();
 const [user, setUser] = useState<any>(null);
@@ -392,26 +395,41 @@ const updateClientStatus = async (
       <div className="flex justify-between items-center mb-6">
   <h1 className="text-2xl font-bold text-white">Clients</h1>
 
-  <button
-  onClick={() => {
-  setForm({
-    first_name: "",
-    last_name: "",
-    date_of_birth: "",
-    care_type: "elderly",
-    diagnosis: [],
-    address: "",
-    lat: null,
-    lng: null,
-    keysafe_access: "",
-  });
+  <div className="flex gap-2">
+    
+    {/* ✅ LOGOUT BUTTON (SOLO ONLY) */}
+    {access?.accountType === "solo" && (
+      <button
+        onClick={handleLogout}
+        className="bg-red-600 text-white px-4 py-2 rounded text-sm"
+      >
+        Logout
+      </button>
+    )}
 
-  setShowForm(!showForm);
-}}
-  className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
->
-    {showForm ? "Close" : "+ Add Client"}
-  </button>
+    {/* EXISTING ADD CLIENT BUTTON */}
+    <button
+      onClick={() => {
+        setForm({
+          first_name: "",
+          last_name: "",
+          date_of_birth: "",
+          care_type: "elderly",
+          diagnosis: [],
+          address: "",
+          lat: null,
+          lng: null,
+          keysafe_access: "",
+        });
+
+        setShowForm(!showForm);
+      }}
+      className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+    >
+      {showForm ? "Close" : "+ Add Client"}
+    </button>
+
+  </div>
 </div>
       {(access?.plan === "free" || access?.isTrialActive) && (
   <div
