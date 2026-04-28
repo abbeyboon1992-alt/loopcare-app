@@ -39,7 +39,7 @@ mobility_improving: "Mobility & Moving",
   skin_pressure: "Personal Care (ADLs)",
 
   mood: "Emotional Wellbeing",
-  mental_health: "Emotional Wellbeing",
+  mental health: "Emotional Wellbeing",
   behaviour: "Emotional Wellbeing",
   impulsivity: "Emotional Wellbeing",
 
@@ -87,7 +87,7 @@ const RESOLVE_RULES: Record<string, string[]> = {
   mobility_stable: ["mobility", "mobility_decline", "falls_risk"],
   no_falls: ["falls_event"],
   cognition_stable: ["confusion", "cognitive_decline"],
-  mood_stable: ["mood", "mental_health", "behaviour"],
+  mood_stable: ["mood", "mental health", "behaviour"],
   pain_controlled: ["pain"],
   breathing_normal: ["respiratory"],
   skin_healed: ["skin_pressure"],
@@ -1405,7 +1405,7 @@ addAlert({
 }
 
   if (assessments.mood === "distressed") {
-  const type = "mental_health";
+  const type = "mental health";
 
   addAlert({
     message: "Emotional distress observed",

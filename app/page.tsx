@@ -57,14 +57,6 @@ export default function HomePage() {
   🔒 Pro unlocks real-time risk alerts, automatic care plans, and compliance tracking
 </div>
 
-      {/* TEMP DEV ACCESS */}
-      <button
-        onClick={() => router.push("/clients")}
-        className="text-xs text-gray-500 underline mt-2"
-      >
-        Continue without login (dev)
-      </button>
-
     </div>
 
     {/* 🧭 FEATURES */}

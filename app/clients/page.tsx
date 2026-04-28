@@ -50,7 +50,7 @@ const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
 
 const [mapReady, setMapReady] = useState(false);
-
+const [timeLeft, setTimeLeft] = useState("");
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -171,6 +171,36 @@ useEffect(() => {
   setMapReady(true);
 }, []);
 
+useEffect(() => {
+  if (!access?.trial_end) return;
+
+  const updateCountdown = () => {
+    const now = Date.now();
+    const end = new Date(access.trial_end).getTime();
+    const diff = end - now;
+
+    if (diff <= 0) {
+      setTimeLeft("Expired");
+      return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const mins = Math.floor((diff / (1000 * 60)) % 60);
+
+    if (days > 0) {
+      setTimeLeft(`${days}d ${hours}h`);
+    } else {
+      setTimeLeft(`${hours}h ${mins}m`);
+    }
+  };
+
+  updateCountdown(); // run immediately
+  const interval = setInterval(updateCountdown, 60000); // update every minute
+
+  return () => clearInterval(interval);
+}, [access?.trial_end]);
+
 // ADD CLIENT
 const addClient = async () => {
   const {
@@ -232,10 +262,6 @@ const { data: newClient } = await supabase
   .order("created_at", { ascending: false })
   .limit(1)
   .single();
-
-if (newClient?.id) {
-  router.push(`/assessments?client=${newClient.id}`);
-}
 };
 
 const lookupPostcode = async () => {
@@ -379,7 +405,7 @@ const updateClientStatus = async (
 };
 
   return (
-  <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-20">
+  <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
 
     {(!access || !user || !profile) ? (
   <div className="p-6 text-white">Loading...</div>
@@ -432,7 +458,7 @@ const updateClientStatus = async (
 
   </div>
 </div>
-      {access?.plan === "free" && (
+      {access && access.plan === "free" && (
   <div
     className={`mb-4 p-4 rounded flex justify-between items-center ${
       isTrialActive
@@ -443,10 +469,7 @@ const updateClientStatus = async (
 
     {isTrialActive ? (
       <span>
-        ⏳ Trial active — {Math.ceil(
-          (new Date(access.trial_end ?? "").getTime() - Date.now()) /
-          (1000 * 60 * 60 * 24)
-        )} days remaining
+        ⏳ Trial active — {timeLeft} remaining
       </span>
     ) : (
       <span>
@@ -455,7 +478,10 @@ const updateClientStatus = async (
     )}
 
     <button
-      onClick={() => router.push("/upgrade")}
+      onClick={(e) => {
+  e.stopPropagation();
+  window.location.href = "/upgrade";
+}}
       className="bg-black text-white px-4 py-2 rounded text-sm font-semibold"
     >
       Upgrade
@@ -622,7 +648,9 @@ const updateClientStatus = async (
 
   {/* 🔒 LOCK OVERLAY */}
   {!access?.isTrialActive && access?.plan === "free" && (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div
+  className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none"
+>
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
   <p className="font-semibold text-sm mb-2">
@@ -638,12 +666,12 @@ const updateClientStatus = async (
   </p>
 
   <button
-    onClick={(e) => {
-      e.stopPropagation();
-      router.push("/upgrade");
-    }}
-    className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-xs font-semibold"
-  >
+  onClick={(e) => {
+    e.stopPropagation();
+    window.location.href = "/upgrade";
+  }}
+  className="pointer-events-auto bg-blue-600 ..."
+>
     Unlock Map & Routes
   </button>
 

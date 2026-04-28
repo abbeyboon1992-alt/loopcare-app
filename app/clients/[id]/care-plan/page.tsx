@@ -135,7 +135,7 @@ const CONDITION_PROMPTS: Record<string, string[]> = {
   "Learning Disability": ["Does the client need simplified instructions?"],
   "Parkinson’s": ["Are there tremors or movement issues?"],
   "Stroke": ["Any weakness or speech issues?"],
-  "mental_health": ["Are there mood or anxiety concerns?"],
+  "mental health": ["Are there mood or anxiety concerns?"],
   "Epilepsy": ["Are seizures controlled and monitored?"],
   "Diabetes": ["Any blood sugar considerations?"],
   "End of Life": ["Are comfort measures prioritised?"],
@@ -618,7 +618,7 @@ const DIAGNOSIS_LEGAL_ACTIONS: Record<string, string[]> = {
     "Avoid sensory overload",
     "Use clear structured communication",
   ],
-  "mental_health": [
+  "mental health": [
     "Provide emotional reassurance",
     "Monitor mood changes",
   ],
