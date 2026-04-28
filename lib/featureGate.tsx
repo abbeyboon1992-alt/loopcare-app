@@ -20,8 +20,9 @@ export default function FeatureGate({
   const allowed = canAccessFeature(
     feature,
     access.plan,
-    access.accountType
-  );
+  access.accountType,
+  access.isTrialActive
+)
 
   // 🔒 LOCKED
   if (!allowed) {

@@ -646,15 +646,17 @@ const hasAssessmentAccess = canAccessFeature(
 
 const hasMCAAccess = canAccessFeature(
   "mcaAssessment",
-  access?.plan || "free",
-  access?.accountType || "solo"
-);
+  access.plan,
+  access.accountType,
+  access.isTrialActive
+)
 
 const hasSmartAlertsAccess = canAccessFeature(
   "smartAlerts",
-  access?.plan || "free",
-  access?.accountType || "solo"
-);
+  access.plan,
+  access.accountType,
+  access.isTrialActive
+)
 const [mcaList, setMcaList] = useState<any[]>([]);
 const [biList, setBiList] = useState<any[]>([]);
 const initialSectionRef = useRef<string | null>(null);

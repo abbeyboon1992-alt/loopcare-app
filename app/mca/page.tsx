@@ -14,7 +14,14 @@ function MCAPageContent() {
   
 
   // ✅ MOVE HERE (AFTER access, BEFORE other hooks logic runs)
-  if (!canAccessFeature("mcaAssessment", access.plan)) {
+  if (
+  !canAccessFeature(
+    "mcaAssessment",
+    access.plan,
+  access.accountType,
+  access.isTrialActive
+)
+) {
     return (
       <div className="p-6 text-center">
         <p className="mb-4">Upgrade to access MCA assessments</p>
