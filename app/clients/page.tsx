@@ -177,7 +177,9 @@ useEffect(() => {
 
   const updateCountdown = () => {
     const now = Date.now();
-    const end = new Date(access.trial_end).getTime();
+    if (!access?.trial_end) return;
+
+const end = new Date(access.trial_end as string).getTime();
     const diff = end - now;
 
     if (diff <= 0) {
@@ -412,8 +414,8 @@ const updateClientStatus = async (
   <div className="p-6 text-white">Loading...</div>
 ) : (() => {
   const isTrialActive =
-  !!access.trial_end &&
-  new Date(access.trial_end).getTime() > Date.now();
+  !!access?.trial_end &&
+  new Date(access.trial_end as string).getTime() > Date.now();
 
   return (
     <>
@@ -712,8 +714,12 @@ const updateClientStatus = async (
 }}
                 className="cursor-pointer"
               >
-                {client.date_of_birth && (() => {
-  const dob = new Date(client.date_of_birth);
+                {(() => {
+  if (!client.date_of_birth) return null;
+
+  const dob = new Date(client.date_of_birth as string);
+
+  if (isNaN(dob.getTime())) return null;
 
   return (
     <p className="text-xs text-[var(--muted)]">

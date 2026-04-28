@@ -30,7 +30,7 @@ export const careTypes = {
     },
   },
 
-  mental health: {
+  "mental_health": {
     tasks: [
       "Mood Check",
       "Medication",

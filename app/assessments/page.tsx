@@ -3265,7 +3265,7 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
 </div>
 
 <Section
-  title="mental health Status"
+  title="mental_health Status"
   options={["stable", "low mood", "anxious", "distressed"]}
   value={form.mental_health_status || ""}
   onChange={(v) => handleInput("mental_health_status", v)}
