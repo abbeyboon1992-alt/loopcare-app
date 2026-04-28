@@ -16,6 +16,10 @@ export default function NavBar({ toggleTheme, theme }: NavBarProps) {
 
 if (pathname === "/signup" || pathname === "/login") return null;
   const router = useRouter();
+  const handleLogout = async () => {
+  await supabase.auth.signOut();
+  window.location.href = "/login";
+};
   const [open, setOpen] = useState(false);
   const [clientCount, setClientCount] = useState(0);
 const [alertCount, setAlertCount] = useState(0);
@@ -362,6 +366,16 @@ setFeedbackCount(feedbacks || 0);
 >
   🔓 Upgrade to Pro
 </button>
+
+{/* 🚪 LOGOUT */}
+{safeAccess.accountType !== "solo" && (
+  <button
+    onClick={handleLogout}
+    className="text-left bg-red-600 text-white p-3 rounded mt-2"
+  >
+    Logout
+  </button>
+)}
         </div>
       </div>
     </>

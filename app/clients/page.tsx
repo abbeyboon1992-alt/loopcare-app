@@ -48,7 +48,6 @@ const [alerts, setAlerts] = useState<any[]>([]);
 const access = useAccess();
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
-const isTrialActive = access?.isTrialActive;
 
 const [mapReady, setMapReady] = useState(false);
 
@@ -385,7 +384,9 @@ const updateClientStatus = async (
     {(!access || !user || !profile) ? (
   <div className="p-6 text-white">Loading...</div>
 ) : (() => {
-  const isTrialActive = access.isTrialActive;
+  const isTrialActive =
+  !!access.trial_end &&
+  new Date(access.trial_end).getTime() > Date.now();
 
   return (
     <>
@@ -431,7 +432,7 @@ const updateClientStatus = async (
 
   </div>
 </div>
-      {(access?.plan === "free" || access?.isTrialActive) && (
+      {access?.plan === "free" && (
   <div
     className={`mb-4 p-4 rounded flex justify-between items-center ${
       isTrialActive
