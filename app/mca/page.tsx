@@ -1,16 +1,17 @@
 "use client";
-
-import { useState, useEffect } from "react";
+export const dynamic = "force-dynamic";
+import { useState, useEffect, Suspense } from "react";
 import { useAccess } from "@/app/context/AccessContext";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { generateAssessmentAlerts, saveAlerts } from "@/lib/alertEngine";
 
-export default function MCAPage() {
+function MCAPageContent() {
   const router = useRouter();
   const access = useAccess();
   if (!access) return null;
+  
 
   // ✅ MOVE HERE (AFTER access, BEFORE other hooks logic runs)
   if (!canAccessFeature("mcaAssessment", access.plan, access.accountType)) {
@@ -370,5 +371,12 @@ setTimeout(() => {
           : "Save MCA assessments"}
       </button>
     </div>
+  );
+}
+export default function MCAPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading...</div>}>
+      <MCAPageContent />
+    </Suspense>
   );
 }

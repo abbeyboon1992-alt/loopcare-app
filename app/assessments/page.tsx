@@ -1,6 +1,6 @@
 "use client";
-
-import { useState, useEffect, useRef } from "react";
+export const dynamic = "force-dynamic";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -169,14 +169,12 @@ const TextAreaField = ({
     />
   );
 };
-export default function AssessmentPage() {
+function AssessmentPageContent() {
   
   const isUserTypingRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-const clientId = typeof window !== "undefined"
-  ? searchParams.get("client") || ""
-  : "";
+const clientId = searchParams.get("client") || "";
 const [referral, setReferral] = useState({
   type: "",
   details: "",
@@ -4061,4 +4059,11 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
 )}
 </div>
 );
+}
+export default function AssessmentPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading...</div>}>
+      <AssessmentPageContent />
+    </Suspense>
+  );
 }

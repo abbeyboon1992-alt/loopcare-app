@@ -1,11 +1,11 @@
 "use client";
-
-import { useState, useEffect } from "react";
+export const dynamic = "force-dynamic";
+import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { generateAssessmentAlerts, saveAlerts } from "@/lib/alertEngine";
 
-export default function BestInterestPage() {
+function BestInterestPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clientId = searchParams.get("client");
@@ -287,5 +287,12 @@ useEffect(() => {
           : "Save Best Interest Decision"}
       </button>
     </div>
+  );
+}
+export default function BestInterestPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading...</div>}>
+      <BestInterestPageContent />
+    </Suspense>
   );
 }

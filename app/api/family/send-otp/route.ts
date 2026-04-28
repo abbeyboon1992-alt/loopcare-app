@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-console.log("SERVICE ROLE KEY:", process.env.SUPABASE_SERVICE_ROLE_KEY);
-
 const supabase = createClient(
   "https://xgprqmtxtzukawbilkap.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhncHJxbXR4dHp1a2F3Ymlsa2FwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjYzNDkyNywiZXhwIjoyMDg4MjEwOTI3fQ.lm6RWxAMCwp0i9xF1bnHc85DgmOJfEMNeyi7g0MzsT8"
