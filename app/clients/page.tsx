@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { careTypes } from "@/lib/careTypes";
 import diagnoses from "@/data/diagnoses.json";
+import { useMap } from "react-leaflet";
 import { useAccess } from "@/app/context/AccessContext";
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -302,7 +303,7 @@ const lookupPostcode = async () => {
 };
 const getRouteLines = () => {
   const points = clients
-    .filter((c) => c.lat && c.lng)
+    .filter((c) => typeof c.lat === "number" && typeof c.lng === "number")
     .map((c) => [c.lat, c.lng]);
 
   return points;
@@ -411,6 +412,24 @@ const isTrialActive =
   !!access?.trial_end &&
   !isNaN(new Date(access.trial_end as string).getTime()) &&
   new Date(access.trial_end as string).getTime() > Date.now();
+  
+  function FitBounds({ clients }: any) {
+  const map = useMap();
+
+  useEffect(() => {
+    const valid = clients.filter(
+  (c: any) => typeof c.lat === "number" && typeof c.lng === "number"
+);
+
+    if (valid.length === 0) return;
+
+    const bounds = valid.map((c: any) => [c.lat, c.lng]);
+
+    map.fitBounds(bounds, { padding: [50, 50] });
+  }, [clients, map]);
+
+  return null;
+}
   return (
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
 
@@ -460,7 +479,7 @@ const isTrialActive =
 
   </div>
 </div>
-      {access?.plan === "free" && (
+      {access && access.plan === "free" && (
   <div
     className={`mb-4 p-4 rounded flex justify-between items-center ${
       isTrialActive
@@ -649,7 +668,7 @@ const isTrialActive =
 >
 
   {/* 🔒 LOCK OVERLAY */}
-  {!isTrialActive && access?.plan === "free" && (
+  {access?.plan === "free" && !isTrialActive&& (
    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
@@ -686,6 +705,7 @@ const isTrialActive =
       zoom={11}
       className="h-64 w-full rounded-lg"
     >
+      <FitBounds clients={clients} />
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -702,38 +722,34 @@ const isTrialActive =
   />
 )}
       {clients
-        .filter((c) => c.lat && c.lng)
+        .filter(
+  (c) => typeof c.lat === "number" && typeof c.lng === "number"
+)
         .map((client) => (
           <Marker key={client.id} position={[client.lat, client.lng]}>
             <Popup>
-              <div
-                onClick={() => {
-  console.log("CLICKED", client.id);
-  router.push(`/clients/${client.id}`);
-}}
-                className="cursor-pointer"
-              >
-                {(() => {
-  if (!client.date_of_birth) return null;
+  <div className="text-sm">
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        router.push(`/clients/${client.id}`);
+      }}
+      className="text-blue-400 underline mb-1"
+    >
+      Open client
+    </button>
 
-  const dob = new Date(client.date_of_birth as string);
-
-  if (isNaN(dob.getTime())) return null;
-
-  return (
-    <p className="text-xs text-[var(--muted)]">
-      🎂 {dob.toLocaleDateString()} (
-      {Math.floor(
-        (Date.now() - dob.getTime()) /
-        (1000 * 60 * 60 * 24 * 365.25)
-      )} yrs)
-    </p>
-  );
-})()}
-
-                Tap to open
-              </div>
-            </Popup>
+    {client.date_of_birth && !isNaN(new Date(client.date_of_birth).getTime()) && (
+      <p className="text-xs text-[var(--muted)]">
+        🎂 {new Date(client.date_of_birth).toLocaleDateString()} (
+        {Math.floor(
+          (Date.now() - new Date(client.date_of_birth).getTime()) /
+          (1000 * 60 * 60 * 24 * 365.25)
+        )} yrs)
+      </p>
+    )}
+  </div>
+</Popup>
           </Marker>
         ))}
     </MapContainer>
@@ -782,11 +798,8 @@ const progress = !hasAssessment
     return (
       <div
   key={client.id}
-  onClick={(e) => {
-  e.stopPropagation();
-
+  onClick={() => {
   if (!client.id) return;
-
   router.push(`/clients/${client.id}`);
 }}
   className={`bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg cursor-pointer hover:bg-[#334155] border ${
