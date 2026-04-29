@@ -637,47 +637,57 @@ const hasInitialised = useRef(false);
 const hasSyncedRef = useRef(false);
 const [hasSavedAssessment, setHasSavedAssessment] = useState(false);
 const access = useAccess();
+
+// ✅ SAFE DEFAULTS (fixes TS error properly)
+const plan = access?.plan ?? "free";
+const accountType = access?.accountType ?? "solo";
+const isTrialActive = access?.isTrialActive ?? false;
+
 const hasAssessmentAccess = canAccessFeature(
   "assessments",
-  access.plan,
-  access.accountType,
-  access.isTrialActive
+  plan,
+  accountType,
+  isTrialActive
 );
 
 const hasMCAAccess = canAccessFeature(
   "mcaAssessment",
-  access.plan,
-  access.accountType,
-  access.isTrialActive
-)
+  plan,
+  accountType,
+  isTrialActive
+);
 
 const hasSmartAlertsAccess = canAccessFeature(
   "smartAlerts",
-  access.plan,
-  access.accountType,
-  access.isTrialActive
-)
+  plan,
+  accountType,
+  isTrialActive
+);
 const [mcaList, setMcaList] = useState<any[]>([]);
 const [biList, setBiList] = useState<any[]>([]);
 const initialSectionRef = useRef<string | null>(null);
 
-if (initialSectionRef.current === null) {
-  initialSectionRef.current = searchParams.get("section");
-}
 useEffect(() => {
-  if (
-    form.capacity === "lacks capacity" &&
-    form.best_interest_required !== "yes"
-  ) {
-    setForm((prev: any) => {
-      if (prev.best_interest_required === "yes") return prev;
+  if (initialSectionRef.current === null) {
+    initialSectionRef.current = searchParams.get("section");
+  }
+}, [searchParams]);
+useEffect(() => {
+  if (!form.capacity) return;
 
+  setForm((prev: any) => {
+    if (
+      prev.capacity === "lacks capacity" &&
+      prev.best_interest_required !== "yes"
+    ) {
       return {
         ...prev,
         best_interest_required: "yes",
       };
-    });
-  }
+    }
+
+    return prev;
+  });
 }, [form.capacity]);
 
 useEffect(() => {
@@ -937,28 +947,24 @@ useEffect(() => {
 useEffect(() => {
   const must = calculateMUST();
 
-  setForm((prev: any) => {
-  if (prev.must_score === must) return prev;
+  if (form.must_score === must) return; // 🔥 HARD STOP
 
-  return {
+  setForm((prev: any) => ({
     ...prev,
     must_score: must,
-  };
-});
+  }));
 }, [form.weight, form.height, form.weight_3_months_ago, form.acute_disease_effect]);
 
 
 useEffect(() => {
   const score = calculateWaterlow();
 
-  setForm((prev: any) => {
-    if (prev.waterlow_score === score) return prev;
+  if (form.waterlow_score === score) return;
 
-    return {
-      ...prev,
-      waterlow_score: score,
-    };
-  });
+  setForm((prev: any) => ({
+    ...prev,
+    waterlow_score: score,
+  }));
 }, [
   form.bmi,
   form.skin,
@@ -971,14 +977,12 @@ useEffect(() => {
 useEffect(() => {
   const score = calculateNEWS2();
 
-  setForm((prev: any) => {
-    if (prev.news2_score === score) return prev;
+  if (form.news2_score === score) return;
 
-    return {
-      ...prev,
-      news2_score: score,
-    };
-  });
+  setForm((prev: any) => ({
+    ...prev,
+    news2_score: score,
+  }));
 }, [
   form.resp_rate,
   form.oxygen_sats,
