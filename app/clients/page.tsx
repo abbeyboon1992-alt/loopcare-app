@@ -47,13 +47,7 @@ const handleLogout = async () => {
   router.push("/login");
 };
 const [alerts, setAlerts] = useState<any[]>([]);
-const access = useAccess() || {
-  plan: "free",
-  accountType: "solo",
-  isTrialActive: false,
-  trial_end: null,
-  daysLeft: 0,
-};
+const access = useAccess();
 
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
@@ -437,6 +431,10 @@ const isTrialActive =
 
   return null;
 }
+
+if (!user || !profile || !access) {
+  return <div className="p-6 text-white">Loading...</div>;
+}
   return (
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
 
@@ -486,7 +484,7 @@ const isTrialActive =
 
   </div>
 </div>
-      {access && access?.plan === "free" && (
+      {access?.trial_end && access.plan === "free" && (
   <div
     className={`mb-4 p-4 rounded flex justify-between items-center ${
       isTrialActive
@@ -804,9 +802,6 @@ const progress = !hasAssessment
   (a: any) => a.client_id === client.id && a.status === "active"
 );
 
-if (!access) {
-  return <div className="p-6 text-white">Loading access...</div>;
-}
 
     return (
       <div
