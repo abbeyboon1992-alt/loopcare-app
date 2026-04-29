@@ -27,92 +27,38 @@ const emailFromQuery = searchParams.get("email");
   }
 
   setLoading(true);
-  // 🔒 CHECK IF EMAIL ALREADY USED A TRIAL
-const { data: existingTrial } = await supabase
-  .from("trial_history")
-  .select("id")
-  .eq("email", form.email.toLowerCase())
-  .maybeSingle();
-  
 
-const hasUsedTrial = !!existingTrial;
-
- // 🔐 1. CREATE AUTH USER
-const { data: authData, error: authError } = await supabase.auth.signUp({
-  email: form.email.toLowerCase(),
-  password: form.password,
-});
-
-if (authError) {
-  setLoading(false);
-  alert(authError.message);
-  return;
-}
-
-const user = authData?.user;
-
-if (!user) {
-  setLoading(false);
-  alert("Signup failed - no user returned");
-  return;
-}
-
-// 🏢 CREATE ORG
-const { data: org, error: orgError } = await supabase
-  .from("organisations")
-  .insert([
-    {
-      name: `${form.full_name}'s Organisation`,
-      subscription_status: "free",
-      trial_end: hasUsedTrial
-        ? null
-        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  const res = await fetch("/api/signup", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
-  ])
-  .select()
-  .single();
+    body: JSON.stringify(form),
+  });
 
-if (orgError) {
+  const data = await res.json();
+
+  if (!res.ok) {
+    setLoading(false);
+    alert(data.error || "Signup failed");
+    return;
+  }
+
+  // 🔐 NOW LOG USER IN (normal supabase client)
+  const { error: loginError } = await supabase.auth.signInWithPassword({
+    email: form.email.toLowerCase(),
+    password: form.password,
+  });
+
+  if (loginError) {
+    setLoading(false);
+    alert("Account created, please login");
+    router.push("/login");
+    return;
+  }
+
   setLoading(false);
-  console.error("ORG ERROR:", orgError);
-  alert("Failed to create organisation");
-  return;
-}
-
-// 🧠 RECORD TRIAL
-if (!hasUsedTrial) {
-  await supabase.from("trial_history").insert([
-    { email: form.email.toLowerCase() },
-  ]);
-}
-
-// 👤 CREATE PROFILE
-const { error: profileError } = await supabase
-  .from("user_profiles")
-  .insert([
-    {
-      user_id: user.id,
-      email: form.email.toLowerCase(),
-      full_name: form.full_name,
-      organisation_id: org.id,
-      role: form.type === "solo" ? "carer" : "manager",
-      account_type: form.type,
-    },
-  ]);
-  
-
-if (profileError) {
-  setLoading(false);
-  console.error("PROFILE ERROR:", profileError);
-  alert(profileError.message);
-  return;
-}
-
-// ✅ DONE
-setLoading(false);
-
-  await supabase.auth.getSession();
-window.location.href = "/clients";
+  router.push("/clients");
 };
 
 useEffect(() => {
