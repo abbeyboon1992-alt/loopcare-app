@@ -38,20 +38,22 @@ const Polyline = dynamic(
   () => import("react-leaflet").then((mod) => mod.Polyline),
   { ssr: false }
 );
-function FitBounds({ clients }: any) {
+function FitBounds({ clients, enabled }: any) {
   const map = useMap();
 
   useEffect(() => {
+    if (!enabled) return;
+
     const valid = clients.filter(
-  (c: any) => typeof c.lat === "number" && typeof c.lng === "number"
-);
+      (c: any) => typeof c.lat === "number" && typeof c.lng === "number"
+    );
 
     if (valid.length === 0) return;
 
     const bounds = valid.map((c: any) => [c.lat, c.lng]);
 
     map.fitBounds(bounds, { padding: [50, 50] });
-  }, [clients, map]);
+  }, [clients, map, enabled]);
 
   return null;
 }
@@ -694,64 +696,31 @@ if (!user || !profile || !access) {
     </div>
   )}
 
-  {mapReady && clients.length > 0 && (
-    <MapContainer
-      key={`clients-map-${clients.length}`}
-      center={[53.258, -2.125]}
-      zoom={11}
-      className="h-64 w-full rounded-lg"
-    >
-      <FitBounds clients={clients} />
-      <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-{!isTrialActive && access?.plan === "free" && getRouteLines().length > 1 && (
-  <Polyline
-  positions={getRouteLines() as any}
-    pathOptions={{
-      color: "#60a5fa",
-      weight: 3,
-      opacity: 0.6,
-      dashArray: "6,6",
-    }}
-  />
+  {mapReady && (
+  <MapContainer
+    key={`clients-map-${clients.length}`}
+    center={[53.258, -2.125]}
+    zoom={11}
+    className="h-64 w-full rounded-lg"
+  >
+    <FitBounds clients={clients} enabled={clients.length > 0} />
+
+    <TileLayer
+      attribution="&copy; OpenStreetMap contributors"
+      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+    />
+
+    {clients
+      .filter(
+        (c) => typeof c.lat === "number" && typeof c.lng === "number"
+      )
+      .map((client) => (
+        <Marker key={client.id} position={[client.lat, client.lng]}>
+          <Popup>...</Popup>
+        </Marker>
+      ))}
+  </MapContainer>
 )}
-      {clients
-        .filter(
-  (c) => typeof c.lat === "number" && typeof c.lng === "number"
-)
-        .map((client) => (
-          <Marker key={client.id} position={[client.lat, client.lng]}>
-            <Popup>
-  <div className="cursor-pointer">
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        router.push(`/clients/${client.id}`);
-      }}
-      className="text-blue-400 underline text-sm mb-1"
-    >
-      Open client
-    </button>
-
-    {client.date_of_birth && !isNaN(new Date(client.date_of_birth).getTime()) && (
-      <p className="text-xs text-[var(--muted)]">
-        🎂 {new Date(client.date_of_birth).toLocaleDateString()} (
-        {Math.floor(
-          (Date.now() - new Date(client.date_of_birth).getTime()) /
-            (1000 * 60 * 60 * 24 * 365.25)
-        )} yrs)
-      </p>
-    )}
-
-    <p className="text-xs mt-1">Tap to open</p>
-  </div>
-</Popup>
-          </Marker>
-        ))}
-    </MapContainer>
-  )}
 </div>
       {/* CLIENT LIST */}
       <div className="space-y-3">
