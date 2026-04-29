@@ -735,16 +735,28 @@ const isTrialActive =
         .map((client) => (
           <Marker key={client.id} position={[client.lat, client.lng]}>
             <Popup>
-  <div className="text-sm">
+  <div className="cursor-pointer">
     <button
       onClick={(e) => {
         e.stopPropagation();
         router.push(`/clients/${client.id}`);
       }}
-      className="text-blue-400 underline"
+      className="text-blue-400 underline text-sm mb-1"
     >
       Open client
     </button>
+
+    {client.date_of_birth && !isNaN(new Date(client.date_of_birth).getTime()) && (
+      <p className="text-xs text-[var(--muted)]">
+        🎂 {new Date(client.date_of_birth).toLocaleDateString()} (
+        {Math.floor(
+          (Date.now() - new Date(client.date_of_birth).getTime()) /
+            (1000 * 60 * 60 * 24 * 365.25)
+        )} yrs)
+      </p>
+    )}
+
+    <p className="text-xs mt-1">Tap to open</p>
   </div>
 </Popup>
           </Marker>
