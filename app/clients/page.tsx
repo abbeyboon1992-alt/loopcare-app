@@ -67,17 +67,21 @@ const handleLogout = async () => {
 const [alerts, setAlerts] = useState<any[]>([]);
 const rawAccess = useAccess();
 
-const access = rawAccess ?? {
-  plan: "free",
-  accountType: "solo",
-  trial_end: null,
-  isTrialActive: false,
-  daysLeft: 0,
-};
+import { useMemo } from "react";
+
+const access = useMemo(() => {
+  return rawAccess ?? {
+    plan: "free",
+    accountType: "solo",
+    trial_end: null,
+    isTrialActive: false,
+    daysLeft: 0,
+  };
+}, [rawAccess]);
 
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
-console.log("ACCESS:", access);
+
 const [mapReady, setMapReady] = useState(false);
 const [timeLeft, setTimeLeft] = useState("");
   const [clients, setClients] = useState<any[]>([]);
@@ -170,6 +174,10 @@ setClients(clientsData || []);
 useEffect(() => {
   loadClients();
 }, []);
+
+useEffect(() => {
+  console.log("ACCESS:", access);
+}, [access]);
 
 
   // ✅ FIX LEAFLET SSR ERROR
