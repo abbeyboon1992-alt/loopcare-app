@@ -44,7 +44,7 @@ export default function Clients() {
   const router = useRouter();
 const handleLogout = async () => {
   await supabase.auth.signOut();
-  window.location.href = "/login";
+  router.push("/login");
 };
 const [alerts, setAlerts] = useState<any[]>([]);
 const access = useAccess();
@@ -501,7 +501,7 @@ const isTrialActive =
     <button
       onClick={(e) => {
   e.stopPropagation();
-  window.location.href = "/upgrade";
+  router.push("/upgrade");
 }}
       className="bg-black text-white px-4 py-2 rounded text-sm font-semibold"
     >
@@ -687,7 +687,7 @@ const isTrialActive =
   <button
   onClick={(e) => {
     e.stopPropagation();
-    window.location.href = "/upgrade";
+    router.push("/upgrade");
   }}
   className="bg-blue-600 px-4 py-2 rounded text-xs"
 >
@@ -734,20 +734,10 @@ const isTrialActive =
         e.stopPropagation();
         router.push(`/clients/${client.id}`);
       }}
-      className="text-blue-400 underline mb-1"
+      className="text-blue-400 underline"
     >
       Open client
     </button>
-
-    {client.date_of_birth && !isNaN(new Date(client.date_of_birth).getTime()) && (
-      <p className="text-xs text-[var(--muted)]">
-        🎂 {new Date(client.date_of_birth).toLocaleDateString()} (
-        {Math.floor(
-          (Date.now() - new Date(client.date_of_birth).getTime()) /
-          (1000 * 60 * 60 * 24 * 365.25)
-        )} yrs)
-      </p>
-    )}
   </div>
 </Popup>
           </Marker>
@@ -1030,7 +1020,7 @@ const progress = !hasAssessment
     <button
       onClick={(e) => {
         e.stopPropagation();
-        window.location.href = "/upgrade";
+        router.push("/upgrade");
       }}
       className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
     >
