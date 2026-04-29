@@ -99,6 +99,7 @@ const { error: profileError } = await supabase
       account_type: form.type,
     },
   ]);
+  
 
 if (profileError) {
   setLoading(false);

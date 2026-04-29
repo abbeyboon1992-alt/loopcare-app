@@ -18,7 +18,6 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
   const loadAccess = async () => {
-    await supabase.auth.refreshSession();
 
     const {
       data: { user },
@@ -38,32 +37,11 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 
     let organisationId = profile?.organisation_id;
 
-    // 🔥 AUTO CREATE IF MISSING
     if (!organisationId) {
-      const { data: newOrg } = await supabase
-        .from("organisations")
-        .insert([
-          {
-            subscription_status: "free",
-            trial_end: new Date(
-              Date.now() + 7 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-          },
-        ])
-        .select()
-        .single();
-
-      await supabase.from("user_profiles").insert([
-        {
-          user_id: user.id,
-          organisation_id: newOrg.id,
-          account_type: "solo",
-        },
-      ]);
-
-      organisationId = newOrg.id;
-      profile = { organisation_id: newOrg.id, account_type: "solo" };
-    }
+  console.log("❌ No organisation linked to user");
+  setAccess(null);
+  return;
+}
 
     // 🔹 ORG
     const { data } = await supabase
