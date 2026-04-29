@@ -771,6 +771,7 @@ const progress = !hasAssessment
     const clientAlerts = alerts.filter(
   (a: any) => a.client_id === client.id && a.status === "active"
 );
+const badge = getRiskBadge(riskScore);
 
 
     return (
@@ -812,14 +813,9 @@ const progress = !hasAssessment
 </button>
 
             {/* RISK BADGE */}
-            {(() => {
-  const badge = getRiskBadge(riskScore);
-  return (
-    <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
-      {badge.label}
-    </span>
-  );
-})()}
+            <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
+  {badge.label}
+</span>
 
           </div>
         </div>
