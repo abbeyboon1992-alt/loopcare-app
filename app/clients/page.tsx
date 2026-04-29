@@ -13,6 +13,7 @@ import dynamic from "next/dynamic";
 import { careTypes } from "@/lib/careTypes";
 import diagnoses from "@/data/diagnoses.json";
 import { useMap } from "react-leaflet";
+import { useMemo } from "react";
 import { useAccess } from "@/app/context/AccessContext";
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -66,8 +67,6 @@ const handleLogout = async () => {
 };
 const [alerts, setAlerts] = useState<any[]>([]);
 const rawAccess = useAccess();
-
-import { useMemo } from "react";
 
 const access = useMemo(() => {
   return rawAccess ?? {
