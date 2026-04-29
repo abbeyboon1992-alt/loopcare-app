@@ -55,65 +55,39 @@ if (!user) {
   setLoading(false);
   alert("Signup failed - no user returned");
   return;
-} 
-// ✅ WAIT FOR REAL SESSION (NOT TIMEOUT)
-let session = null;
-
-for (let i = 0; i < 10; i++) {
-  const {
-    data: { session: currentSession },
-  } = await supabase.auth.getSession();
-
-  if (currentSession) {
-    session = currentSession;
-    break;
-  }
-
-  await new Promise((r) => setTimeout(r, 200));
 }
 
-if (!session) {
-  setLoading(false);
-  alert("Session not ready - please login");
-  router.push("/login");
-  return;
-}
-
-  // 🏢 2. CREATE ORGANISATION (NO user_id HERE)
-  const { data: org, error: orgError } = await supabase
+// 🏢 CREATE ORG
+const { data: org, error: orgError } = await supabase
   .from("organisations")
   .insert([
     {
       name: `${form.full_name}'s Organisation`,
-      subscription_status: "free", 
-trial_end: hasUsedTrial
-  ? null
-  : new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString(),
+      subscription_status: "free",
+      trial_end: hasUsedTrial
+        ? null
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     },
   ])
   .select()
   .single();
 
-  if (orgError) {
-    setLoading(false);
-    console.error("ORG ERROR:", orgError);
-    alert("Failed to create organisation");
-    return;
-  }
+if (orgError) {
+  setLoading(false);
+  console.error("ORG ERROR:", orgError);
+  alert("Failed to create organisation");
+  return;
+}
 
-  // 🧠 RECORD TRIAL USAGE
+// 🧠 RECORD TRIAL
 if (!hasUsedTrial) {
   await supabase.from("trial_history").insert([
-    {
-      email: form.email.toLowerCase(),
-    },
+    { email: form.email.toLowerCase() },
   ]);
 }
 
-  // 👤 3. CREATE USER PROFILE (LINK USER → ORG)
-  const { data: profileData, error: profileError } = await supabase
+// 👤 CREATE PROFILE
+const { error: profileError } = await supabase
   .from("user_profiles")
   .insert([
     {
@@ -124,25 +98,25 @@ if (!hasUsedTrial) {
       role: form.type === "solo" ? "carer" : "manager",
       account_type: form.type,
     },
-  ])
-  .select();
+  ]);
 
-  if (profileError) {
-    setLoading(false);
-    console.error("PROFILE ERROR:", profileError);
-    alert(profileError.message);
-    return;
-  }
-
+if (profileError) {
   setLoading(false);
+  console.error("PROFILE ERROR:", profileError);
+  alert(profileError.message);
+  return;
+}
+
+// ✅ DONE
+setLoading(false);
 
   await supabase.auth.getSession();
-router.push("/clients");
+window.location.href = "/clients";
 };
 
 useEffect(() => {
   if (emailFromQuery) {
-    setForm((prev) => ({
+    setForm((prev: any) => ({
       ...prev,
       email: emailFromQuery,
     }));

@@ -414,7 +414,7 @@ const isTrialActive =
   return (
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
 
-  {(!access || !user || !profile) ? (
+  {(!user || !profile) ? (
   <div className="p-6 text-white">Loading...</div>
 ) : (
     <>
@@ -460,7 +460,7 @@ const isTrialActive =
 
   </div>
 </div>
-      {access && access.plan === "free" && (
+      {access?.plan === "free" && (
   <div
     className={`mb-4 p-4 rounded flex justify-between items-center ${
       isTrialActive
@@ -709,7 +709,7 @@ const isTrialActive =
               <div
                 onClick={() => {
   console.log("CLICKED", client.id);
-  window.location.href = `/clients/${client.id}`;
+  router.push(`/clients/${client.id}`);
 }}
                 className="cursor-pointer"
               >
@@ -782,13 +782,10 @@ const progress = !hasAssessment
     return (
       <div
   key={client.id}
-  onClick={() => {
-  console.log("CLIENT CLICK:", client.id);
+  onClick={(e) => {
+  e.stopPropagation();
 
-  if (!client.id) {
-    alert("Missing client ID");
-    return;
-  }
+  if (!client.id) return;
 
   router.push(`/clients/${client.id}`);
 }}
@@ -973,10 +970,10 @@ const progress = !hasAssessment
   </div>
 </div>
 <div className="mt-3">
-  {canAccessFeature(
+  {access && canAccessFeature(
   "assessments",
-  access?.plan || "free",
-  access?.accountType || "solo",
+  access.plan,
+  access.accountType,
   isTrialActive
 ) ? (
     <>
