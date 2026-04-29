@@ -14,6 +14,9 @@ type AccessType = {
 const AccessContext = createContext<AccessType | null>(null);
 
 export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
+  useEffect(() => {
+  console.log("🔁 RENDER", Date.now());
+});
   const [access, setAccess] = useState<AccessType | null>(null);
 
   useEffect(() => {

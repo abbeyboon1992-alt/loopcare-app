@@ -949,6 +949,7 @@ useEffect(() => {
 }, [clientId]);
 
 useEffect(() => {
+  console.log("🔥 MUST EFFECT RUNNING");
   if (isUpdatingRef.current) return;
 
   const must = calculateMUST();
@@ -974,6 +975,7 @@ useEffect(() => {
 
 
 useEffect(() => {
+  console.log("🔥 water EFFECT RUNNING");
   if (isUpdatingRef.current) return;
 
   const score = calculateWaterlow();
@@ -1000,6 +1002,7 @@ useEffect(() => {
 ]);
 
 useEffect(() => {
+  console.log("🔥 news2 EFFECT RUNNING");
   if (isUpdatingRef.current) return;
 
   const score = calculateNEWS2();
@@ -1414,6 +1417,7 @@ useEffect(() => {
 }, [clientId]);
 
 useEffect(() => {
+  console.log("🔥 BMI EFFECT RUNNING");
   if (isUpdatingRef.current) return;
 
   if (!form.weight || !form.height) return;
@@ -1440,6 +1444,7 @@ useEffect(() => {
 }, [form.weight, form.height]);
 
 useEffect(() => {
+  console.log("🔥 BMI category EFFECT RUNNING");
   if (isUpdatingRef.current) return;
 
   if (!form.bmi) return;
