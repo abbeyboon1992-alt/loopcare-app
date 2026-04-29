@@ -65,7 +65,15 @@ const handleLogout = async () => {
   router.push("/login");
 };
 const [alerts, setAlerts] = useState<any[]>([]);
-const access = useAccess();
+const rawAccess = useAccess();
+
+const access = rawAccess ?? {
+  plan: "free",
+  accountType: "solo",
+  trial_end: null,
+  isTrialActive: false,
+  daysLeft: 0,
+};
 
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
@@ -99,8 +107,10 @@ const [loadingAddresses, setLoadingAddresses] = useState(false);
 // LOAD CLIENTS
 const loadClients = async () => {
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  data: { session },
+} = await supabase.auth.getSession();
+
+const user = session?.user;
 
   console.log("SESSION USER:", user);
 
@@ -433,7 +443,7 @@ const isTrialActive =
   new Date(access.trial_end as string).getTime() > Date.now();
   
 
-if (!user || !profile || !access) {
+if (!user || !profile) {
   return <div className="p-6 text-white">Loading...</div>;
 }
   return (
@@ -696,21 +706,22 @@ if (!user || !profile || !access) {
     </div>
   )}
 
-  {mapReady && (
+  
   <MapContainer
-    key={`clients-map-${clients.length}`}
-    center={[53.258, -2.125]}
-    zoom={11}
-    className="h-64 w-full rounded-lg"
-  >
-    <FitBounds clients={clients} enabled={clients.length > 0} />
+  key={`clients-map-${clients.length}`}
+  center={[53.258, -2.125]}
+  zoom={11}
+  className="h-64 w-full rounded-lg"
+>
+  <FitBounds clients={clients} enabled={mapReady && clients.length > 0} />
 
-    <TileLayer
-      attribution="&copy; OpenStreetMap contributors"
-      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-    />
+  <TileLayer
+    attribution="&copy; OpenStreetMap contributors"
+    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+  />
 
-    {clients
+  {mapReady &&
+    clients
       .filter(
         (c) => typeof c.lat === "number" && typeof c.lng === "number"
       )
@@ -719,8 +730,7 @@ if (!user || !profile || !access) {
           <Popup>...</Popup>
         </Marker>
       ))}
-  </MapContainer>
-)}
+</MapContainer>
 </div>
       {/* CLIENT LIST */}
       <div className="space-y-3">
