@@ -67,13 +67,21 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 
     const isPaid = data?.subscription_status === "active";
 
-    setAccess({
-      plan: isPaid || isTrialActive ? "pro" : "free",
-      accountType: profile?.account_type || "solo",
-      isTrialActive,
-      trial_end: trialEnd,
-      daysLeft,
-    });
+    setAccess((prev) => {
+  const next: AccessType = {
+    plan: (isPaid || isTrialActive ? "pro" : "free") as "free" | "pro",
+    accountType: profile?.account_type || "solo",
+    isTrialActive,
+    trial_end: trialEnd,
+    daysLeft,
+  };
+
+  if (JSON.stringify(prev) === JSON.stringify(next)) {
+    return prev;
+  }
+
+  return next;
+});
   };
 
   loadAccess();
@@ -95,19 +103,6 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export const useAccess = (): AccessType => {
-  const context = useContext(AccessContext);
-
-  // ✅ SAFE fallback with FULL shape
-  if (!context) {
-    return {
-      plan: "free",
-      accountType: "solo", // ✅ ADD THIS
-      isTrialActive: false,
-      trial_end: null,
-      daysLeft: 0, // ✅ ADD THIS
-    };
-  }
-
-  return context;
+export const useAccess = (): AccessType | null => {
+  return useContext(AccessContext);
 };

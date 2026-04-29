@@ -69,11 +69,13 @@ const [alerts, setAlerts] = useState<any[]>([]);
 const rawAccess = useAccess();
 
 const access = useMemo(() => {
-  return rawAccess ?? {
+  if (rawAccess) return rawAccess;
+
+  return {
     plan: "free",
     accountType: "solo",
-    trial_end: null,
     isTrialActive: false,
+    trial_end: null,
     daysLeft: 0,
   };
 }, [rawAccess]);
