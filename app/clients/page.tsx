@@ -443,7 +443,7 @@ const isTrialActive =
   new Date(access.trial_end as string).getTime() > Date.now();
   
 
-if (!user || !profile) {
+if (!user) {
   return <div className="p-6 text-white">Loading...</div>;
 }
   return (
@@ -707,21 +707,21 @@ if (!user || !profile) {
   )}
 
   
+  {mapReady && (
   <MapContainer
-  key={`clients-map-${clients.length}`}
-  center={[53.258, -2.125]}
-  zoom={11}
-  className="h-64 w-full rounded-lg"
->
-  <FitBounds clients={clients} enabled={mapReady && clients.length > 0} />
+    key="clients-map"
+    center={[53.258, -2.125]}
+    zoom={11}
+    className="h-64 w-full rounded-lg"
+  >
+    <FitBounds clients={clients} enabled={clients.length > 0} />
 
-  <TileLayer
-    attribution="&copy; OpenStreetMap contributors"
-    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-  />
+    <TileLayer
+      attribution="&copy; OpenStreetMap contributors"
+      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+    />
 
-  {mapReady &&
-    clients
+    {clients
       .filter(
         (c) => typeof c.lat === "number" && typeof c.lng === "number"
       )
@@ -730,305 +730,98 @@ if (!user || !profile) {
           <Popup>...</Popup>
         </Marker>
       ))}
-</MapContainer>
-</div>
-      {/* CLIENT LIST */}
-      <div className="space-y-3">
-  {[...clients]
-  .sort((a, b) => {
-    const scoreA = calculateRiskScore(a);
-    const scoreB = calculateRiskScore(b);
-    return scoreB - scoreA;
-  })
-  .map((client) => {
-     const assessments = Array.isArray(client.assessments)
+  </MapContainer>
+)}
+
+{/* CLIENT LIST */}
+<div className="space-y-3">
+{(clients || []).map((client) => {
+  const assessments = Array.isArray(client.assessments)
     ? client.assessments[0]
-    : client.assessments;
-    const mcaComplete = assessments?.mca_completed === true;
+    : client.assessments || {};
 
-const bestInterestComplete =
-  assessments?.best_interest_completed === true ||
-  assessments?.best_interest_completed === "yes";
+  const clientAlerts =
+    alerts.filter(
+      (a: any) => a.client_id === client.id && a.status === "active"
+    ) || [];
 
-const hasAssessment = !!assessments;
+  const hasAddress = !!client.address;
+  const hasKeysafe = !!client.keysafe_access;
+  const hasAllergies = !!assessments.allergies;
 
-const isAssessmentComplete =
-  mcaComplete && bestInterestComplete;
+  const hasMCAAlert = clientAlerts.some((a) => a.type === "mca_missing");
+  const hasBestInterestAlert = clientAlerts.some((a) => a.type === "best_interest_missing");
+  const hasSafeguarding = clientAlerts.some((a) => a.type === "safeguarding");
 
-const isAssessmentStarted =
-  hasAssessment && !isAssessmentComplete;
+  const mcaComplete = assessments.mca_completed === true;
+  const bestInterestComplete =
+    assessments.best_interest_completed === true ||
+    assessments.best_interest_completed === "yes";
 
-const progress = !hasAssessment
-  ? 0
-  : isAssessmentComplete
-  ? 100
-  : mcaComplete || bestInterestComplete
-  ? 50
-  : 25;
+  const hasAssessment = Object.keys(assessments).length > 0;
 
-    const riskScore = calculateRiskScore(client);
-    const borderColor = getRiskBorder(riskScore);
-    const clientAlerts = alerts.filter(
-  (a: any) => a.client_id === client.id && a.status === "active"
-);
-const badge = getRiskBadge(riskScore);
+  const isAssessmentComplete = mcaComplete && bestInterestComplete;
+  const isAssessmentStarted = hasAssessment && !isAssessmentComplete;
 
+  const progress = !hasAssessment
+    ? 0
+    : isAssessmentComplete
+    ? 100
+    : mcaComplete || bestInterestComplete
+    ? 50
+    : 25;
 
-    return (
-      <div
-  key={client.id}
-  onClick={() => {
-  if (!client.id) return;
-  router.push(`/clients/${client.id}`);
-}}
-  className={`bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg cursor-pointer hover:bg-[#334155] border ${
-    access?.plan === "pro" ? borderColor : "border-transparent"
-  } ${(client.status ?? "active") === "inactive" ? "opacity-50" : ""}`}
-  
->
-        {/* 🔹 TOP ROW */}
-        <div className="flex justify-between items-center">
+  const riskScore = calculateRiskScore(client);
+  const borderColor = getRiskBorder(riskScore);
+  const badge = getRiskBadge(riskScore);
 
-          <p className="font-semibold">
-            {client.first_name} {client.last_name}
-          </p>
-
-          <div className="flex items-center gap-2">
-
-            {/* TOGGLE */}
-<button
-  onClick={(e) => {
-    e.stopPropagation();
-    handleToggleClick(client.id, client.status);
-  }}
-  className={`text-xs px-2 py-1 rounded ${
-    (client.status ?? "active") === "inactive"
-      ? "bg-green-600"
-      : "bg-red-600"
-  }`}
->
-  {(client.status ?? "active") === "inactive"
-    ? "Activate"
-    : "Set Inactive"}
-</button>
-
-            {/* RISK BADGE */}
-            <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
-  {badge.label}
-</span>
-
-          </div>
-        </div>
-
-        {/* 📍 ADDRESS */}
-        {client.address && (
-          <p className="text-sm text-[var(--muted)]">
-            {client.address}
-          </p>
-        )}
-
-        {client.keysafe_access && (
-  <div className="relative">
-    <span
-      onClick={(e) => {
-        e.stopPropagation(); // 🚫 stop opening client page
-        setOpenKeysafe(
-          openKeysafe === client.id ? null : client.id
-        );
-      }}
-      className="text-xs bg-blue-600 px-2 py-1 rounded cursor-pointer"
-    >
-      🔑 Key Safe
-    </span>
-
-    {openKeysafe === client.id && (
-      <div className="absolute z-50 mt-2 bg-[var(--card)] p-3 rounded shadow-lg text-xs w-40">
-        <p className="font-semibold mb-1">Access Code</p>
-
-        <p className="text-white tracking-widest text-sm">
-          {client.keysafe_access}
-        </p>
-      </div>
-    )}
-  </div>
-)}
-
-        {/* CARE TYPE */}
-        <p className="text-sm text-[var(--muted)]">
-          {client.care_type}
-        </p>
-
-        {/* DIAGNOSIS */}
-        {client.diagnosis && (
-          <p className="text-xs text-gray-500 mt-1">
-            {Array.isArray(client.diagnosis)
-              ? client.diagnosis.join(", ")
-              : client.diagnosis}
-          </p>
-        )}
-
-        {/* 🚨 TAGS */}
-        {!hasAssessment && (
-  <span className="text-xs bg-red-600 px-2 py-1 rounded">
-    ⚠️ No Assessment
-  </span>
-)}
-
-{isAssessmentStarted && (
-  <span className="text-xs bg-yellow-600 px-2 py-1 rounded">
-    🧠 Incomplete Assessment
-  </span>
-)}
-        <div className="flex gap-2 mt-2 flex-wrap">
-{mcaComplete && bestInterestComplete && (
-  <span className="text-xs bg-green-600 px-2 py-1 rounded">
-    ✅ Capacity Complete
-  </span>
-)}
-          {assessments?.dnacpr && (
-  <span className="text-xs bg-red-700 px-2 py-1 rounded">
-    DNACPR
-  </span>
-)}
-
-{assessments?.allergies && (
-  <div className="relative">
-    <span
-      onClick={(e) => {
-        e.stopPropagation(); // 🚫 STOP opening client page
-        setOpenAllergies(
-          openAllergies === client.id ? null : client.id
-        );
-      }}
-      className="text-xs bg-yellow-600 px-2 py-1 rounded cursor-pointer"
-    >
-      Allergies
-    </span>
-
-    {openAllergies === client.id && (
-      <div className="absolute z-50 mt-2 bg-[var(--card)] p-3 rounded shadow-lg text-xs w-64">
-        <p className="font-semibold mb-1">Allergies</p>
-
-        <p className="text-gray-300">
-          {assessments.allergies}
-        </p>
-      </div>
-    )}
-  </div>
-)}
-
-{!mcaComplete &&
-  clientAlerts.some((a) => a.type === "mca_missing") && (
-  <span className="text-xs bg-purple-700 px-2 py-1 rounded">
-    🧠 MCA Required
-  </span>
-)}
-
-{!bestInterestComplete &&
-  clientAlerts.some((a) => a.type === "best_interest_missing") && (
-  <span className="text-xs bg-orange-600 px-2 py-1 rounded">
-    ⚖️ Best Interest
-  </span>
-)}
-
-{clientAlerts.some((a) => a.type === "safeguarding") && (
-  <span className="text-xs bg-red-800 px-2 py-1 rounded">
-    🚨 Safeguarding
-  </span>
-)}
-        </div>
-        <div className="mt-2">
-  <div className="flex justify-between text-xs mb-1 text-[var(--muted)]">
-    <span>Assessment</span>
-    <span>{progress}%</span>
-  </div>
-
-  <div className="w-full bg-gray-700 rounded h-2">
+  return (
     <div
-      className={`h-2 rounded ${
-        progress === 100
-          ? "bg-green-600"
-          : progress >= 50
-          ? "bg-yellow-500"
-          : "bg-blue-500"
+      key={client.id}
+      onClick={() => router.push(`/clients/${client.id}`)}
+      className={`bg-[var(--card)] p-4 rounded cursor-pointer border ${
+        access?.plan === "pro" ? borderColor : "border-transparent"
       }`}
-      style={{ width: `${progress}%` }}
-    />
-  </div>
-</div>
-<div className="mt-3">
-  {access && canAccessFeature(
-  "assessments",
-  access?.plan,
-  access.accountType,
-  isTrialActive
-) ? (
-    <>
-      {!hasAssessment && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/assessments?client=${client.id}`);
-          }}
-          className="text-xs bg-blue-500 px-3 py-1 rounded"
-        >
-          Start Assessment
-        </button>
-      )}
-
-      {isAssessmentStarted && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/assessments?client=${client.id}`);
-          }}
-          className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
-        >
-          Continue Assessment
-        </button>
-      )}
-
-      {isAssessmentComplete && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/assessments?client=${client.id}`);
-          }}
-          className="text-xs bg-green-600 px-3 py-1 rounded"
-        >
-          View Assessment
-        </button>
-      )}
-    </>
-  ) : (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        router.push("/upgrade");
-      }}
-      className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
     >
-      🔒 Upgrade for Assessments
-    </button>
-  )}
+      <p className="font-semibold">
+        {client.first_name} {client.last_name}
+      </p>
+
+      {hasAddress && (
+        <p className="text-sm text-gray-400">{client.address}</p>
+      )}
+
+      <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
+        {badge.label}
+      </span>
+
+      {!hasAssessment && (
+        <span className="text-xs bg-red-600 px-2 py-1 rounded">
+          ⚠️ No Assessment
+        </span>
+      )}
+
+      {!mcaComplete && hasMCAAlert && (
+        <span className="text-xs bg-purple-700 px-2 py-1 rounded">
+          🧠 MCA Required
+        </span>
+      )}
+
+      {!bestInterestComplete && hasBestInterestAlert && (
+        <span className="text-xs bg-orange-600 px-2 py-1 rounded">
+          ⚖️ Best Interest
+        </span>
+      )}
+
+      {hasSafeguarding && (
+        <span className="text-xs bg-red-800 px-2 py-1 rounded">
+          🚨 Safeguarding
+        </span>
+      )}
+    </div>
+  );
+})}
 </div>
-        {/* INACTIVE REASON */}
-        {(client.status ?? "active") === "inactive" && client.inactive_reason && (
-          <p className="text-xs text-red-400 mt-2">
-            Reason: {client.inactive_reason}
-          </p>
-        )}
-
-      </div>
-    );
-  })}
-
-{clients.length === 0 && (
-  <p className="text-gray-500 mt-6">
-    No clients yet
-  </p>
-)}
-
 </div> {/* CLIENT LIST */}
 {showInactiveModal && (
   <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
