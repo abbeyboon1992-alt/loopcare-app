@@ -47,10 +47,17 @@ const handleLogout = async () => {
   router.push("/login");
 };
 const [alerts, setAlerts] = useState<any[]>([]);
-const access = useAccess();
+const access = useAccess() || {
+  plan: "free",
+  accountType: "solo",
+  isTrialActive: false,
+  trial_end: null,
+  daysLeft: 0,
+};
+
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
-
+console.log("ACCESS:", access);
 const [mapReady, setMapReady] = useState(false);
 const [timeLeft, setTimeLeft] = useState("");
   const [clients, setClients] = useState<any[]>([]);
@@ -479,7 +486,7 @@ const isTrialActive =
 
   </div>
 </div>
-      {access && access.plan === "free" && (
+      {access && access?.plan === "free" && (
   <div
     className={`mb-4 p-4 rounded flex justify-between items-center ${
       isTrialActive
@@ -785,6 +792,10 @@ const progress = !hasAssessment
   (a: any) => a.client_id === client.id && a.status === "active"
 );
 
+if (!access) {
+  return <div className="p-6 text-white">Loading access...</div>;
+}
+
     return (
       <div
   key={client.id}
@@ -793,7 +804,7 @@ const progress = !hasAssessment
   router.push(`/clients/${client.id}`);
 }}
   className={`bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg cursor-pointer hover:bg-[#334155] border ${
-    access.plan === "pro" ? borderColor : "border-transparent"
+    access?.plan === "pro" ? borderColor : "border-transparent"
   } ${(client.status ?? "active") === "inactive" ? "opacity-50" : ""}`}
   
 >
@@ -975,7 +986,7 @@ const progress = !hasAssessment
 <div className="mt-3">
   {access && canAccessFeature(
   "assessments",
-  access.plan,
+  access?.plan,
   access.accountType,
   isTrialActive
 ) ? (
