@@ -172,6 +172,7 @@ const TextAreaField = ({
 function AssessmentPageContent() {
   
   const isUserTypingRef = useRef(false);
+  const isUpdatingRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 const clientId = searchParams.get("client") || "";
@@ -668,26 +669,29 @@ const [biList, setBiList] = useState<any[]>([]);
 const initialSectionRef = useRef<string | null>(null);
 
 useEffect(() => {
-  if (initialSectionRef.current === null) {
+  if (!initialSectionRef.current) {
     initialSectionRef.current = searchParams.get("section");
   }
 }, [searchParams]);
 useEffect(() => {
+  if (isUpdatingRef.current) return;
   if (!form.capacity) return;
 
-  setForm((prev: any) => {
-    if (
-      prev.capacity === "lacks capacity" &&
-      prev.best_interest_required !== "yes"
-    ) {
-      return {
-        ...prev,
-        best_interest_required: "yes",
-      };
-    }
+  if (
+    form.capacity === "lacks capacity" &&
+    form.best_interest_required !== "yes"
+  ) {
+    isUpdatingRef.current = true;
 
-    return prev;
-  });
+    setForm((prev: any) => ({
+      ...prev,
+      best_interest_required: "yes",
+    }));
+
+    setTimeout(() => {
+      isUpdatingRef.current = false;
+    }, 0);
+  }
 }, [form.capacity]);
 
 useEffect(() => {
@@ -945,26 +949,47 @@ useEffect(() => {
 }, [clientId]);
 
 useEffect(() => {
+  if (isUpdatingRef.current) return;
+
   const must = calculateMUST();
 
-  if (form.must_score === must) return; // 🔥 HARD STOP
+  if (form.must_score === must) return;
+
+  isUpdatingRef.current = true;
 
   setForm((prev: any) => ({
     ...prev,
     must_score: must,
   }));
-}, [form.weight, form.height, form.weight_3_months_ago, form.acute_disease_effect]);
+
+  setTimeout(() => {
+    isUpdatingRef.current = false;
+  }, 0);
+}, [
+  form.weight,
+  form.height,
+  form.weight_3_months_ago,
+  form.acute_disease_effect,
+]);
 
 
 useEffect(() => {
+  if (isUpdatingRef.current) return;
+
   const score = calculateWaterlow();
 
   if (form.waterlow_score === score) return;
+
+  isUpdatingRef.current = true;
 
   setForm((prev: any) => ({
     ...prev,
     waterlow_score: score,
   }));
+
+  setTimeout(() => {
+    isUpdatingRef.current = false;
+  }, 0);
 }, [
   form.bmi,
   form.skin,
@@ -975,14 +1000,22 @@ useEffect(() => {
 ]);
 
 useEffect(() => {
+  if (isUpdatingRef.current) return;
+
   const score = calculateNEWS2();
 
   if (form.news2_score === score) return;
+
+  isUpdatingRef.current = true;
 
   setForm((prev: any) => ({
     ...prev,
     news2_score: score,
   }));
+
+  setTimeout(() => {
+    isUpdatingRef.current = false;
+  }, 0);
 }, [
   form.resp_rate,
   form.oxygen_sats,
@@ -1158,7 +1191,7 @@ if (nutritionTrend === "worsening" || mobilityTrend === "worsening") {
 };
 
 useEffect(() => {
-  if (!recentVisits.length || hasSyncedRef.current) return;
+  if (!recentVisits.length || hasSyncedRef.current === true) return;
 
 hasSyncedRef.current = true;
 
@@ -1299,11 +1332,6 @@ autoResolveAlerts();
 
 }, [recentVisits]);
 
-
-useEffect(() => {
-  hasSyncedRef.current = false;
-}, [recentVisits.length]);
-
 useEffect(() => {
   if (!clientId) return;
 
@@ -1386,26 +1414,34 @@ useEffect(() => {
 }, [clientId]);
 
 useEffect(() => {
+  if (isUpdatingRef.current) return;
+
   if (!form.weight || !form.height) return;
 
   const weight = Number(form.weight);
   const heightMeters = Number(form.height) / 100;
 
-  if (weight > 0 && heightMeters > 0) {
-    const bmi = weight / (heightMeters * heightMeters);
+  if (weight <= 0 || heightMeters <= 0) return;
 
-    setForm((prev: any) => {
-      if (prev.bmi === bmi.toFixed(1)) return prev;
+  const bmi = Number((weight / (heightMeters * heightMeters)).toFixed(1));
 
-      return {
-        ...prev,
-        bmi: bmi.toFixed(1),
-      };
-    });
-  }
+  if (Number(form.bmi) === bmi) return;
+
+  isUpdatingRef.current = true;
+
+  setForm((prev: any) => ({
+    ...prev,
+    bmi,
+  }));
+
+  setTimeout(() => {
+    isUpdatingRef.current = false;
+  }, 0);
 }, [form.weight, form.height]);
 
 useEffect(() => {
+  if (isUpdatingRef.current) return;
+
   if (!form.bmi) return;
 
   const bmi = Number(form.bmi);
@@ -1417,14 +1453,18 @@ useEffect(() => {
   else if (bmi < 30) category = "overweight";
   else category = "obese";
 
-  setForm((prev: any) => {
-    if (prev.bmi_category === category) return prev;
+  if (form.bmi_category === category) return;
 
-    return {
-      ...prev,
-      bmi_category: category,
-    };
-  });
+  isUpdatingRef.current = true;
+
+  setForm((prev: any) => ({
+    ...prev,
+    bmi_category: category,
+  }));
+
+  setTimeout(() => {
+    isUpdatingRef.current = false;
+  }, 0);
 }, [form.bmi]);
 
   useEffect(() => {
