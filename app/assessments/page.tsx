@@ -473,7 +473,7 @@ useEffect(() => {
       .from("user_profiles")
       .select("organisation_id")
       .eq("id", data.user.id)
-      .single();
+      .maybeSingle()
 
     if (profile?.organisation_id) {
       setOrganisationId(profile.organisation_id);
@@ -1446,7 +1446,7 @@ useEffect(() => {
       .from("clients")
       .select("date_of_birth")
       .eq("id", clientId)
-      .single();
+      .maybeSingle()
 
     if (data?.date_of_birth) {
       const age = calculateAge(data.date_of_birth);

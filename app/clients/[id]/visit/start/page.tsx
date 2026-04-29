@@ -454,7 +454,7 @@ useEffect(() => {
       .from("clients")
       .select("*")
       .eq("id", id as string)
-      .single();
+      .maybeSingle()
     
     const { data: assessments } = await supabase
   .from("assessments")
@@ -1139,7 +1139,7 @@ const createConcernFromAlert = async (alert: any) => {
   started_at: new Date().toISOString(),
 })
       .select()
-      .single();
+      .maybeSingle()
 
     if (data) {
       setActiveVisitId(data.id);
