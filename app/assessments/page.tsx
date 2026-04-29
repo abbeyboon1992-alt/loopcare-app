@@ -172,7 +172,7 @@ const TextAreaField = ({
 function AssessmentPageContent() {
   
   const isUserTypingRef = useRef(false);
-  const isUpdatingRef = useRef(false);
+  
   const router = useRouter();
   const searchParams = useSearchParams();
 const clientId = searchParams.get("client") || "";
@@ -463,6 +463,7 @@ const blockIfView = (fn: () => void) => {
   fn();
 };
 const [medications, setMedications] = useState<any[]>([]);
+const [evidenceList, setEvidenceList] = useState<any[]>([]);
 const [organisationId, setOrganisationId] = useState<string>("");
 useEffect(() => {
   const loadOrg = async () => {
@@ -636,6 +637,7 @@ const lastSavedRef = useRef<string>("");
 const isSavingRef = useRef(false);
 const hasInitialised = useRef(false);
 const hasSyncedRef = useRef(false);
+const isUpdatingRef = useRef(false);
 const [hasSavedAssessment, setHasSavedAssessment] = useState(false);
 const access = useAccess();
 
@@ -703,39 +705,36 @@ const handleInput = (field: string, value: any) => {
 
   setForm((prev: any) => {
     if (prev[field] === value) return prev;
-    return { ...prev, [field]: value };
+    const updated = { ...prev, [field]: value };
+    formRef.current = updated; // ✅ ALWAYS sync ref
+    return updated;
   });
 
-  if (saveTimeout.current) {
-    clearTimeout(saveTimeout.current);
-  }
+  if (saveTimeout.current) clearTimeout(saveTimeout.current);
 
   saveTimeout.current = setTimeout(async () => {
-    const current = JSON.stringify({
-      ...formRef.current,
-      [field]: value,
-    });
+    if (isSavingRef.current) return;
+
+    const payload = formRef.current;
+    const current = JSON.stringify(payload);
 
     if (current === lastSavedRef.current) return;
 
     try {
+      isSavingRef.current = true;
       setSaving("saving");
 
       await supabase
         .from("assessments")
-        .upsert(
-          {
-            ...formRef.current,
-            [field]: value,
-          },
-          { onConflict: "client_id" }
-        );
+        .upsert(payload, { onConflict: "client_id" });
 
       lastSavedRef.current = current;
       setSaving("saved");
     } catch (err) {
       console.error(err);
       setSaving("error");
+    } finally {
+      isSavingRef.current = false;
     }
   }, 800);
 };
@@ -758,6 +757,54 @@ const handleEquipmentDate = (item: string, date: string | null) => {
       [item]: date,
     },
   }));
+};
+
+const handleFileUpload = async (
+  file: File,
+  section: string,
+  field: string
+) => {
+  if (!form.client_id || !organisationId) {
+    alert("Missing client or organisation");
+    return;
+  }
+
+  const filePath = `${form.client_id}/${section}/${Date.now()}-${file.name}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("assessment-evidence")
+    .upload(filePath, file);
+
+  if (uploadError) {
+    console.error(uploadError);
+    alert("Upload failed");
+    return;
+  }
+
+  const { data } = supabase.storage
+    .from("assessment-evidence")
+    .getPublicUrl(filePath);
+
+  await supabase.from("assessment_evidence").insert({
+    client_id: form.client_id,
+    organisation_id: organisationId,
+    section,
+    field,
+    file_url: data.publicUrl,
+    file_name: file.name,
+    file_type: file.type,
+  });
+
+  // 🔥 refresh list
+  setEvidenceList((prev) => [
+    ...prev,
+    {
+      section,
+      field,
+      file_url: data.publicUrl,
+      file_name: file.name,
+    },
+  ]);
 };
 
 const addMedication = () => {
@@ -793,8 +840,13 @@ useEffect(() => {
 }, [clientId]);
 
 useEffect(() => {
+    const hasLoadedRef = useRef(false);
+
+useEffect(() => {
   const loadAssessment = async () => {
-    if (!clientId || hasLoaded === true) return;
+    if (!clientId || hasLoadedRef.current) return;
+
+    hasLoadedRef.current = true;
 
     const { data, error } = await supabase
       .from("assessments")
@@ -953,6 +1005,21 @@ useEffect(() => {
 useEffect(() => {
   if (!clientId) return;
 
+  const loadEvidence = async () => {
+    const { data } = await supabase
+      .from("assessment_evidence")
+      .select("*")
+      .eq("client_id", clientId);
+
+    if (data) setEvidenceList(data);
+  };
+
+  loadEvidence();
+}, [clientId]);
+
+useEffect(() => {
+  if (!clientId) return;
+
   const loadPrompts = async () => {
     const { data } = await supabase
       .from("assessment_prompt")
@@ -984,23 +1051,12 @@ useEffect(() => {
 }, [clientId]);
 
 useEffect(() => {
-  console.log("🔥 MUST EFFECT RUNNING");
-  if (isUpdatingRef.current) return;
-
   const must = calculateMUST();
 
-  if (form.must_score === must) return;
-
-  isUpdatingRef.current = true;
-
-  setForm((prev: any) => ({
-    ...prev,
-    must_score: must,
-  }));
-
-  setTimeout(() => {
-    isUpdatingRef.current = false;
-  }, 0);
+  setForm((prev: any) => {
+    if (prev.must_score === must) return prev;
+    return { ...prev, must_score: must };
+  });
 }, [
   form.weight,
   form.height,
@@ -1010,23 +1066,12 @@ useEffect(() => {
 
 
 useEffect(() => {
-  console.log("🔥 water EFFECT RUNNING");
-  if (isUpdatingRef.current) return;
-
   const score = calculateWaterlow();
 
-  if (form.waterlow_score === score) return;
-
-  isUpdatingRef.current = true;
-
-  setForm((prev: any) => ({
-    ...prev,
-    waterlow_score: score,
-  }));
-
-  setTimeout(() => {
-    isUpdatingRef.current = false;
-  }, 0);
+  setForm((prev: any) => {
+    if (prev.waterlow_score === score) return prev;
+    return { ...prev, waterlow_score: score };
+  });
 }, [
   form.bmi,
   form.skin,
@@ -1037,23 +1082,12 @@ useEffect(() => {
 ]);
 
 useEffect(() => {
-  console.log("🔥 news2 EFFECT RUNNING");
-  if (isUpdatingRef.current) return;
-
   const score = calculateNEWS2();
 
-  if (form.news2_score === score) return;
-
-  isUpdatingRef.current = true;
-
-  setForm((prev: any) => ({
-    ...prev,
-    news2_score: score,
-  }));
-
-  setTimeout(() => {
-    isUpdatingRef.current = false;
-  }, 0);
+  setForm((prev: any) => {
+    if (prev.news2_score === score) return prev;
+    return { ...prev, news2_score: score };
+  });
 }, [
   form.resp_rate,
   form.oxygen_sats,
@@ -1229,20 +1263,20 @@ if (nutritionTrend === "worsening" || mobilityTrend === "worsening") {
 };
 
 useEffect(() => {
-  if (!recentVisits.length || hasSyncedRef.current === true) return;
+  if (!recentVisits.length) return;
+  if (hasSyncedRef.current) return;
 
-hasSyncedRef.current = true;
+  hasSyncedRef.current = true;
 
-  const lastVisit = recentVisits[recentVisits.length - 1];
+  syncAssessmentFromVisits({
+    visits: recentVisits,
+    form: formRef.current, // ✅ use ref not state
+    setForm,
+    setPrompts,
+  });
+}, [recentVisits]);
 
-  // 🚀 AUTO SYNC ENGINE
-syncAssessmentFromVisits({
-  visits: recentVisits,
-  form,
-  setForm,
-  setPrompts,
-});
-
+const lastVisit = recentVisits?.[recentVisits.length - 1];
   // 🔥 AUTO RESOLVE ALERTS FROM VISIT DATA
 const autoResolveAlerts = async () => {
   if (!lastVisit) return;
@@ -1286,38 +1320,51 @@ const autoResolveAlerts = async () => {
   }
 };
 
-autoResolveAlerts();
+const hasResolvedRef = useRef(false);
 
-  const newConflicts: any[] = [];
+useEffect(() => {
+  if (!recentVisits.length) return;
+  if (hasResolvedRef.current) return;
 
-  // 🔥 SKIN CONFLICT
+  hasResolvedRef.current = true;
+
+  autoResolveAlerts();
+}, [recentVisits]);
+
+  useEffect(() => {
+  const conflicts: any[] = [];
+
   if (detectConflict(recentVisits, "skin")) {
-    newConflicts.push({
+    conflicts.push({
       field: "skin",
       message: "Conflicting skin records detected",
     });
   }
 
-  // 🔥 MOBILITY CONFLICT
   if (detectConflict(recentVisits, "mobility")) {
-    newConflicts.push({
+    conflicts.push({
       field: "mobility",
       message: "Conflicting mobility records detected",
     });
   }
 
-  // 🔥 NUTRITION CONFLICT
   if (detectConflict(recentVisits, "nutrition")) {
-    newConflicts.push({
+    conflicts.push({
       field: "nutrition",
       message: "Conflicting nutrition records detected",
     });
   }
 
-  setConflicts(newConflicts);
+  setConflicts(conflicts);
+
+  if (conflicts.length > 0) return;
+
+  // KEEP EXISTING PROMPT LOGIC HERE
+
+}, [recentVisits]);
 
   // 🚫 STOP PROMPTS IF CONFLICT EXISTS
-  if (newConflicts.length > 0) return;
+  if (conflicts.length > 0) return;
 
   // ✅ EXISTING CONFIDENCE LOGIC CONTINUES BELOW
 
@@ -1700,6 +1747,71 @@ const getSectionProgress = (sectionId: string) => {
   return 0;
 };
 
+const calculateSectionConfidence = (sectionId: string) => {
+  let score = 0;
+
+  const hasValue = (val: any) =>
+    Array.isArray(val) ? val.length > 0 : !!val;
+
+  const sources = form[`${sectionId}_source`] || [];
+  const hasEvidence = form[`${sectionId}_evidence`] === true;
+  const documents = evidenceList.filter(
+    (e) => e.section === sectionId
+  );
+
+  // 🔹 1. DATA PRESENT (40 pts)
+  switch (sectionId) {
+    case "cognition":
+      if (hasValue(form.capacity)) score += 15;
+      if (hasValue(form.cognition)) score += 15;
+      if (hasValue(form.communication)) score += 10;
+      break;
+
+    case "nutrition":
+      if (hasValue(form.hydration)) score += 20;
+      if (hasValue(form.nutrition)) score += 20;
+      break;
+
+    case "mobility":
+      if (hasValue(form.mobility)) score += 20;
+      if (hasValue(form.falls_risk)) score += 20;
+      break;
+
+    case "skin":
+      if (hasValue(form.skin)) score += 30;
+      break;
+
+    case "medication":
+      if (medications.length > 0) score += 20;
+      if (hasValue(form.medication_ability)) score += 20;
+      break;
+
+    case "safeguarding":
+      if (hasValue(form.safeguarding)) score += 20;
+      if (form.safeguarding === "concern" && hasValue(form.safeguarding_notes))
+        score += 20;
+      break;
+  }
+
+  // 🔹 2. SOURCES (30 pts)
+  if (sources.length >= 2) score += 30;
+  else if (sources.length === 1) score += 15;
+
+  // 🔹 3. EVIDENCE FLAG (15 pts)
+  if (hasEvidence) score += 15;
+
+  // 🔹 4. DOCUMENT UPLOAD (15 pts)
+  if (documents.length > 0) score += 15;
+
+  return Math.min(score, 100);
+};
+
+const getConfidenceLevel = (score: number) => {
+  if (score >= 80) return { label: "High", color: "green" };
+  if (score >= 50) return { label: "Medium", color: "yellow" };
+  return { label: "Low", color: "red" };
+};
+
 const getProgress = () => {
   const sections = Object.keys(sectionChecks);
 
@@ -2051,20 +2163,71 @@ const isOverdue =
     <div id={id} className="bg-[var(--card)] rounded mb-4 overflow-hidden">
       {/* HEADER */}
       <div
-        onClick={() => setOpenSection(isOpen ? null : id)}
-        className="flex justify-between items-center p-4 cursor-pointer"
-      >
-        <h2 className="font-semibold">{title}</h2>
+  onClick={() => setOpenSection(isOpen ? null : id)}
+  className="flex justify-between items-center p-4 cursor-pointer"
+>
+  <div>
+    <h2 className="font-semibold">{title}</h2>
 
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-[var(--muted)]">{progress}%</span>
-          <span className="text-sm">{isOpen ? "▲" : "▼"}</span>
+    {/* 🔥 CONFIDENCE DISPLAY */}
+    {(() => {
+      const score = calculateSectionConfidence(id);
+      const level = getConfidenceLevel(score);
+
+      return (
+        <div className="text-xs mt-1 flex items-center gap-2">
+          <span className="text-[var(--muted)]">
+            Confidence: {score}%
+          </span>
+
+          <span
+            className={`px-2 py-0.5 rounded text-black ${
+              level.color === "green"
+                ? "bg-green-400"
+                : level.color === "yellow"
+                ? "bg-yellow-400"
+                : "bg-red-400"
+            }`}
+          >
+            {level.label}
+          </span>
         </div>
-      </div>
+      );
+    })()}
+  </div>
+
+  <div className="flex items-center gap-3">
+    <span className="text-xs text-[var(--muted)]">
+      {progress}%
+    </span>
+    <span className="text-sm">{isOpen ? "▲" : "▼"}</span>
+  </div>
+</div>
 
       {/* CONTENT */}
       {isOpen && (
         <div className="px-4 pb-4">
+        {(() => {
+  const score = calculateSectionConfidence(id);
+
+  if (score < 50) {
+    return (
+      <div className="bg-red-600/20 border border-red-500 p-2 rounded mb-3 text-xs">
+        ⚠️ Low confidence — insufficient evidence or sources
+      </div>
+    );
+  }
+
+  if (score < 80) {
+    return (
+      <div className="bg-yellow-600/20 border border-yellow-500 p-2 rounded mb-3 text-xs">
+        ⚠️ Medium confidence — consider adding evidence
+      </div>
+    );
+  }
+
+  return null;
+})()}
           {children}
         </div>
       )}
@@ -2798,6 +2961,28 @@ const FamilyPDFView = () => (
   />
 
   <label className="flex items-center gap-2 text-sm mt-3">
+  <input
+  type="file"
+  onChange={(e) => {
+    if (!e.target.files?.[0]) return;
+    handleFileUpload(
+      e.target.files[0],
+      "cognition",
+      "cognition"
+    );
+  }}
+  className="mt-3"
+/>
+
+<div className="mt-2 space-y-1">
+  {evidenceList
+    .filter((e) => e.section === "cognition")
+    .map((doc) => (
+      <div key={doc.file_url} className="text-xs text-blue-400">
+        📎 {doc.file_name}
+      </div>
+    ))}
+</div>
     <input
       type="checkbox"
       checked={Boolean(form.cognition_evidence)}
@@ -2944,18 +3129,40 @@ const FamilyPDFView = () => (
   <Section
     title="Sources of Information (select all that apply)"
     options={SOURCE_OPTIONS}
-    value={form.cognition_source || []}
-    onChange={(v) => handleInput("cognition_source", v)}
+    value={form.nutrition_source || []}
+    onChange={(v) => handleInput("nutrition_source", v)}
     multi
     disabled={viewMode}
   />
 
   <label className="flex items-center gap-2 text-sm mt-3">
+  <input
+  type="file"
+  onChange={(e) => {
+    if (!e.target.files?.[0]) return;
+    handleFileUpload(
+      e.target.files[0],
+      "nutrition",
+      "nutrition"
+    );
+  }}
+  className="mt-3"
+/>
+
+<div className="mt-2 space-y-1">
+  {evidenceList
+    .filter((e) => e.section === "nutrition")
+    .map((doc) => (
+      <div key={doc.file_url} className="text-xs text-blue-400">
+        📎 {doc.file_name}
+      </div>
+    ))}
+</div>
     <input
       type="checkbox"
-      checked={Boolean(form.cognition_evidence)}
+      checked={Boolean(form.nutrition_evidence)}
       onChange={(e) =>
-        handleInput("cognition_evidence", e.target.checked)
+        handleInput("nutrition_evidence", e.target.checked)
       }
     />
     Evidence provided
@@ -3128,6 +3335,28 @@ disabled={viewMode}
   />
 
   <label className="flex items-center gap-2 text-sm mt-3">
+  <input
+  type="file"
+  onChange={(e) => {
+    if (!e.target.files?.[0]) return;
+    handleFileUpload(
+      e.target.files[0],
+      "mobility",
+      "mobility"
+    );
+  }}
+  className="mt-3"
+/>
+
+<div className="mt-2 space-y-1">
+  {evidenceList
+    .filter((e) => e.section === "mobility")
+    .map((doc) => (
+      <div key={doc.file_url} className="text-xs text-blue-400">
+        📎 {doc.file_name}
+      </div>
+    ))}
+</div>
     <input
       type="checkbox"
       checked={Boolean(form.mobility_evidence)}
@@ -3260,6 +3489,28 @@ onChange={(e) => handleInput("pad_delivery", e.target.value)}
   />
 
   <label className="flex items-center gap-2 text-sm mt-3">
+  <input
+  type="file"
+  onChange={(e) => {
+    if (!e.target.files?.[0]) return;
+    handleFileUpload(
+      e.target.files[0],
+      "skin",
+      "skin"
+    );
+  }}
+  className="mt-3"
+/>
+
+<div className="mt-2 space-y-1">
+  {evidenceList
+    .filter((e) => e.section === "skin")
+    .map((doc) => (
+      <div key={doc.file_url} className="text-xs text-blue-400">
+        📎 {doc.file_name}
+      </div>
+    ))}
+</div>
     <input
       type="checkbox"
       checked={Boolean(form.skin_evidence)}
@@ -3461,6 +3712,28 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
   />
 
   <label className="flex items-center gap-2 text-sm mt-3">
+  <input
+  type="file"
+  onChange={(e) => {
+    if (!e.target.files?.[0]) return;
+    handleFileUpload(
+      e.target.files[0],
+      "medication",
+      "medication"
+    );
+  }}
+  className="mt-3"
+/>
+
+<div className="mt-2 space-y-1">
+  {evidenceList
+    .filter((e) => e.section === "medication")
+    .map((doc) => (
+      <div key={doc.file_url} className="text-xs text-blue-400">
+        📎 {doc.file_name}
+      </div>
+    ))}
+</div>
     <input
       type="checkbox"
       checked={Boolean(form.medication_evidence)}
@@ -3963,6 +4236,28 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   />
 
   <label className="flex items-center gap-2 text-sm mt-3">
+  <input
+  type="file"
+  onChange={(e) => {
+    if (!e.target.files?.[0]) return;
+    handleFileUpload(
+      e.target.files[0],
+      "safeguarding",
+      "safeguarding"
+    );
+  }}
+  className="mt-3"
+/>
+
+<div className="mt-2 space-y-1">
+  {evidenceList
+    .filter((e) => e.section === "safeguarding")
+    .map((doc) => (
+      <div key={doc.file_url} className="text-xs text-blue-400">
+        📎 {doc.file_name}
+      </div>
+    ))}
+</div>
     <input
       type="checkbox"
       checked={Boolean(form.safeguarding_evidence)}
