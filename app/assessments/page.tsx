@@ -815,6 +815,41 @@ mobility_evidence: data.mobility_evidence === true,
 skin_evidence: data.skin_evidence === true,
 medication_evidence: data.medication_evidence === true,
 safeguarding_evidence: data.safeguarding_evidence === true,
+cognition_source: Array.isArray(data.cognition_source)
+  ? data.cognition_source
+  : data.cognition_source
+  ? [data.cognition_source]
+  : [],
+
+nutrition_source: Array.isArray(data.nutrition_source)
+  ? data.nutrition_source
+  : data.nutrition_source
+  ? [data.nutrition_source]
+  : [],
+
+mobility_source: Array.isArray(data.mobility_source)
+  ? data.mobility_source
+  : data.mobility_source
+  ? [data.mobility_source]
+  : [],
+
+skin_source: Array.isArray(data.skin_source)
+  ? data.skin_source
+  : data.skin_source
+  ? [data.skin_source]
+  : [],
+
+medication_source: Array.isArray(data.medication_source)
+  ? data.medication_source
+  : data.medication_source
+  ? [data.medication_source]
+  : [],
+
+safeguarding_source: Array.isArray(data.safeguarding_source)
+  ? data.safeguarding_source
+  : data.safeguarding_source
+  ? [data.safeguarding_source]
+  : [],
 
     // ✅ FIX CRASH
     equipment: Array.isArray(data.equipment)
@@ -1416,61 +1451,25 @@ useEffect(() => {
   loadTimeline();
 }, [clientId]);
 
-useEffect(() => {
-  console.log("🔥 BMI EFFECT RUNNING");
-  if (isUpdatingRef.current) return;
+const bmi = (() => {
+  if (!form.weight || !form.height) return 0;
 
-  if (!form.weight || !form.height) return;
+  const h = Number(form.height) / 100;
+  const w = Number(form.weight);
 
-  const weight = Number(form.weight);
-  const heightMeters = Number(form.height) / 100;
+  if (h <= 0) return 0;
 
-  if (weight <= 0 || heightMeters <= 0) return;
+  return Number((w / (h * h)).toFixed(1));
+})();
 
-  const bmi = Number((weight / (heightMeters * heightMeters)).toFixed(1));
+const bmiCategory = (() => {
+  if (!bmi) return "";
 
-  if (Number(form.bmi) === bmi) return;
-
-  isUpdatingRef.current = true;
-
-  setForm((prev: any) => ({
-    ...prev,
-    bmi,
-  }));
-
-  setTimeout(() => {
-    isUpdatingRef.current = false;
-  }, 0);
-}, [form.weight, form.height]);
-
-useEffect(() => {
-  console.log("🔥 BMI category EFFECT RUNNING");
-  if (isUpdatingRef.current) return;
-
-  if (!form.bmi) return;
-
-  const bmi = Number(form.bmi);
-
-  let category = "";
-
-  if (bmi < 18.5) category = "underweight";
-  else if (bmi < 25) category = "healthy";
-  else if (bmi < 30) category = "overweight";
-  else category = "obese";
-
-  if (form.bmi_category === category) return;
-
-  isUpdatingRef.current = true;
-
-  setForm((prev: any) => ({
-    ...prev,
-    bmi_category: category,
-  }));
-
-  setTimeout(() => {
-    isUpdatingRef.current = false;
-  }, 0);
-}, [form.bmi]);
+  if (bmi < 18.5) return "underweight";
+  if (bmi < 25) return "healthy";
+  if (bmi < 30) return "overweight";
+  return "obese";
+})();
 
   useEffect(() => {
   const section = initialSectionRef.current;
@@ -1486,6 +1485,24 @@ useEffect(() => {
     });
   }
 }, []);
+
+const SOURCE_OPTIONS = [
+  "observation",
+  "family",
+  "gp",
+  "dn",
+  "ot",
+  "physio",
+  "salt",
+  "pharmacy",
+  "mar_chart",
+  "care_plan",
+  "hospital",
+  "dietician",
+  "tissue viability",
+  "social_worker",
+  "other",
+];
 
 useEffect(() => {
   if (!clientId) return;
@@ -1715,12 +1732,21 @@ const getProgress = () => {
   }
 
   // 💾 SAVE assessments
-  const cleanedForm = Object.fromEntries(
-  Object.entries(form).map(([key, value]) => [
-    key,
-    value === "" ? null : value,
-  ])
-);
+  const cleanedForm = {
+  ...Object.fromEntries(
+    Object.entries(form).map(([key, value]) => [
+      key,
+      value === "" ? null : value,
+    ])
+  ),
+
+  cognition_source: form.cognition_source || [],
+  nutrition_source: form.nutrition_source || [],
+  mobility_source: form.mobility_source || [],
+  skin_source: form.skin_source || [],
+  medication_source: form.medication_source || [],
+  safeguarding_source: form.safeguarding_source || [],
+};
 
 const { data, error } = await supabase
   .from("assessments")
@@ -1926,7 +1952,7 @@ if (Number(form.news2_score) >= 3) {
 
   // MUST HIGH RISK
 if (Number(form.must_score) >= 2) {
-  alerts.push("🚨 High malnutrition risk (MUST ≥2) — dietician referral required");
+  alerts.push("🚨 High malnutrition risk...");
 }
 
 // BMI UNDERWEIGHT
@@ -2692,27 +2718,86 @@ const FamilyPDFView = () => (
 />
 
 {["needs support", "non-verbal"].includes(form.communication) && (
-  <CommunicationBox
-    value={form.communication_support}
-    onChange={(val) => handleInput("communication_support", val)}
+  <>
+    <CommunicationBox
+      value={form.communication_support}
+      onChange={(val) => handleInput("communication_support", val)}
+      disabled={viewMode}
+    />
+
+    <div className="bg-[var(--card)] p-3 rounded mt-4 space-y-3">
+  <p className="text-sm font-semibold">Consent & Legal</p>
+
+  <Section
+    title="Consent Obtained"
+    options={["yes", "no"]}
+    value={form.consent_obtained || ""}
+    onChange={(v) => handleInput("consent_obtained", v)}
     disabled={viewMode}
   />
+
+  <Section
+    title="Consent Type"
+    options={["verbal", "written", "best interest"]}
+    value={form.consent_type || ""}
+    onChange={(v) => handleInput("consent_type", v)}
+    disabled={viewMode}
+  />
+
+  <Section
+    title="Advance Decision"
+    options={["none", "dnacpr", "living will"]}
+    value={form.advance_decision || ""}
+    onChange={(v) => handleInput("advance_decision", v)}
+    disabled={viewMode}
+  />
+
+  <Section
+    title="LPA Health & Welfare"
+    options={["no", "yes"]}
+    value={form.lpA_health_welfare || ""}
+    onChange={(v) => handleInput("lpA_health_welfare", v)}
+    disabled={viewMode}
+  />
+
+  <input
+    type="text"
+    placeholder="Capacity assessed for"
+    value={form.capacity_assessed_for || ""}
+    onChange={(e) => handleInput("capacity_assessed_for", e.target.value)}
+    className="w-full p-3 rounded bg-[var(--card)]"
+  />
+
+  <input
+    type="date"
+    value={fromISODate(form.capacity_assessment_date)}
+    onChange={(e) => handleInput("capacity_assessment_date", e.target.value)}
+    className="w-full p-3 rounded bg-[var(--card)]"
+  />
+
+  <input
+    type="text"
+    placeholder="Decision type"
+    value={form.decision_type || ""}
+    onChange={(e) => handleInput("decision_type", e.target.value)}
+    className="w-full p-3 rounded bg-[var(--card)]"
+  />
+</div>
+  </>
 )}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <p className="text-xs text-[var(--muted)] mb-2">
-  Select source of information
-</p>
+  <Section
+    title="Sources of Information (select all that apply)"
+    options={SOURCE_OPTIONS}
+    value={form.cognition_source || []}
+    onChange={(v) => handleInput("cognition_source", v)}
+    multi
+    disabled={viewMode}
+  />
 
-<select>
-  <option value="observation">Observation</option>
-    <option value="family">Family</option>
-    <option value="gp">GP</option>
-    <option value="other">Other</option>
-  </select>
-
-  <label className="flex items-center gap-2 text-sm">
+  <label className="flex items-center gap-2 text-sm mt-3">
     <input
       type="checkbox"
       checked={Boolean(form.cognition_evidence)}
@@ -2785,21 +2870,19 @@ const FamilyPDFView = () => (
 />
 
   <input
-    type="number"
-  inputMode="decimal"
-    placeholder="BMI"
-    value={form.bmi || ""}
-    readOnly
-    className="w-full p-3 text-base rounded bg-[var(--card)]"
-  />
+  type="number"
+  value={bmi || ""}
+  readOnly
+  className="w-full p-3 text-base rounded bg-[var(--card)]"
+/>
 
-  {form.bmi_category === "underweight" && (
+  {bmiCategory === "underweight" && (
   <div className="bg-red-600 p-3 rounded">
     🚨 Underweight — MUST assessments required
   </div>
 )}
 
-{form.bmi_category === "obese" && (
+{bmiCategory === "obese" && (
   <div className="bg-yellow-600 p-3 rounded">
     ⚠️ Obesity risk — monitor mobility & cardiovascular risk
   </div>
@@ -2858,23 +2941,21 @@ const FamilyPDFView = () => (
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <p className="text-xs text-[var(--muted)] mb-2">
-  Select source of information
-</p>
+  <Section
+    title="Sources of Information (select all that apply)"
+    options={SOURCE_OPTIONS}
+    value={form.cognition_source || []}
+    onChange={(v) => handleInput("cognition_source", v)}
+    multi
+    disabled={viewMode}
+  />
 
-<select>
-  <option value="observation">Observation</option>
-    <option value="family">Family</option>
-    <option value="gp">GP</option>
-    <option value="dietician">Dietician</option>
-  </select>
-
-  <label className="flex items-center gap-2 text-sm">
+  <label className="flex items-center gap-2 text-sm mt-3">
     <input
       type="checkbox"
-      checked={Boolean(form.nutrition_evidence)}
+      checked={Boolean(form.cognition_evidence)}
       onChange={(e) =>
-        handleInput("nutrition_evidence", e.target.checked)
+        handleInput("cognition_evidence", e.target.checked)
       }
     />
     Evidence provided
@@ -3037,18 +3118,16 @@ disabled={viewMode}
   <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <p className="text-xs text-[var(--muted)] mb-2">
-  Select source of information
-</p>
+  <Section
+    title="Sources of Information (select all that apply)"
+    options={SOURCE_OPTIONS}
+    value={form.mobility_source || []}
+    onChange={(v) => handleInput("mobility_source", v)}
+    multi
+    disabled={viewMode}
+  />
 
-<select>
-  <option value="observation">Observation</option>
-    <option value="ot">Occupational Therapist</option>
-    <option value="physio">Physio</option>
-    <option value="family">Family</option>
-  </select>
-
-  <label className="flex items-center gap-2 text-sm">
+  <label className="flex items-center gap-2 text-sm mt-3">
     <input
       type="checkbox"
       checked={Boolean(form.mobility_evidence)}
@@ -3146,6 +3225,13 @@ onChange={(e) => handleInput("pad_delivery", e.target.value)}
   disabled={viewMode}
 />
 
+<TextAreaField
+  value={form.skin_integrity_details}
+  onChange={(val) => handleInput("skin_integrity_details", val)}
+  placeholder="Describe skin condition, wounds, redness, etc."
+  disabled={viewMode}
+/>
+
 <div className="bg-blue-900/30 p-3 rounded text-xs">
   <p><strong>Pressure Ulcer Categories:</strong></p>
   <p>• Category 1: Redness</p>
@@ -3164,18 +3250,16 @@ onChange={(e) => handleInput("pad_delivery", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <p className="text-xs text-[var(--muted)] mb-2">
-  Select source of information
-</p>
+  <Section
+    title="Sources of Information (select all that apply)"
+    options={SOURCE_OPTIONS}
+    value={form.skin_source || []}
+    onChange={(v) => handleInput("skin_source", v)}
+    multi
+    disabled={viewMode}
+  />
 
-<select>
-  <option value="observation">Observation</option>
-    <option value="observation">Observation</option>
-    <option value="dn">District Nurse</option>
-    <option value="tissue viability">Tissue Viability Nurse</option>
-  </select>
-
-  <label className="flex items-center gap-2 text-sm">
+  <label className="flex items-center gap-2 text-sm mt-3">
     <input
       type="checkbox"
       checked={Boolean(form.skin_evidence)}
@@ -3281,6 +3365,21 @@ onChange={(e) => handleInput("pad_delivery", e.target.value)}
 />
 </div>
 
+<TextAreaField
+  value={form.prn_protocol}
+  onChange={(val) => handleInput("prn_protocol", val)}
+  placeholder="PRN protocol (when required meds should be given)"
+  disabled={viewMode}
+/>
+
+<Section
+  title="Medication Compliance Risk"
+  options={["low", "moderate", "high"]}
+  value={form.medication_compliance_risk || ""}
+  onChange={(v) => handleInput("medication_compliance_risk", v)}
+  disabled={viewMode}
+/>
+
       <div className="mb-4">
   <label className="text-sm text-[var(--muted)]">
     Medication Review Date (GP / Psychiatrist)
@@ -3352,18 +3451,16 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <p className="text-xs text-[var(--muted)] mb-2">
-  Select source of information
-</p>
+  <Section
+    title="Sources of Information (select all that apply)"
+    options={SOURCE_OPTIONS}
+    value={form.medication_source || []}
+    onChange={(v) => handleInput("medication_source", v)}
+    multi
+    disabled={viewMode}
+  />
 
-<select>
-  <option value="observation">Observation</option>
-    <option value="mar_chart">MAR Chart</option>
-    <option value="gp">GP</option>
-    <option value="pharmacy">Pharmacy</option>
-  </select>
-
-  <label className="flex items-center gap-2 text-sm">
+  <label className="flex items-center gap-2 text-sm mt-3">
     <input
       type="checkbox"
       checked={Boolean(form.medication_evidence)}
@@ -3647,6 +3744,20 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   disabled={viewMode}
 />
 
+<input
+  type="date"
+  value={fromISODate(form.last_deterioration)}
+  onChange={(e) => handleInput("last_deterioration", e.target.value)}
+  className="w-full p-3 rounded bg-[var(--card)]"
+/>
+
+<TextAreaField
+  value={form.baseline_status}
+  onChange={(val) => handleInput("baseline_status", val)}
+  placeholder="Baseline status (normal presentation)"
+  disabled={viewMode}
+/>
+
 <TextAreaField
   value={form.wound_care_plan}
   onChange={(val) => handleInput("wound_care_plan", val)}
@@ -3681,6 +3792,28 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
     onChange={(v) => handleInput("safeguarding", v)}
     disabled={viewMode}
   />
+
+  <Section
+  title="Referral Made"
+  options={["no", "yes"]}
+  value={form.safeguarding_referral_made || ""}
+  onChange={(v) => handleInput("safeguarding_referral_made", v)}
+  disabled={viewMode}
+/>
+
+<input
+  type="date"
+  value={fromISODate(form.safeguarding_date)}
+  onChange={(e) => handleInput("safeguarding_date", e.target.value)}
+  className="w-full p-3 rounded bg-[var(--card)]"
+/>
+
+<TextAreaField
+  value={form.safeguarding_outcome}
+  onChange={(val) => handleInput("safeguarding_outcome", val)}
+  placeholder="Outcome of safeguarding referral"
+  disabled={viewMode}
+/>
 
   {form.safeguarding === "concern" && (
   <div className="mt-4 space-y-4">
@@ -3820,17 +3953,16 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <p className="text-xs text-[var(--muted)] mb-2">
-  Select source of information
-</p>
+  <Section
+    title="Sources of Information (select all that apply)"
+    options={SOURCE_OPTIONS}
+    value={form.safeguarding_source || []}
+    onChange={(v) => handleInput("safeguarding_source", v)}
+    multi
+    disabled={viewMode}
+  />
 
-<select>
-  <option value="observation">Observation</option>
-    <option value="family">Family</option>
-    <option value="social_worker">Social Worker</option>
-  </select>
-
-  <label className="flex items-center gap-2 text-sm">
+  <label className="flex items-center gap-2 text-sm mt-3">
     <input
       type="checkbox"
       checked={Boolean(form.safeguarding_evidence)}
