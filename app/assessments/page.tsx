@@ -170,11 +170,7 @@ const TextAreaField = ({
   );
 };
 function AssessmentPageContent() {
-  console.log("FORM:", form);
-  console.log("TIMELINE:", timeline);
-  console.log("PROMPTS:", prompts);
-  console.log("CONFLICTS:", conflicts);
-
+  
   const isUserTypingRef = useRef(false);
   
   const router = useRouter();
@@ -2163,6 +2159,12 @@ const isOverdue =
   disabled?: boolean;
 }) => {
   const isOpen = openSection === id;
+
+  console.log("FORM:", form);
+  console.log("TIMELINE:", timeline);
+  console.log("PROMPTS:", prompts);
+  console.log("CONFLICTS:", conflicts);
+
 
   return (
     <div id={id} className="bg-[var(--card)] rounded mb-4 overflow-hidden">
