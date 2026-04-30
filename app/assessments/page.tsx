@@ -170,6 +170,7 @@ const TextAreaField = ({
   );
 };
 function AssessmentPageContent() {
+   console.log("🔥 COMPONENT START");
   
   const isUserTypingRef = useRef(false);
   
@@ -201,7 +202,7 @@ const generatePDF = async () => {
     .from(element)
     .save();
 };
-
+console.log("STEP 1");
   const [form, setForm] = useState<any>({
   client_id: clientId || "",
 
@@ -489,6 +490,8 @@ const [loading, setLoading] = useState(false);
 const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [openSection, setOpenSection] = useState<string | null>("cognition");
 const [hasLoaded, setHasLoaded] = useState(false);
+console.log("STEP 2");
+
 const [timeline, setTimeline] = useState<any[]>([]);
 const [isTyping, setIsTyping] = useState(false);
 const [conflicts, setConflicts] = useState<any[]>([]);
@@ -2333,10 +2336,6 @@ const FamilyPDFView = () => (
     </div>
   </div>
 );
-console.log("FORM:", form);
-console.log("TIMELINE:", timeline);
-console.log("PROMPTS:", prompts);
-console.log("CONFLICTS:", conflicts);
 
 return (
   <>
