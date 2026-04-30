@@ -300,24 +300,24 @@ const { data: newClient } = await supabase
 };
 
 const lookupPostcode = async () => {
-  if (!postcode) return alert("Enter postcode");
+  if (!postcode.trim()) return alert("Enter postcode or address");
 
   setLoadingAddresses(true);
 
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(postcode + ", UK")}`
+      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(postcode)}`
     );
 
     const data = await res.json();
 
-    if (!data.length) {
+    if (!data || data.length === 0) {
       alert("No addresses found");
       setAddressResults([]);
       return;
     }
 
-    const results = data.slice(0, 5).map((item: any) => ({
+    const results = data.map((item: any) => ({
       address: item.display_name,
       lat: parseFloat(item.lat),
       lng: parseFloat(item.lon),
@@ -461,27 +461,41 @@ if (!user) {
 }
   return (
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
+    {access?.trial_end && (
+  <div
+  className={`mb-4 px-4 py-2 rounded-lg flex justify-between items-center text-sm ${
+    isTrialActive
+      ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500"
+      : "bg-red-600/20 text-red-300 border border-red-600"
+  }`}
+>
+  <span className="font-medium">
+    {isTrialActive
+      ? `⏳ Trial: ${timeLeft} left`
+      : "🚫 Trial ended"}
+  </span>
+
+  {!isTrialActive && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        router.push("/upgrade");
+      }}
+      className="bg-red-600 px-3 py-1 rounded text-xs"
+    >
+      Upgrade
+    </button>
+  )}
+</div>
+)}
       <div className="flex justify-between items-center mb-6">
-  <h1 className="text-2xl font-bold text-white">Clients</h1>
-
   <div className="flex gap-2">
-
     <input
-  placeholder="Search clients..."
+  placeholder="Search..."
   value={search}
   onChange={(e) => setSearch(e.target.value)}
   className="w-full mt-3 p-3 rounded bg-[var(--card)] text-sm"
 />
-    
-    {/* ✅ LOGOUT BUTTON (SOLO ONLY) */}
-    {access?.accountType === "solo" && (
-      <button
-        onClick={handleLogout}
-        className="bg-red-600 text-white px-4 py-2 rounded text-sm"
-      >
-        Logout
-      </button>
-    )}
 
     {/* EXISTING ADD CLIENT BUTTON */}
     <button
@@ -502,43 +516,11 @@ if (!user) {
       }}
       className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
     >
-      {showForm ? "Close" : "+ Add Client"}
+      {showForm ? "Close" : "+ Add New"}
     </button>
 
   </div>
 </div>
-      {access?.trial_end && access.plan === "free" && (
-  <div
-    className={`mb-4 p-4 rounded flex justify-between items-center ${
-      isTrialActive
-        ? "bg-yellow-600 text-black"
-        : "bg-red-700 text-white"
-    }`}
-  >
-
-    {isTrialActive ? (
-      <span>
-        ⏳ Trial active — {timeLeft} remaining
-      </span>
-    ) : (
-      <span>
-        🚫 Trial ended — upgrade to unlock routes, alerts & full care planning
-      </span>
-    )}
-
-    <button
-      onClick={(e) => {
-  e.stopPropagation();
-  router.push("/upgrade");
-}}
-      className="bg-black text-white px-4 py-2 rounded text-sm font-semibold"
-    >
-      Upgrade
-    </button>
-
-  </div>
-)}
-
 
       {/* ADD CLIENT FORM */}
       {showForm && (
@@ -583,12 +565,12 @@ if (!user) {
 
   <div className="mb-4">
   <label className="text-sm text-[var(--muted)] mb-1 block">
-    Postcode Lookup
+    Address / Postcode Search
   </label>
 
   <div className="flex gap-2 mb-2">
     <input
-      placeholder="Enter postcode"
+      placeholder="Enter address or postcode"
       value={postcode}
       onChange={(e) => setPostcode(e.target.value)}
       className="flex-1 p-3 rounded bg-[var(--card)]"
@@ -852,11 +834,15 @@ if (!user) {
     }`}
   >
     {/* HEADER */}
-    <div className="flex justify-between items-start">
-      <p className="font-semibold">
-        {client.first_name} {client.last_name}
-      </p>
-    </div>
+    <div className="flex justify-between items-center">
+  <p className="font-semibold">
+    {client.first_name} {client.last_name}
+  </p>
+
+  <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
+    {badge.label}
+  </span>
+</div>
 
     {/* EXPANDABLE */}
     {expandedClient === client.id && (
