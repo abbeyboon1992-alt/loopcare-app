@@ -70,6 +70,10 @@ const handleLogout = async () => {
 const [alerts, setAlerts] = useState<any[]>([]);
 
 const access = useAccess();
+const hasProAccess =
+  access?.plan === "pro" ||
+  (access?.trial_end &&
+    new Date(access.trial_end).getTime() > Date.now());
 
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
@@ -306,8 +310,8 @@ const lookupPostcode = async () => {
 
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(postcode)}`
-    );
+  `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=gb&q=${encodeURIComponent(postcode)}`
+);
 
     const data = await res.json();
 
@@ -317,11 +321,25 @@ const lookupPostcode = async () => {
       return;
     }
 
-    const results = data.map((item: any) => ({
-      address: item.display_name,
-      lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon),
-    }));
+    const results = data.map((item: any) => {
+  const a = item.address || {};
+
+  const line1 = [
+    a.house_number,
+    a.road
+  ].filter(Boolean).join(" ");
+
+  const line2 = [
+    a.city || a.town || a.village,
+    a.postcode
+  ].filter(Boolean).join(", ");
+
+  return {
+    address: [line1, line2].filter(Boolean).join(", "),
+    lat: parseFloat(item.lat),
+    lng: parseFloat(item.lon),
+  };
+});
 
     setAddressResults(results);
   } catch (err) {
@@ -332,10 +350,37 @@ const lookupPostcode = async () => {
   setLoadingAddresses(false);
 };
 const getRouteLines = () => {
-  return [...clients]
-    .filter((c) => typeof c.lat === "number" && typeof c.lng === "number")
-    .sort((a, b) => a.lat - b.lat) // simple north-south optimisation
-    .map((c) => [c.lat, c.lng]);
+  const points = clients.filter(
+    (c) => typeof c.lat === "number" && typeof c.lng === "number"
+  );
+
+  if (points.length < 2) return [];
+
+  const ordered = [points[0]];
+  const remaining = points.slice(1);
+
+  while (remaining.length) {
+    const last = ordered[ordered.length - 1];
+
+    let closestIndex = 0;
+    let closestDistance = Infinity;
+
+    remaining.forEach((point, i) => {
+      const dist = Math.sqrt(
+        Math.pow(point.lat - last.lat, 2) +
+        Math.pow(point.lng - last.lng, 2)
+      );
+
+      if (dist < closestDistance) {
+        closestDistance = dist;
+        closestIndex = i;
+      }
+    });
+
+    ordered.push(remaining.splice(closestIndex, 1)[0]);
+  }
+
+  return ordered.map((c) => [c.lat, c.lng]);
 };
 
 const calculateRiskScore = (client: any) => {
@@ -472,10 +517,10 @@ if (!user) {
   <span className="font-medium">
     {isTrialActive
       ? `⏳ Trial: ${timeLeft} left`
-      : "🚫 Trial ended"}
+      : "🚫 Trial ended — upgrade to unlock features"}
   </span>
 
-  {!isTrialActive && (
+  {!hasProAccess && (
     <button
       onClick={(e) => {
         e.stopPropagation();
@@ -673,12 +718,12 @@ if (!user) {
 {/* 🗺️ CLIENT MAP */}
 <div
   className={`mb-8 rounded-x1 overflow-hidden relative ${
-  !canAccessFeature("map", access.plan, access.accountType) && !isTrialActive ? "blur-[2px] brightness-75" : ""
+  !hasProAccess ? "blur-[2px] brightness-75" : ""
 }`}
 >
 
   {/* 🔒 LOCK OVERLAY */}
-  {!canAccessFeature("map", access.plan, access.accountType) && !isTrialActive&& (
+  {!hasProAccess && (
    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
@@ -708,7 +753,7 @@ if (!user) {
     </div>
   )}
 
-  {canAccessFeature("map", access.plan, access.accountType) && (
+  {hasProAccess && (
   <div className="mb-2 text-xs text-gray-400">
     Optimised route enabled
   </div>
@@ -718,7 +763,7 @@ if (!user) {
     key="clients-map"
     center={[53.258, -2.125]}
     zoom={11}
-    className="h-64 w-full rounded-lg"
+    className="h-72 sm:h-80 w-full rounded-lg"
   >
     <FitBounds clients={clients} enabled={clients.length > 0} />
       <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
@@ -729,8 +774,7 @@ if (!user) {
       attribution="&copy; OpenStreetMap contributors"
       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
     />
-   {canAccessFeature("map", access.plan, access.accountType) &&
-  clients.length > 1 && (
+   {hasProAccess && clients.length > 1 && (
     <Polyline positions={getRouteLines()} />
 )}
     {clients
@@ -839,9 +883,7 @@ if (!user) {
     {client.first_name} {client.last_name}
   </p>
 
-  <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
-    {badge.label}
-  </span>
+
 </div>
 
     {/* EXPANDABLE */}
@@ -914,34 +956,32 @@ if (!user) {
 
     {/* BADGES */}
     <div className="flex flex-wrap gap-2 mt-3">
-      <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
-        {badge.label}
-      </span>
 
-      {!hasAssessment && (
-        <span className="text-xs bg-red-600 px-2 py-1 rounded">
-          ⚠️ No Assessment
-        </span>
-      )}
+  {!hasAssessment && (
+    <span className="text-xs bg-red-600 px-2 py-1 rounded">
+      ⚠️ No Assessment
+    </span>
+  )}
 
-      {!mcaComplete && hasMCAAlert && (
-        <span className="text-xs bg-purple-700 px-2 py-1 rounded">
-          🧠 MCA Required
-        </span>
-      )}
+  {!mcaComplete && hasMCAAlert && (
+    <span className="text-xs bg-purple-700 px-2 py-1 rounded">
+      🧠 MCA Required
+    </span>
+  )}
 
-      {!bestInterestComplete && hasBestInterestAlert && (
-        <span className="text-xs bg-orange-600 px-2 py-1 rounded">
-          ⚖️ Best Interest
-        </span>
-      )}
+  {!bestInterestComplete && hasBestInterestAlert && (
+    <span className="text-xs bg-orange-600 px-2 py-1 rounded">
+      ⚖️ Best Interest
+    </span>
+  )}
 
-      {hasSafeguarding && (
-        <span className="text-xs bg-red-800 px-2 py-1 rounded">
-          🚨 Safeguarding
-        </span>
-      )}
-    </div>
+  {hasSafeguarding && (
+    <span className="text-xs bg-red-800 px-2 py-1 rounded">
+      🚨 Safeguarding
+    </span>
+  )}
+
+</div>
   </div>
 );
 })}
