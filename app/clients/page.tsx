@@ -158,11 +158,10 @@ setClients(clientsData || []);
 };
 
 useEffect(() => {
-  console.log("USER IN LOAD:", user);
-console.log("PROFILE:", profile);
-console.log("CLIENTS RAW:", clients);
+  if (!user) return;
+
   loadClients();
-}, []);
+}, [user]);
 
 useEffect(() => {
   console.log("ACCESS:", access);
@@ -170,9 +169,11 @@ useEffect(() => {
 
 useEffect(() => {
   const loadUser = async () => {
-    const { data } = await supabase.auth.getUser();
+    const {
+  data: { session },
+} = await supabase.auth.getSession();
 
-setUser(data.user);
+setUser(session?.user);
 setAuthLoading(false);
   };
 
@@ -252,8 +253,6 @@ const addClient = async () => {
   const currentUser = session?.user;
 if (!currentUser) return;
 
-  if (!user) return;
-
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("organisation_id")
@@ -301,7 +300,7 @@ if (!currentUser) return;
 const { data: newClient } = await supabase
   .from("clients")
   .select("id")
-  .limit(10)
+  .eq("organisation_id", profile.organisation_id)
   .order("created_at", { ascending: false })
   .limit(1)
   .single();
