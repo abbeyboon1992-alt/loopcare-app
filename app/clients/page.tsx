@@ -425,7 +425,7 @@ const getRiskBadge = (score: number) => {
     return { label: "HIGH", color: "bg-orange-600" };
   if (score >= 2)
     return { label: "MEDIUM", color: "bg-yellow-500" };
-  return { label: "LOW", color: "bg-green-600" };
+  return { label: "LOW RISK", color: "bg-green-600" };
 };
 
 const handleToggleClick = (clientId: string, currentStatus: string) => {
