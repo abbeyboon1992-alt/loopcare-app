@@ -170,7 +170,11 @@ const TextAreaField = ({
   );
 };
 function AssessmentPageContent() {
-  
+  console.log("FORM:", form);
+  console.log("TIMELINE:", timeline);
+  console.log("PROMPTS:", prompts);
+  console.log("CONFLICTS:", conflicts);
+
   const isUserTypingRef = useRef(false);
   
   const router = useRouter();
