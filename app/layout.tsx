@@ -30,14 +30,12 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
         
-        <AccessProvider>
-          <OfflineBanner />
-          <NavWrapper />
+        <OfflineBanner />
+<NavWrapper />
 
-          <main className="pt-20 px-3 sm:px-4 md:px-6 max-w-5xl mx-auto w-full">
-            {children}
-          </main>
-        </AccessProvider>
+<main>
+  {children}
+</main>
 
       </body>
     </html>
