@@ -79,19 +79,10 @@ const handleLogout = async () => {
   router.push("/login");
 };
 const [alerts, setAlerts] = useState<any[]>([]);
-const rawAccess = useAccess();
-
-const access = useMemo(() => {
-  if (rawAccess) return rawAccess;
-
-  return {
-    plan: "free",
-    accountType: "solo",
-    isTrialActive: false,
-    trial_end: null,
-    daysLeft: 0,
-  };
-}, [rawAccess]);
+const access = useAccess();
+if (!access) {
+  return <div className="p-6 text-white">Loading access...</div>;
+}
 
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
@@ -455,7 +446,7 @@ const updateClientStatus = async (
   setShowInactiveModal(false);
 };
 const isTrialActive =
-  !!access?.trial_end &&
+  !!access.trial_end &&
   !isNaN(new Date(access.trial_end as string).getTime()) &&
   new Date(access.trial_end as string).getTime() > Date.now();
   
