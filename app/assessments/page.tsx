@@ -839,8 +839,7 @@ useEffect(() => {
   }
 }, [clientId]);
 
-useEffect(() => {
-    const hasLoadedRef = useRef(false);
+const hasLoadedRef = useRef(false);
 
 useEffect(() => {
   const loadAssessment = async () => {
@@ -1363,10 +1362,13 @@ useEffect(() => {
 
 }, [recentVisits]);
 
+useEffect(() => {
+  if (!recentVisits.length) return;
+
   // 🚫 STOP PROMPTS IF CONFLICT EXISTS
   if (conflicts.length > 0) return;
 
-  // ✅ EXISTING CONFIDENCE LOGIC CONTINUES BELOW
+  const lastVisit = recentVisits[recentVisits.length - 1];
 
   // 🔥 SKIN IMPROVEMENT
   if (
@@ -1414,8 +1416,7 @@ useEffect(() => {
       source_visit_id: lastVisit.id,
     });
   }
-
-}, [recentVisits]);
+}, [recentVisits, conflicts, form]);
 
 useEffect(() => {
   if (!clientId) return;
@@ -2235,25 +2236,6 @@ const isOverdue =
   );
 };
 
-
-if (!access) {
-  return <div className="p-6 text-center">Loading...</div>;
-}
-
-if (!hasAssessmentAccess) {
-  return (
-    <div className="p-6 text-center">
-      <p className="mb-4">Assessments are a Pro feature</p>
-      <button
-        onClick={() => router.push("/upgrade")}
-        className="bg-blue-600 px-4 py-2 rounded"
-      >
-        Upgrade
-      </button>
-    </div>
-  );
-}
-
 const friendlyText = {
   mobility: {
     independent: "Moves around safely on their own",
@@ -2301,7 +2283,6 @@ const compareToBaseline = (field: string, current: any) => {
 
   return null;
 };
-
 
 const FamilyPDFView = () => (
   <div className="bg-white text-black p-6 space-y-4 text-sm">
@@ -2352,11 +2333,26 @@ const FamilyPDFView = () => (
 );
 
 
-  return (
-    <div
-  id="pdf-content"
-  className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 md:p-6 max-w-3xl mx-auto"
-><div className="flex justify-start mb-4">
+return (
+  <>
+    {!access ? (
+      <div className="p-6 text-center">Loading...</div>
+    ) : !hasAssessmentAccess ? (
+      <div className="p-6 text-center">
+        <p className="mb-4">Assessments are a Pro feature</p>
+        <button
+          onClick={() => router.push("/upgrade")}
+          className="bg-blue-600 px-4 py-2 rounded"
+        >
+          Upgrade
+        </button>
+      </div>
+    ) : (
+      <div
+        id="pdf-content"
+        className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 md:p-6 max-w-3xl mx-auto"
+      >
+<div className="flex justify-start mb-4">
   <button
   type="button"
   onClick={() => {
@@ -4536,6 +4532,8 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
   </div>
 )}
 </div>
+    )}
+  </>
 );
 }
 export default function AssessmentPage() {
