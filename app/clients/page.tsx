@@ -158,9 +158,11 @@ setClients(clientsData || []);
 };
 
 useEffect(() => {
-  if (!user) return;
+  console.log("USER IN LOAD:", user);
+console.log("PROFILE:", profile);
+console.log("CLIENTS RAW:", clients);
   loadClients();
-}, [user]);
+}, []);
 
 useEffect(() => {
   console.log("ACCESS:", access);
