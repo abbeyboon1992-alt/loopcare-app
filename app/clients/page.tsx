@@ -301,7 +301,7 @@ if (!currentUser) return;
 const { data: newClient } = await supabase
   .from("clients")
   .select("id")
-  .eq("organisation_id", profile.organisation_id)
+  .limit(10)
   .order("created_at", { ascending: false })
   .limit(1)
   .single();
