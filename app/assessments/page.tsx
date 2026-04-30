@@ -674,6 +674,12 @@ const [biList, setBiList] = useState<any[]>([]);
 const initialSectionRef = useRef<string | null>(null);
 
 useEffect(() => {
+  console.log("FORM:", form);
+  console.log("TIMELINE:", timeline);
+  console.log("PROMPTS:", prompts);
+  console.log("CONFLICTS:", conflicts);}, []);
+
+useEffect(() => {
   if (!initialSectionRef.current) {
     initialSectionRef.current = searchParams.get("section");
   }
