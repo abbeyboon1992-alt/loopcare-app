@@ -928,7 +928,9 @@ if (!user) {
     return;
   }
 
-  router.push(`/clients/${client.id}`);
+  setExpandedClient(
+    expandedClient === client.id ? null : client.id
+  );
 }}
     className="flex-1 cursor-pointer"
   >
@@ -1053,19 +1055,6 @@ if (!user) {
     {/* ACTIONS */}
     <div className="mt-3 flex gap-2 flex-wrap">
 
-  <button
-  onClick={(e) => {
-    e.stopPropagation();
-    if (isLocked) {
-    router.push("/upgrade");
-    return;
-  }
-    router.push(`/clients/${client.id}`);
-  }}
-  className="text-xs bg-gray-700 px-2 py-1 rounded"
->
-  Open Client
-</button>
       {!hasAssessment && (
         <button
           onClick={(e) => {
