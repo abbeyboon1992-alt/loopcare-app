@@ -14,7 +14,6 @@ import dynamicImport from "next/dynamic";
 import { useMap } from "react-leaflet";
 import { careTypes } from "@/lib/careTypes";
 import diagnoses from "@/data/diagnoses.json";
-import { useMemo } from "react";
 import { useAccess } from "@/app/context/AccessContext";
 
 const MapContainer = dynamicImport(
@@ -78,7 +77,6 @@ const [profile, setProfile] = useState<any>(null);
 const [mapReady, setMapReady] = useState(false);
 const [timeLeft, setTimeLeft] = useState("");
   const [clients, setClients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
 const [postcode, setPostcode] = useState("");
 const [addressResults, setAddressResults] = useState<any[]>([]);
@@ -308,8 +306,8 @@ const lookupPostcode = async () => {
 
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?postalcode=${postcode}&country=UK&format=json`
-    );
+  `https://nominatim.openstreetmap.org/search?q=${postcode}&country=UK&format=json`
+);
 
     const data = await res.json();
 
@@ -357,7 +355,11 @@ const calculateRiskScore = (client: any) => {
   (a: any) => a.client_id === client.id
 );
 
-  score += clientAlerts.length;
+  clientAlerts.forEach((a) => {
+  if (a.severity === "critical") score += 3;
+  else if (a.severity === "high") score += 2;
+  else score += 1;
+});
 
   return score;
 };
@@ -681,13 +683,13 @@ if (!user) {
       )}
 {/* 🗺️ CLIENT MAP */}
 <div
-  className={`mb-6 rounded-lg overflow-hidden relative ${
-  access?.plan === "free" ? "blur-[2px] brightness-75" : ""
+  className={`mb-8 rounded-x1 overflow-hidden relative ${
+  !canAccessFeature("map", access.plan, access.accountType) && !isTrialActive ? "blur-[2px] brightness-75" : ""
 }`}
 >
 
   {/* 🔒 LOCK OVERLAY */}
-  {access?.plan === "free" && !isTrialActive&& (
+  {!canAccessFeature("map", access.plan, access.accountType) && !isTrialActive && !isTrialActive&& (
    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
@@ -731,21 +733,53 @@ if (!user) {
       attribution="&copy; OpenStreetMap contributors"
       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
     />
-
+   {clients.length > 1 && (
+   <Polyline positions={getRouteLines()} />
+   )}
     {clients
       .filter(
         (c) => typeof c.lat === "number" && typeof c.lng === "number"
       )
       .map((client) => (
-        <Marker key={client.id} position={[client.lat, client.lng]}>
-          <Popup>...</Popup>
+        <Marker
+  key={client.id}
+  position={[client.lat, client.lng]}
+  icon={
+    new (require("leaflet")).Icon({
+      iconUrl:
+        calculateRiskScore(client) >= 6
+          ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
+          : calculateRiskScore(client) >= 3
+          ? "https://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
+          : "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
+      iconSize: [32, 32],
+    })
+  }
+>
+          <Popup>
+  <div className="text-sm">
+    <p className="font-semibold">
+      {client.first_name} {client.last_name}
+    </p>
+
+    {client.address && (
+      <p className="text-xs text-gray-400">
+        {client.address}
+      </p>
+    )}
+
+    <p className="text-xs mt-1">
+      Risk: {getRiskBadge(calculateRiskScore(client)).label}
+    </p>
+  </div>
+</Popup>
         </Marker>
       ))}
   </MapContainer>
 )}
 
 {/* CLIENT LIST */}
-<div className="space-y-3">
+<div className="space-y-4 mt-4">
 {(clients || []).map((client) => {
   const assessments = Array.isArray(client.assessments)
     ? client.assessments[0]
@@ -790,45 +824,114 @@ if (!user) {
     <div
       key={client.id}
       onClick={() => router.push(`/clients/${client.id}`)}
-      className={`bg-[var(--card)] p-4 rounded cursor-pointer border ${
+      className={`bg-[var(--card)] p-5 rounded-xl cursor-pointer border shadow-sm ${
         access?.plan === "pro" ? borderColor : "border-transparent"
       }`}
     >
       <p className="font-semibold">
         {client.first_name} {client.last_name}
       </p>
+      <div className="mt-2 flex gap-2">
+        <div className="mt-2 space-y-1">
+
+  {/* DNACPR */}
+  {assessments.dnacpr && (
+    <p className="text-xs text-red-400 font-semibold">
+      🚫 DNACPR in place
+    </p>
+  )}
+
+  {/* Allergies */}
+  {assessments.allergies && (
+    <p className="text-xs text-orange-400">
+      ⚠ Allergies recorded
+    </p>
+  )}
+
+  {/* Keysafe */}
+  {client.keysafe_access && (
+    <p className="text-xs text-gray-400">
+      🔑 Keysafe: {client.keysafe_access}
+    </p>
+  )}
+
+</div>
+
+  {!hasAssessment && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        router.push(`/assessments?client=${client.id}`);
+      }}
+      className="text-xs bg-blue-600 px-2 py-1 rounded"
+    >
+      Start Assessment
+    </button>
+  )}
+
+  {isAssessmentStarted && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        router.push(`/assessments?client=${client.id}`);
+      }}
+      className="text-xs bg-yellow-600 px-2 py-1 rounded"
+    >
+      Continue Assessment
+    </button>
+  )}
+
+  {isAssessmentComplete && (
+    <span className="text-xs bg-green-600 px-2 py-1 rounded">
+      ✔ Assessment Complete
+    </span>
+  )}
+
+</div>
+      <div className="text-xs text-gray-400 mt-1">
+  Assessment: {progress}%
+</div>
 
       {hasAddress && (
         <p className="text-sm text-gray-400">{client.address}</p>
       )}
 
-      <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
-        {badge.label}
-      </span>
+      <div className="flex flex-wrap gap-2 mt-3">
 
-      {!hasAssessment && (
-        <span className="text-xs bg-red-600 px-2 py-1 rounded">
-          ⚠️ No Assessment
-        </span>
-      )}
+  {/* Risk */}
+  <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
+    {badge.label}
+  </span>
 
-      {!mcaComplete && hasMCAAlert && (
-        <span className="text-xs bg-purple-700 px-2 py-1 rounded">
-          🧠 MCA Required
-        </span>
-      )}
+  {/* No assessment */}
+  {!hasAssessment && (
+    <span className="text-xs bg-red-600 px-2 py-1 rounded">
+      ⚠️ No Assessment
+    </span>
+  )}
 
-      {!bestInterestComplete && hasBestInterestAlert && (
-        <span className="text-xs bg-orange-600 px-2 py-1 rounded">
-          ⚖️ Best Interest
-        </span>
-      )}
+  {/* MCA */}
+  {!mcaComplete && hasMCAAlert && (
+    <span className="text-xs bg-purple-700 px-2 py-1 rounded">
+      🧠 MCA Required
+    </span>
+  )}
 
-      {hasSafeguarding && (
-        <span className="text-xs bg-red-800 px-2 py-1 rounded">
-          🚨 Safeguarding
-        </span>
-      )}
+  {/* Best interest */}
+  {!bestInterestComplete && hasBestInterestAlert && (
+    <span className="text-xs bg-orange-600 px-2 py-1 rounded">
+      ⚖️ Best Interest
+    </span>
+  )}
+
+  {/* Safeguarding */}
+  {hasSafeguarding && (
+    <span className="text-xs bg-red-800 px-2 py-1 rounded">
+      🚨 Safeguarding
+    </span>
+  )}
+
+</div>
     </div>
   );
 })}
