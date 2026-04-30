@@ -5,8 +5,6 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 10));
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -93,11 +91,8 @@ console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 10));
         >
           Login
         </button>
-      </div>
-    </div>
-  );
 
-  <button
+        <button
   onClick={async () => {
     if (!form.email) {
       alert("Enter your email first");
@@ -122,4 +117,7 @@ console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 10));
 >
   Forgot password?
 </button>
+      </div>
+    </div>
+  );
 }
