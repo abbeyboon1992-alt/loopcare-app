@@ -420,11 +420,11 @@ const getRiskBorder = (score: number) => {
 
 const getRiskBadge = (score: number) => {
   if (score >= 6)
-    return { label: "CRITICAL", color: "bg-red-700" };
+    return { label: "CRITICAL RISK", color: "bg-red-700" };
   if (score >= 4)
-    return { label: "HIGH", color: "bg-orange-600" };
+    return { label: "HIGH RISK", color: "bg-orange-600" };
   if (score >= 2)
-    return { label: "MEDIUM", color: "bg-yellow-500" };
+    return { label: "MEDIUM RISK", color: "bg-yellow-500" };
   return { label: "LOW RISK", color: "bg-green-600" };
 };
 
