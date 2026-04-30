@@ -15,6 +15,8 @@ import diagnoses from "@/data/diagnoses.json";
 import { useMap } from "react-leaflet";
 import { useMemo } from "react";
 import { useAccess } from "@/app/context/AccessContext";
+
+const [authLoading, setAuthLoading] = useState(true);
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false }
@@ -41,6 +43,17 @@ const Polyline = dynamic(
 );
 function FitBounds({ clients, enabled }: any) {
   const map = useMap();
+
+  useEffect(() => {
+  const loadUser = async () => {
+    const { data } = await supabase.auth.getUser();
+
+    
+    setAuthLoading(false);
+  };
+
+  loadUser();
+}, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -111,11 +124,8 @@ const [loadingAddresses, setLoadingAddresses] = useState(false);
 
 // LOAD CLIENTS
 const loadClients = async () => {
-  const {
-  data: { session },
-} = await supabase.auth.getSession();
-
-const user = session?.user;
+  const { data } = await supabase.auth.getUser();
+const user = data.user;
 
   console.log("SESSION USER:", user);
 
@@ -123,9 +133,6 @@ const user = session?.user;
     console.log("❌ NO USER");
     return;
   }
-
-  // ✅ SAVE USER
-  setUser(user);
 
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
@@ -173,8 +180,9 @@ setClients(clientsData || []);
 };
 
 useEffect(() => {
+  if (!user) return;
   loadClients();
-}, []);
+}, [user]);
 
 useEffect(() => {
   console.log("ACCESS:", access);
@@ -452,8 +460,12 @@ const isTrialActive =
   new Date(access.trial_end as string).getTime() > Date.now();
   
 
-if (!user) {
+if (authLoading) {
   return <div className="p-6 text-white">Loading...</div>;
+}
+
+if (!user) {
+  return <div className="p-6 text-white">No user</div>;
 }
   return (
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
