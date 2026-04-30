@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 declare global {
   interface Window {
     google: any;
@@ -9,51 +10,39 @@ import { useState, useEffect } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
+import dynamicImport from "next/dynamic";
+import { useMap } from "react-leaflet";
 import { careTypes } from "@/lib/careTypes";
 import diagnoses from "@/data/diagnoses.json";
-import { useMap } from "react-leaflet";
 import { useMemo } from "react";
 import { useAccess } from "@/app/context/AccessContext";
 
-const [authLoading, setAuthLoading] = useState(true);
-const MapContainer = dynamic(
+const MapContainer = dynamicImport(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false }
 );
 
-const TileLayer = dynamic(
+const TileLayer = dynamicImport(
   () => import("react-leaflet").then((mod) => mod.TileLayer),
   { ssr: false }
 );
 
-const Marker = dynamic(
+const Marker = dynamicImport(
   () => import("react-leaflet").then((mod) => mod.Marker),
   { ssr: false }
 );
 
-const Popup = dynamic(
+const Popup = dynamicImport(
   () => import("react-leaflet").then((mod) => mod.Popup),
   { ssr: false }
 );
 
-const Polyline = dynamic(
+const Polyline = dynamicImport(
   () => import("react-leaflet").then((mod) => mod.Polyline),
   { ssr: false }
 );
 function FitBounds({ clients, enabled }: any) {
   const map = useMap();
-
-  useEffect(() => {
-  const loadUser = async () => {
-    const { data } = await supabase.auth.getUser();
-
-    
-    setAuthLoading(false);
-  };
-
-  loadUser();
-}, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -72,6 +61,7 @@ function FitBounds({ clients, enabled }: any) {
   return null;
 }
 export default function Clients() {
+  const [authLoading, setAuthLoading] = useState(true);
   
   const router = useRouter();
 const handleLogout = async () => {
@@ -178,6 +168,17 @@ useEffect(() => {
 useEffect(() => {
   console.log("ACCESS:", access);
 }, [access]);
+
+useEffect(() => {
+  const loadUser = async () => {
+    const { data } = await supabase.auth.getUser();
+
+setUser(data.user);
+setAuthLoading(false);
+  };
+
+  loadUser();
+}, []);
 
 
   // ✅ FIX LEAFLET SSR ERROR
