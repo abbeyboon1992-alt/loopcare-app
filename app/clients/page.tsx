@@ -47,9 +47,11 @@ function FitBounds({ clients, enabled }: any) {
     if (!enabled) return;
 
     const valid = clients.filter(
-      (c: any) => typeof c.lat === "number" && typeof c.lng === "number"
-    );
-
+  (c: any) =>
+    c.status !== "inactive" &&
+    typeof c.lat === "number" &&
+    typeof c.lng === "number"
+);
     if (valid.length === 0) return;
 
     const bounds = valid.map((c: any) => [c.lat, c.lng]);
@@ -354,8 +356,11 @@ const lookupPostcode = async () => {
 };
 const getRouteLines = () => {
   const points = clients.filter(
-    (c) => typeof c.lat === "number" && typeof c.lng === "number"
-  );
+  (c) =>
+    c.status !== "inactive" &&
+    typeof c.lat === "number" &&
+    typeof c.lng === "number"
+);
 
   if (points.length < 2) return [];
 
@@ -808,9 +813,12 @@ if (!user) {
     <Polyline positions={getRouteLines()} />
 )}
     {clients
-      .filter(
-        (c) => typeof c.lat === "number" && typeof c.lng === "number"
-      )
+  .filter(
+    (c) =>
+      c.status !== "inactive" &&
+      typeof c.lat === "number" &&
+      typeof c.lng === "number"
+  )
       .map((client) => (
         <Marker
   key={client.id}
