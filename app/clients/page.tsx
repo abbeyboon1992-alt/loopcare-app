@@ -94,6 +94,7 @@ const [search, setSearch] = useState("");
   first_name: "",
   last_name: "",
   date_of_birth: "",
+  phone: "",
   care_type: "elderly",
   diagnosis: [] as string[],
   address: "",
@@ -264,6 +265,7 @@ if (!currentUser) return;
       last_name: form.last_name,
       name: `${form.first_name} ${form.last_name}`,
       date_of_birth: form.date_of_birth || null,
+      phone: form.phone,
       care_type: form.care_type,
       diagnosis: form.diagnosis,
       address: form.address,
@@ -283,6 +285,7 @@ if (!currentUser) return;
   first_name: "",
   last_name: "",
   date_of_birth: "",
+  phone: "",
   care_type: "elderly",
   diagnosis: [],
   address: "",
@@ -549,6 +552,7 @@ if (!user) {
           first_name: "",
           last_name: "",
           date_of_birth: "",
+          phone: "",
           care_type: "elderly",
           diagnosis: [],
           address: "",
@@ -604,6 +608,15 @@ if (!user) {
   value={form.keysafe_access}
   onChange={(e) =>
     setForm({ ...form, keysafe_access: e.target.value })
+  }
+  className="w-full p-3 text-base mb-3 rounded bg-[var(--card)]"
+/>
+
+<input
+  placeholder="Contact number"
+  value={form.phone}
+  onChange={(e) =>
+    setForm({ ...form, phone: e.target.value })
   }
   className="w-full p-3 text-base mb-3 rounded bg-[var(--card)]"
 />
@@ -717,7 +730,7 @@ if (!user) {
       )}
 {/* 🗺️ CLIENT MAP */}
 <div
-  className={`mb-8 rounded-x1 overflow-hidden relative ${
+  className={`mb-8 rounded-xl overflow-hidden relative ${
   !hasProAccess ? "blur-[2px] brightness-75" : ""
 }`}
 >
@@ -874,15 +887,33 @@ if (!user) {
       )
     }
     className={`bg-[var(--card)] p-4 sm:p-5 rounded-xl cursor-pointer border shadow-sm ${
-      access?.plan === "pro" ? borderColor : "border-transparent"
-    }`}
+  borderColor
+}`}
   >
     {/* HEADER */}
-    <div className="flex justify-between items-center">
-  <p className="font-semibold">
-    {client.first_name} {client.last_name}
-  </p>
+<div className="flex justify-between items-center">
 
+  <div>
+    <p className="font-semibold">
+      {client.first_name} {client.last_name}
+    </p>
+
+    {client.phone && (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          window.location.href = `tel:${client.phone}`;
+        }}
+        className="text-xs text-green-400 mt-1"
+      >
+        📞 Call
+      </button>
+    )}
+  </div>
+
+  <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
+    {badge.label}
+  </span>
 
 </div>
 
@@ -904,6 +935,26 @@ if (!user) {
         {client.keysafe_access && (
           <p>🔑 Keysafe: {client.keysafe_access}</p>
         )}
+
+        {client.phone && (
+  <div className="flex items-center justify-between mt-2">
+
+    <span className="text-sm text-gray-300 truncate">
+      📞 {client.phone}
+    </span>
+
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        window.location.href = `tel:${client.phone}`;
+      }}
+      className="bg-green-600 px-3 py-1 rounded text-xs text-white"
+    >
+      Call
+    </button>
+
+  </div>
+)}
 
         <p>Assessment: {progress}%</p>
       </div>
