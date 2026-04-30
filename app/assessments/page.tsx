@@ -2160,10 +2160,6 @@ const isOverdue =
 }) => {
   const isOpen = openSection === id;
 
-  console.log("FORM:", form);
-  console.log("TIMELINE:", timeline);
-  console.log("PROMPTS:", prompts);
-  console.log("CONFLICTS:", conflicts);
 
 
   return (
@@ -2337,7 +2333,10 @@ const FamilyPDFView = () => (
     </div>
   </div>
 );
-
+console.log("FORM:", form);
+console.log("TIMELINE:", timeline);
+console.log("PROMPTS:", prompts);
+console.log("CONFLICTS:", conflicts);
 
 return (
   <>
@@ -4541,6 +4540,7 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
     )}
   </>
 );
+
 }
 export default function AssessmentPage() {
   return (
