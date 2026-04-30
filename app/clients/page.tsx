@@ -83,9 +83,9 @@ const [addressResults, setAddressResults] = useState<any[]>([]);
 const [showInactiveModal, setShowInactiveModal] = useState(false);
 const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 const [inactiveReason, setInactiveReason] = useState("");
-const [openAllergies, setOpenAllergies] = useState<string | null>(null);
-const [openKeysafe, setOpenKeysafe] = useState<string | null>(null);
 const [loadingAddresses, setLoadingAddresses] = useState(false);
+const [expandedClient, setExpandedClient] = useState<string | null>(null);
+const [search, setSearch] = useState("");
   const [form, setForm] = useState({
   first_name: "",
   last_name: "",
@@ -306,8 +306,8 @@ const lookupPostcode = async () => {
 
   try {
     const res = await fetch(
-  `https://nominatim.openstreetmap.org/search?q=${postcode}&country=UK&format=json`
-);
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(postcode + ", UK")}`
+    );
 
     const data = await res.json();
 
@@ -332,12 +332,12 @@ const lookupPostcode = async () => {
   setLoadingAddresses(false);
 };
 const getRouteLines = () => {
-  const points = clients
+  return [...clients]
     .filter((c) => typeof c.lat === "number" && typeof c.lng === "number")
+    .sort((a, b) => a.lat - b.lat) // simple north-south optimisation
     .map((c) => [c.lat, c.lng]);
-
-  return points;
 };
+
 const calculateRiskScore = (client: any) => {
   let score = 0;
 
@@ -465,6 +465,13 @@ if (!user) {
   <h1 className="text-2xl font-bold text-white">Clients</h1>
 
   <div className="flex gap-2">
+
+    <input
+  placeholder="Search clients..."
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  className="w-full mt-3 p-3 rounded bg-[var(--card)] text-sm"
+/>
     
     {/* ✅ LOGOUT BUTTON (SOLO ONLY) */}
     {access?.accountType === "solo" && (
@@ -689,7 +696,7 @@ if (!user) {
 >
 
   {/* 🔒 LOCK OVERLAY */}
-  {!canAccessFeature("map", access.plan, access.accountType) && !isTrialActive && !isTrialActive&& (
+  {!canAccessFeature("map", access.plan, access.accountType) && !isTrialActive&& (
    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
@@ -719,7 +726,11 @@ if (!user) {
     </div>
   )}
 
-  
+  {canAccessFeature("map", access.plan, access.accountType) && (
+  <div className="mb-2 text-xs text-gray-400">
+    Optimised route enabled
+  </div>
+)}
   {mapReady && (
   <MapContainer
     key="clients-map"
@@ -728,14 +739,18 @@ if (!user) {
     className="h-64 w-full rounded-lg"
   >
     <FitBounds clients={clients} enabled={clients.length > 0} />
+      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+  {clients.length} clients
+</div>
 
     <TileLayer
       attribution="&copy; OpenStreetMap contributors"
       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
     />
-   {clients.length > 1 && (
-   <Polyline positions={getRouteLines()} />
-   )}
+   {canAccessFeature("map", access.plan, access.accountType) &&
+  clients.length > 1 && (
+    <Polyline positions={getRouteLines()} />
+)}
     {clients
       .filter(
         (c) => typeof c.lat === "number" && typeof c.lng === "number"
@@ -779,8 +794,14 @@ if (!user) {
 )}
 
 {/* CLIENT LIST */}
-<div className="space-y-4 mt-4">
-{(clients || []).map((client) => {
+<div className="space-y-5 mt-6">
+{(clients || [])
+  .filter((client) =>
+    `${client.first_name} ${client.last_name}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  )
+  .map((client) => {
   const assessments = Array.isArray(client.assessments)
     ? client.assessments[0]
     : client.assessments || {};
@@ -791,8 +812,6 @@ if (!user) {
     ) || [];
 
   const hasAddress = !!client.address;
-  const hasKeysafe = !!client.keysafe_access;
-  const hasAllergies = !!assessments.allergies;
 
   const hasMCAAlert = clientAlerts.some((a) => a.type === "mca_missing");
   const hasBestInterestAlert = clientAlerts.some((a) => a.type === "best_interest_missing");
@@ -821,119 +840,124 @@ if (!user) {
   const badge = getRiskBadge(riskScore);
 
   return (
-    <div
-      key={client.id}
-      onClick={() => router.push(`/clients/${client.id}`)}
-      className={`bg-[var(--card)] p-5 rounded-xl cursor-pointer border shadow-sm ${
-        access?.plan === "pro" ? borderColor : "border-transparent"
-      }`}
-    >
+  <div
+    key={client.id}
+    onClick={() =>
+      setExpandedClient(
+        expandedClient === client.id ? null : client.id
+      )
+    }
+    className={`bg-[var(--card)] p-4 sm:p-5 rounded-xl cursor-pointer border shadow-sm ${
+      access?.plan === "pro" ? borderColor : "border-transparent"
+    }`}
+  >
+    {/* HEADER */}
+    <div className="flex justify-between items-start">
       <p className="font-semibold">
         {client.first_name} {client.last_name}
       </p>
-      <div className="mt-2 flex gap-2">
-        <div className="mt-2 space-y-1">
+    </div>
 
-  {/* DNACPR */}
-  {assessments.dnacpr && (
-    <p className="text-xs text-red-400 font-semibold">
-      🚫 DNACPR in place
-    </p>
-  )}
+    {/* EXPANDABLE */}
+    {expandedClient === client.id && (
+      <div className="mt-3 space-y-1 text-sm text-gray-300">
+        {client.address && <p>📍 {client.address}</p>}
 
-  {/* Allergies */}
-  {assessments.allergies && (
-    <p className="text-xs text-orange-400">
-      ⚠ Allergies recorded
-    </p>
-  )}
+        {assessments.dnacpr && (
+          <p className="text-red-400">🚫 DNACPR in place</p>
+        )}
 
-  {/* Keysafe */}
-  {client.keysafe_access && (
-    <p className="text-xs text-gray-400">
-      🔑 Keysafe: {client.keysafe_access}
-    </p>
-  )}
+        {assessments.allergies && (
+          <p className="text-orange-400">
+            ⚠ Allergies recorded
+          </p>
+        )}
 
-</div>
+        {client.keysafe_access && (
+          <p>🔑 Keysafe: {client.keysafe_access}</p>
+        )}
 
-  {!hasAssessment && (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        router.push(`/assessments?client=${client.id}`);
-      }}
-      className="text-xs bg-blue-600 px-2 py-1 rounded"
-    >
-      Start Assessment
-    </button>
-  )}
+        <p>Assessment: {progress}%</p>
+      </div>
+    )}
 
-  {isAssessmentStarted && (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        router.push(`/assessments?client=${client.id}`);
-      }}
-      className="text-xs bg-yellow-600 px-2 py-1 rounded"
-    >
-      Continue Assessment
-    </button>
-  )}
-
-  {isAssessmentComplete && (
-    <span className="text-xs bg-green-600 px-2 py-1 rounded">
-      ✔ Assessment Complete
-    </span>
-  )}
-
-</div>
-      <div className="text-xs text-gray-400 mt-1">
-  Assessment: {progress}%
-</div>
-
-      {hasAddress && (
-        <p className="text-sm text-gray-400">{client.address}</p>
+    {/* ACTIONS */}
+    <div className="mt-3 flex gap-2 flex-wrap">
+      {!hasAssessment && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/assessments?client=${client.id}`);
+          }}
+          className="text-xs bg-blue-600 px-2 py-1 rounded"
+        >
+          Start Assessment
+        </button>
       )}
 
-      <div className="flex flex-wrap gap-2 mt-3">
+      {isAssessmentStarted && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/assessments?client=${client.id}`);
+          }}
+          className="text-xs bg-yellow-600 px-2 py-1 rounded"
+        >
+          Continue Assessment
+        </button>
+      )}
 
-  {/* Risk */}
-  <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
-    {badge.label}
-  </span>
-
-  {/* No assessment */}
-  {!hasAssessment && (
-    <span className="text-xs bg-red-600 px-2 py-1 rounded">
-      ⚠️ No Assessment
-    </span>
-  )}
-
-  {/* MCA */}
-  {!mcaComplete && hasMCAAlert && (
-    <span className="text-xs bg-purple-700 px-2 py-1 rounded">
-      🧠 MCA Required
-    </span>
-  )}
-
-  {/* Best interest */}
-  {!bestInterestComplete && hasBestInterestAlert && (
-    <span className="text-xs bg-orange-600 px-2 py-1 rounded">
-      ⚖️ Best Interest
-    </span>
-  )}
-
-  {/* Safeguarding */}
-  {hasSafeguarding && (
-    <span className="text-xs bg-red-800 px-2 py-1 rounded">
-      🚨 Safeguarding
-    </span>
-  )}
-
-</div>
+      {isAssessmentComplete && (
+        <span className="text-xs bg-green-600 px-2 py-1 rounded">
+          ✔ Assessment Complete
+        </span>
+      )}
     </div>
-  );
+
+    {/* PROGRESS */}
+    <div className="text-xs text-gray-400 mt-2">
+      Assessment: {progress}%
+    </div>
+
+    {/* ADDRESS */}
+    {client.address && (
+      <p className="text-sm text-gray-400">
+        {client.address}
+      </p>
+    )}
+
+    {/* BADGES */}
+    <div className="flex flex-wrap gap-2 mt-3">
+      <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
+        {badge.label}
+      </span>
+
+      {!hasAssessment && (
+        <span className="text-xs bg-red-600 px-2 py-1 rounded">
+          ⚠️ No Assessment
+        </span>
+      )}
+
+      {!mcaComplete && hasMCAAlert && (
+        <span className="text-xs bg-purple-700 px-2 py-1 rounded">
+          🧠 MCA Required
+        </span>
+      )}
+
+      {!bestInterestComplete && hasBestInterestAlert && (
+        <span className="text-xs bg-orange-600 px-2 py-1 rounded">
+          ⚖️ Best Interest
+        </span>
+      )}
+
+      {hasSafeguarding && (
+        <span className="text-xs bg-red-800 px-2 py-1 rounded">
+          🚨 Safeguarding
+        </span>
+      )}
+    </div>
+  </div>
+);
 })}
 </div>
 </div> {/* CLIENT LIST */}
