@@ -107,11 +107,6 @@ const loadClients = async () => {
 
   console.log("SESSION USER:", user);
 
-  if (!user) {
-    console.log("❌ NO USER");
-    return;
-  }
-
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("organisation_id")
@@ -256,7 +251,7 @@ if (!currentUser) return;
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("organisation_id")
-    .eq("user_id", user.id)
+    .eq("user_id", currentUser.id)
     .maybeSingle();
 
   if (!profile) return;
@@ -446,9 +441,9 @@ const updateClientStatus = async (
   setShowInactiveModal(false);
 };
 const isTrialActive =
-  !!access!.trial_end &&
-  !isNaN(new Date(access!.trial_end as string).getTime()) &&
-  new Date(access!.trial_end as string).getTime() > Date.now();
+  !!access?.trial_end &&
+  !isNaN(new Date(access.trial_end as string).getTime()) &&
+  new Date(access.trial_end as string).getTime() > Date.now();
   
 
 if (authLoading) {
