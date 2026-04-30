@@ -92,6 +92,11 @@ const [inactiveReason, setInactiveReason] = useState("");
 const [loadingAddresses, setLoadingAddresses] = useState(false);
 const [expandedClient, setExpandedClient] = useState<string | null>(null);
 const [search, setSearch] = useState("");
+// ✅ helper: only active clients with valid coords
+const isActiveMappedClient = (c: any) =>
+  c.status !== "inactive" &&
+  typeof c.lat === "number" &&
+  typeof c.lng === "number";
   const [form, setForm] = useState({
   first_name: "",
   last_name: "",
@@ -355,12 +360,7 @@ const lookupPostcode = async () => {
   setLoadingAddresses(false);
 };
 const getRouteLines = () => {
-  const points = clients.filter(
-  (c) =>
-    c.status !== "inactive" &&
-    typeof c.lat === "number" &&
-    typeof c.lng === "number"
-);
+  const points = clients.filter(isActiveMappedClient);
 
   if (points.length < 2) return [];
 
@@ -812,13 +812,7 @@ if (!user) {
    {hasProAccess && clients.length > 1 && (
     <Polyline positions={getRouteLines()} />
 )}
-    {clients
-  .filter(
-    (c) =>
-      c.status !== "inactive" &&
-      typeof c.lat === "number" &&
-      typeof c.lng === "number"
-  )
+    {clients.filter(isActiveMappedClient)
       .map((client) => (
         <Marker
   key={client.id}
