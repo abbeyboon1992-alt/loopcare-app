@@ -470,6 +470,16 @@ const updateClientStatus = async (
     .eq("id", clientId)
     .eq("organisation_id", profile?.organisation_id);
 
+    await supabase.from("client_status_history").insert([
+  {
+    client_id: clientId,
+    organisation_id: profile?.organisation_id,
+    status: newStatus,
+    reason: newStatus === "inactive" ? reason : null,
+    changed_by: user.id,
+  },
+]);
+
   if (error) {
     alert("Failed to update");
     return;
@@ -494,6 +504,8 @@ const isTrialActive =
   !!access?.trial_end &&
   !isNaN(new Date(access.trial_end as string).getTime()) &&
   new Date(access.trial_end as string).getTime() > Date.now();
+
+  const isFreeUser = access?.plan !== "pro" && !isTrialActive;
   
 
 if (authLoading) {
@@ -547,26 +559,31 @@ if (!user) {
 
     {/* EXISTING ADD CLIENT BUTTON */}
     <button
-      onClick={() => {
-        setForm({
-          first_name: "",
-          last_name: "",
-          date_of_birth: "",
-          phone: "",
-          care_type: "elderly",
-          diagnosis: [],
-          address: "",
-          lat: null,
-          lng: null,
-          keysafe_access: "",
-        });
+  onClick={() => {
+    if (isFreeUser && clients.length >= 1) {
+      alert("Free plan allows 1 client only. Upgrade to add more.");
+      return;
+    }
 
-        setShowForm(!showForm);
-      }}
-      className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
-    >
-      {showForm ? "Close" : "+ Add New"}
-    </button>
+    setForm({
+      first_name: "",
+      last_name: "",
+      date_of_birth: "",
+      phone: "",
+      care_type: "elderly",
+      diagnosis: [],
+      address: "",
+      lat: null,
+      lng: null,
+      keysafe_access: "",
+    });
+
+    setShowForm(!showForm);
+  }}
+  className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+>
+  {showForm ? "Close" : "+ Add New"}
+</button>
 
   </div>
 </div>
@@ -832,15 +849,18 @@ if (!user) {
   </MapContainer>
 )}
 
+</div> 
+
 {/* CLIENT LIST */}
 <div className="space-y-5 mt-6">
 {(clients || [])
-  .filter((client) =>
+  .filter((client: any) =>
     `${client.first_name} ${client.last_name}`
       .toLowerCase()
       .includes(search.toLowerCase())
   )
-  .map((client) => {
+  .map((client: any, index: number) => {
+  const isLocked = isFreeUser && index >= 1;
   const assessments = Array.isArray(client.assessments)
     ? client.assessments[0]
     : client.assessments || {};
@@ -880,20 +900,38 @@ if (!user) {
 
   return (
   <div
-    key={client.id}
-    onClick={() =>
-      setExpandedClient(
-        expandedClient === client.id ? null : client.id
-      )
+  key={client.id}
+  className={`bg-[var(--card)] p-4 sm:p-5 rounded-xl border shadow-sm cursor-pointer ${
+    isLocked ? "opacity-50 border-blue-600" : borderColor
+  }`}
+  onClick={() => {
+    if (isLocked) {
+      router.push("/upgrade");
+      return;
     }
-    className={`bg-[var(--card)] p-4 sm:p-5 rounded-xl cursor-pointer border shadow-sm ${
-  borderColor
-}`}
-  >
+
+    setExpandedClient(
+      expandedClient === client.id ? null : client.id
+    );
+  }}
+>
     {/* HEADER */}
 <div className="flex justify-between items-center">
 
-  <div>
+  {/* LEFT SIDE → EXPAND */}
+  <div
+    onClick={(e) => {
+  e.stopPropagation();
+
+  if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
+
+  router.push(`/clients/${client.id}`);
+}}
+    className="flex-1 cursor-pointer"
+  >
     <p className="font-semibold">
       {client.first_name} {client.last_name}
     </p>
@@ -902,6 +940,10 @@ if (!user) {
       <button
         onClick={(e) => {
           e.stopPropagation();
+          if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
           window.location.href = `tel:${client.phone}`;
         }}
         className="text-xs text-green-400 mt-1"
@@ -911,11 +953,55 @@ if (!user) {
     )}
   </div>
 
-  <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
-    {badge.label}
-  </span>
+  {/* RIGHT SIDE → ACTIONS */}
+  <div className="flex items-center gap-2">
 
+    {/* OPEN CLIENT (arrow) */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
+        router.push(`/clients/${client.id}`);
+      }}
+      className="text-xs bg-gray-700 px-2 py-1 rounded"
+    >
+      ➡️
+    </button>
+
+    {/* STATUS */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
+        handleToggleClick(client.id, client.status);
+      }}
+      className={`text-xs px-2 py-1 rounded ${
+        client.status === "inactive"
+          ? "bg-gray-600"
+          : "bg-blue-600"
+      }`}
+    >
+      {client.status === "inactive" ? "Inactive" : "Active"}
+    </button>
+
+    {/* RISK BADGE */}
+    <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
+      {badge.label}
+    </span>
+
+  </div>
 </div>
+{isLocked && (
+  <div className="mt-2 text-xs text-blue-400 font-medium">
+    🔒 Free trial only – upgrade to access
+  </div>
+)}
 
     {/* EXPANDABLE */}
     {expandedClient === client.id && (
@@ -946,6 +1032,10 @@ if (!user) {
     <button
       onClick={(e) => {
         e.stopPropagation();
+        if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
         window.location.href = `tel:${client.phone}`;
       }}
       className="bg-green-600 px-3 py-1 rounded text-xs text-white"
@@ -962,10 +1052,28 @@ if (!user) {
 
     {/* ACTIONS */}
     <div className="mt-3 flex gap-2 flex-wrap">
+
+  <button
+  onClick={(e) => {
+    e.stopPropagation();
+    if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
+    router.push(`/clients/${client.id}`);
+  }}
+  className="text-xs bg-gray-700 px-2 py-1 rounded"
+>
+  Open Client
+</button>
       {!hasAssessment && (
         <button
           onClick={(e) => {
             e.stopPropagation();
+            if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
             router.push(`/assessments?client=${client.id}`);
           }}
           className="text-xs bg-blue-600 px-2 py-1 rounded"
@@ -978,6 +1086,10 @@ if (!user) {
         <button
           onClick={(e) => {
             e.stopPropagation();
+            if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
             router.push(`/assessments?client=${client.id}`);
           }}
           className="text-xs bg-yellow-600 px-2 py-1 rounded"
@@ -1036,7 +1148,6 @@ if (!user) {
   </div>
 );
 })}
-</div>
 </div> {/* CLIENT LIST */}
 {showInactiveModal && (
   <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
