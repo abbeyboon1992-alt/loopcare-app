@@ -19,11 +19,15 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
   let mounted = true;
+  let loading = false; // ✅ prevents duplicate calls
 
   const loadAccess = async () => {
+    if (loading) return; // 🔥 STOP duplicate runs
+    loading = true;
+
     const {
       data: { session },
-    } = await supabase.auth.getSession(); // ✅ SAFE
+    } = await supabase.auth.getSession();
 
     const user = session?.user;
 
@@ -31,6 +35,7 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (!user) {
       setAccess(null);
+      loading = false;
       return;
     }
 
@@ -42,6 +47,7 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (!profile?.organisation_id) {
       setAccess(null);
+      loading = false;
       return;
     }
 
@@ -75,6 +81,8 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
           )
         : 0,
     });
+
+    loading = false;
   };
 
   loadAccess();
