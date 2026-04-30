@@ -14,43 +14,41 @@ type AccessType = {
 const AccessContext = createContext<AccessType | null>(null);
 
 export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
-  useEffect(() => {
-  console.log("🔁 RENDER", Date.now());
-});
+
   const [access, setAccess] = useState<AccessType | null>(null);
 
   useEffect(() => {
-  const loadAccess = async () => {
+  let mounted = true;
 
+  const loadAccess = async () => {
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession(); // ✅ SAFE
+
+    const user = session?.user;
+
+    if (!mounted) return;
 
     if (!user) {
       setAccess(null);
       return;
     }
 
-    // 🔹 PROFILE
-    let { data: profile } = await supabase
+    const { data: profile } = await supabase
       .from("user_profiles")
       .select("organisation_id, account_type")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    let organisationId = profile?.organisation_id;
+    if (!profile?.organisation_id) {
+      setAccess(null);
+      return;
+    }
 
-    if (!organisationId) {
-  console.log("❌ No organisation linked to user");
-  setAccess(null);
-  return;
-}
-
-    // 🔹 ORG
     const { data } = await supabase
       .from("organisations")
       .select("subscription_status, trial_end")
-      .eq("id", organisationId)
+      .eq("id", profile.organisation_id)
       .single();
 
     const trialEnd = data?.trial_end || null;
@@ -58,43 +56,35 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
     const isTrialActive =
       !!trialEnd && new Date(trialEnd).getTime() > Date.now();
 
-    const daysLeft = trialEnd
-      ? Math.max(
-          0,
-          Math.ceil(
-            (new Date(trialEnd).getTime() - Date.now()) /
-              (1000 * 60 * 60 * 24)
-          )
-        )
-      : 0;
-
     const isPaid = data?.subscription_status === "active";
 
-    setAccess((prev) => {
-  const next: AccessType = {
-    plan: (isPaid || isTrialActive ? "pro" : "free") as "free" | "pro",
-    accountType: profile?.account_type || "solo",
-    isTrialActive,
-    trial_end: trialEnd,
-    daysLeft,
-  };
+    if (!mounted) return;
 
-  if (JSON.stringify(prev) === JSON.stringify(next)) {
-    return prev;
-  }
-
-  return next;
-});
+    setAccess({
+      plan: isPaid || isTrialActive ? "pro" : "free",
+      accountType: profile.account_type || "solo",
+      isTrialActive,
+      trial_end: trialEnd,
+      daysLeft: trialEnd
+        ? Math.max(
+            0,
+            Math.ceil(
+              (new Date(trialEnd).getTime() - Date.now()) /
+                (1000 * 60 * 60 * 24)
+            )
+          )
+        : 0,
+    });
   };
 
   loadAccess();
 
-  // ✅ 🔥 THIS IS THE IMPORTANT BIT YOU WERE MISSING
   const { data: listener } = supabase.auth.onAuthStateChange(() => {
     loadAccess();
   });
 
   return () => {
+    mounted = false;
     listener.subscription.unsubscribe();
   };
 }, []);
