@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import templates from "@/data/carePlanTemplates.json";
 import { generateCareFromMatrix } from "@/lib/carePlanMatrix";
 import { mapTaskToSection } from "@/lib/taskToSectionMapper";
+import { useAccess } from "@/app/context/AccessContext";
 
 export default function CarePlanPage() {
   const { id } = useParams();
@@ -116,6 +117,9 @@ const [editingSection, setEditingSection] = useState<string | null>(null);
 const [editCareNeed, setEditCareNeed] = useState("");
 const [editOutcome, setEditOutcome] = useState("");
 const [editActions, setEditActions] = useState("");
+const access = useAccess();
+const plan = access?.plan || "free";
+const isTrialActive = access?.isTrialActive || false;
 const isPaidUser = true; // 🔁 change later from DB
 const loadPlan = async () => {
   if (!id) return;
@@ -834,6 +838,8 @@ try {
     },
     body: JSON.stringify({
   client_id: id,
+  plan,
+isTrialActive,
   client,
   assessments,
   sections,

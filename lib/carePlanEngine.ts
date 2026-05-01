@@ -49,7 +49,6 @@ export function generateCarePlan(
     }
   };
 
-  // ✅ MOBILITY
   if (form.mobility) {
     addSection("Mobility & Moving", {
       care_need: `Mobility: ${form.mobility}`,
@@ -61,7 +60,6 @@ export function generateCarePlan(
     });
   }
 
-  // ✅ NUTRITION
   if (form.nutrition || form.hydration) {
     addSection("Nutrition & Hydration", {
       care_need: `Nutrition: ${form.nutrition || "unknown"}`,
@@ -73,7 +71,6 @@ export function generateCarePlan(
     });
   }
 
-  // ✅ SKIN
   if (form.skin) {
     addSection("Personal Care (ADLs)", {
       care_need: `Skin: ${form.skin}`,
@@ -85,7 +82,6 @@ export function generateCarePlan(
     });
   }
 
-  // ✅ FALLS
   if (form.falls_risk) {
     addSection("Mobility & Moving", {
       care_need: `Falls risk: ${form.falls_risk}`,
@@ -97,7 +93,6 @@ export function generateCarePlan(
     });
   }
 
-  // 🔥 ALERTS → MERGE
   alerts.forEach((alert: AlertItem) => {
     const section = alert.section_title || "Risks & Safety";
 
@@ -118,27 +113,41 @@ export function generateCarePlan(
 
 /* ---------------- APPLY ALERTS ---------------- */
 
-export function applyAlertsToCarePlan(
-  carePlan: CarePlanSection[],
-  alerts: AlertItem[]
-): CarePlanSection[] {
-  return carePlan.map((section: CarePlanSection) => {
+export async function applyAlertsToCarePlan({
+  clientId,
+  alerts,
+}: {
+  clientId: string;
+  alerts: AlertItem[];
+}) {
+  const { data: sections } = await supabase
+    .from("care_plan_sections") // ✅ FIXED TABLE NAME
+    .select("*")
+    .eq("client_id", clientId);
+
+  if (!sections) return;
+
+  for (const section of sections) {
     const matchingAlerts = alerts.filter(
-      (alert: AlertItem) =>
-        alert.section_title === section.title
+      (a) => a.section_title === section.title
     );
 
-    const newActions = new Set(section.actions || []);
+    let actions = (section.actions || "")
+      .split("\n")
+      .filter(Boolean);
 
-    matchingAlerts.forEach((a: AlertItem) => {
-      newActions.add(`[${a.type}] ${a.message}`);
+    matchingAlerts.forEach((a) => {
+      const line = `[${a.type}] ${a.message}`;
+      if (!actions.includes(line)) {
+        actions.push(line);
+      }
     });
 
-    return {
-      ...section,
-      actions: Array.from(newActions),
-    };
-  });
+    await supabase
+      .from("care_plan_sections")
+      .update({ actions: actions.join("\n") })
+      .eq("id", section.id);
+  }
 }
 
 /* ---------------- REMOVE RESOLVED ---------------- */
@@ -153,34 +162,31 @@ export async function removeResolvedActionsFromCarePlan({
   if (!clientId) return;
 
   const { data: sections } = await supabase
-    .from("care_plan_section")
+    .from("care_plan_sections") // ✅ FIXED TABLE NAME
     .select("*")
     .eq("client_id", clientId);
 
   if (!sections) return;
 
   const activeMessages = activeAlerts.map(
-    (a: AlertItem) => a.message || a.action
+    (a) => a.message || a.action
   );
 
   for (const section of sections) {
     if (!section.actions) continue;
 
-    // 🔥 FIX: actions is STRING not array
     const lines = (section.actions || "")
       .split("\n")
       .map((l: string) => l.trim())
-      .filter((l: string) => l.length > 0);
+      .filter(Boolean);
 
     const filtered = lines.filter((line: string) =>
       activeMessages.some((msg) => line.includes(msg || ""))
     );
 
-    const updated = filtered.join("\n");
-
     await supabase
-      .from("care_plan_section")
-      .update({ actions: updated })
+      .from("care_plan_sections")
+      .update({ actions: filtered.join("\n") })
       .eq("id", section.id);
   }
 }

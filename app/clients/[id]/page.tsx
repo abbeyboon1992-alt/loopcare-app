@@ -37,6 +37,41 @@ const [preferences, setPreferences] = useState("");
 const [goals, setGoals] = useState("");
 const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 const [latestSummary, setLatestSummary] = useState<any>(null);
+const getLiveClinicalPreview = () => {
+  const aiAlerts = latestSummary?.alerts || [];
+  const dbAlerts = alerts || [];
+useEffect(() => {
+  console.log("AI SUMMARY:", latestSummary);
+}, [latestSummary]);
+  // 🔥 STEP 1 — NORMALISE (AI alerts don’t always have same shape)
+  const normalisedAI = aiAlerts.map((a: any) => ({
+    ...a,
+    source: "ai",
+    severity: a.severity || "medium",
+    message: a.message || a,
+  }));
+
+  // 🔥 STEP 2 — MERGE
+  const combined = [...dbAlerts, ...normalisedAI];
+
+  // 🔥 STEP 3 — DEDUPE (by message)
+  const unique = combined.filter(
+    (a, i, self) =>
+      i === self.findIndex(b => b.message === a.message)
+  );
+
+  // 🔥 STEP 4 — SORT BY PRIORITY
+  const order: Record<string, number> = {
+    critical: 4,
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+
+  return unique
+    .sort((a, b) => (order[b.severity] || 0) - (order[a.severity] || 0))
+    .slice(0, 3); // 🔥 TOP 3 ONLY
+};
 const [summaryHistory, setSummaryHistory] = useState<any[]>([]);
 const [familyFeedback, setFamilyFeedback] = useState<any[]>([]);
 const [feedbackNotification, setFeedbackNotification] = useState<any>(null);
@@ -60,7 +95,7 @@ const hasEvidenceToUpload = () => {
 
 const [tasks, setTasks] = useState<any[]>([]);
 const access = useAccess();
-const isTrialActive = access?.isTrialActive;
+const isTrialActive = access?.isTrialActive || false;
 const plan = access?.plan || "free";
 const [assessments, setAssessments] = useState<any>(null);
 const groupedAlerts = {
@@ -231,10 +266,16 @@ const getRiskLevel = (score: number) => {
   return { label: "Low Risk", color: "bg-green-600" };
 };
 
-const getRiskTrend = () => {
-  if (alerts.length < 2) {
-    return { label: "No trend", color: "bg-gray-500" };
-  }
+const getRealTrend = () => {
+  const recentAlerts = alerts;
+
+  const hasCritical = recentAlerts.some(a => a.severity === "critical");
+  const hasHigh = recentAlerts.some(a => a.severity === "high");
+
+  if (hasCritical) return { label: "Critical escalation", color: "bg-red-800" };
+  if (hasHigh) return { label: "Escalating", color: "bg-red-600" };
+
+  return { label: "Stable", color: "bg-green-600" };
 
   const midpoint = Math.floor(alerts.length / 2);
 
@@ -774,7 +815,7 @@ useEffect(() => {
   }
   const riskScore = calculateRiskScore();
   const risk = getRiskLevel(riskScore);
-  const trend = getRiskTrend();
+  const trend = getRealTrend();
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6">
       {feedbackNotification && (
@@ -795,6 +836,30 @@ useEffect(() => {
     📎 Evidence recorded — upload documents required
   </div>
 )}
+
+{/* 🔴 LIVE CLINICAL PRIORITY (NEW) */}
+{(() => {
+  const preview = getLiveClinicalPreview();
+  if (preview.length === 0) return null;
+
+  return (
+    <div className="bg-red-900 p-3 rounded mb-4">
+      <p className="text-xs text-red-200 mb-2">
+        🚨 Immediate Clinical Priorities
+      </p>
+
+      {preview.map((a: any, i: number) => (
+        <div
+          key={i}
+          className="text-xs bg-red-700 px-2 py-1 rounded mb-1 flex justify-between"
+        >
+          <span>⚠ {a.message}</span>
+          <span className="opacity-70">{a.severity}</span>
+        </div>
+      ))}
+    </div>
+  );
+})()}
 
       {/* 🔙 BACK */}
       <button
@@ -1432,6 +1497,12 @@ useEffect(() => {
       <p className="text-sm text-gray-300 mb-3">
         {latestSummary.summary}
       </p>
+
+      {latestSummary.needs_follow_up && (
+  <div className="bg-red-700 text-white px-2 py-1 rounded text-xs mt-2">
+    ⚠ Follow-up required (auto-detected)
+  </div>
+)}
 
       {/* ⚠️ RISKS */}
       <div className="mb-3">
