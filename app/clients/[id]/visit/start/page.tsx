@@ -220,8 +220,8 @@ if (assessments?.mobility === "high risk") {
     ...tasksFromDB.map((t) => ({
       title: t.title, // ✅ FIXED
       category: mapTaskToSection(t.title),
-      priority: t.priority || "medium",
-      source: "care_plan",
+      source: "care_plan_required",
+priority: "high",
       prompts: getPromptsForTask(t.title),
     }))
   );
@@ -327,6 +327,7 @@ const [autoAddedTasks, setAutoAddedTasks] = useState<
 });
 
 useEffect(() => {
+  
   const loadClient = async () => {
     const { data } = await supabase
       .from("clients")
@@ -358,6 +359,25 @@ if (tasks) {
 }
   };
 
+  const loadCarePlan = async () => {
+  const { data: carePlan } = await supabase
+    .from("care_plan_sections")
+    .select("*")
+    .eq("client_id", id);
+
+  const carePlanTasks =
+    carePlan?.flatMap((section: any) =>
+      (section.actions || []).map((action: string) => ({
+        title: action,
+        category: section.title,
+        priority: "high",
+        source: "care_plan_required",
+      }))
+    ) || [];
+
+  setTasksFromDB(carePlanTasks);
+};
+
   if (id) loadClient();
 }, [id]);
 
@@ -369,7 +389,8 @@ useEffect(() => {
       .from("alerts")
       .select("*")
       .eq("client_id", id)
-      .eq("status", "active");
+      .gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+.eq("status", "active");
 
     if (data) setAlerts(data);
   };
@@ -624,6 +645,34 @@ const getAutoTasksFromAlerts = () => {
         });
         break;
 
+        case "hydration_risk":
+  tasks.push({
+    title: "Increase fluid monitoring and escalate if needed",
+    reason: "Repeated dehydration",
+  });
+  break;
+
+case "hydration_critical":
+  tasks.push({
+    title: "Urgent hydration intervention",
+    reason: "Severe dehydration risk",
+  });
+  break;
+
+case "falls_risk":
+  tasks.push({
+    title: "Implement strict falls prevention plan",
+    reason: "Multiple falls",
+  });
+  break;
+
+case "medication_risk":
+  tasks.push({
+    title: "Escalate medication non-compliance",
+    reason: "Repeated refusal",
+  });
+  break;
+
       case "bowel_risk":
         tasks.push({
           title: "Monitor bowel movements",
@@ -755,7 +804,6 @@ const getAutoTasksFromObservations = () => {
 const getClinicalAlerts = () => {
   if (!client) return [];
 
-
   // ⚡ mimic backend rules (light version only for UI preview)
 
   const results: any[] = [];
@@ -858,6 +906,70 @@ data.tasks.forEach((task: any) => {
   }
 });
 
+  return results;
+};
+
+const getTrendAlerts = () => {
+  const results: any[] = [];
+
+  const now = new Date().getTime();
+
+  const HOURS_24 = 24 * 60 * 60 * 1000;
+  const HOURS_48 = 48 * 60 * 60 * 1000;
+
+  const all = [
+    ...alerts,
+    ...liveAlerts,
+    ...getClinicalAlerts(),
+  ];
+
+  const within = (type: string, window: number) =>
+    all.filter((a: any) => {
+      if (!a.created_at) return false;
+
+      const t = new Date(a.created_at).getTime();
+      return a.type === type && now - t <= window;
+    }).length;
+
+  // 💧 HYDRATION
+  if (within("hydration_low", HOURS_24) >= 2) {
+    results.push({
+      type: "hydration_risk",
+      severity: "high",
+      message: "Repeated low hydration (24h)",
+      source: "trend",
+    });
+  }
+
+  if (within("hydration_low", HOURS_48) >= 3) {
+    results.push({
+      type: "hydration_critical",
+      severity: "critical",
+      message: "Persistent dehydration (48h)",
+      source: "trend",
+    });
+  }
+
+  // 🚶 FALLS
+  if (within("falls_event", HOURS_48) >= 2) {
+    results.push({
+      type: "falls_risk",
+      severity: "high",
+      message: "Multiple falls in 48h",
+      source: "trend",
+    });
+  }
+
+  // 💊 MEDICATION
+  if (within("medication_refused", HOURS_24) >= 2) {
+    results.push({
+      type: "medication_risk",
+      severity: "high",
+      message: "Repeated refusal (24h)",
+      source: "trend",
+    });
+  }
+
 // 🔥 ADDITIONAL CLINICAL RULES
 
 if (data.mood === "low" || data.mood === "distressed") {
@@ -914,6 +1026,66 @@ if (data.skin?.includes("category")) {
   });
 }
   return results;
+};
+
+const getResolvedAlertTypes = () => {
+  const resolved: string[] = [];
+
+  // 💧 HYDRATION
+  if (data.hydration === "adequate") {
+    resolved.push(
+      "hydration_low",
+      "hydration_risk",
+      "hydration_critical"
+    );
+  }
+
+  // 💊 MEDICATION
+  if (data.medication === "taken") {
+    resolved.push(
+      "medication_refused",
+      "medication_risk",
+      "medication_missed"
+    );
+  }
+
+  // 🚶 FALLS
+  if (data.mobility !== "fall") {
+    resolved.push(
+      "falls_event",
+      "falls_risk"
+    );
+  }
+
+  // 🚽 BOWEL
+  if (data.toileting === "normal") {
+    resolved.push("bowel_risk");
+  }
+
+  // 🙂 MOOD
+  if (data.mood === "positive" || data.mood === "neutral") {
+    resolved.push("mood_concern");
+  }
+
+  // 😖 PAIN
+  if (data.pain === "none" || data.pain === "mild") {
+    resolved.push("pain_alert");
+  }
+
+  // 🫁 BREATHING
+  if (data.breathing === "normal") {
+    resolved.push("breathing_concern");
+  }
+
+  // 🧴 SKIN
+  if (data.skin === "intact") {
+    resolved.push(
+      "skin_risk",
+      "pressure_ulcer"
+    );
+  }
+
+  return resolved;
 };
 
 const generateVisitSummary = () => {
@@ -978,6 +1150,37 @@ await processVisit({
   },
 });
 
+const resolvedTypes = getResolvedAlertTypes();
+
+if (resolvedTypes.length > 0) {
+  await supabase
+    .from("alerts")
+    .update({
+      status: "resolved",
+      resolved_at: new Date().toISOString(),
+    })
+    .in("type", resolvedTypes)
+    .eq("client_id", id)
+    .gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+.eq("status", "active");
+}
+
+const trendAlerts = getTrendAlerts();
+
+if (trendAlerts.length > 0) {
+  await supabase.from("alerts").insert(
+    trendAlerts.map((a) => ({
+      client_id: id,
+      type: a.type,
+      severity: a.severity,
+      message: a.message,
+      source: "trend",
+      status: "active",
+      created_at: new Date().toISOString(),
+    }))
+  );
+}
+
   await fetch("/api/update-careplan-from-visit", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -1018,6 +1221,7 @@ await processVisit({
   setStep(5);
 };
 
+
 const continueFinishWithOverride = async () => {
   if (!overrideReason) {
     alert("Select a reason");
@@ -1042,7 +1246,8 @@ const handleFinish = async () => {
 hasSavedVisit.current = true;
 
   const requiredTasks = getTasks().filter(
-    (t: any) => t.source === "assessment_required"
+    (t: any) => t.source === "assessment_required" ||
+t.source === "care_plan_required"
   );
 
   const completedTasks = data.tasks || [];
@@ -1146,6 +1351,7 @@ const combinedAlerts = [
   ...alerts,
   ...liveAlerts,
   ...getClinicalAlerts(),
+  ...getTrendAlerts(),
 ].filter(
   (a, index, self) =>
     index ===
@@ -1170,7 +1376,8 @@ const resolveAlert = async (alertId: string) => {
     .from("alerts")
     .select("*")
     .eq("client_id", id)
-    .eq("status", "active");
+    .gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+.eq("status", "active");
 
   if (data) setAlerts(data);
 };
