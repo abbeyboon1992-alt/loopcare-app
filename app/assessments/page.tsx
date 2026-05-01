@@ -12,6 +12,10 @@ import { saveAlerts, generateAssessmentAlerts } from "@/lib/alertEngine";
 import { generateTasks } from "@/lib/taskEngine";
 import React from "react";
 import { assessmentVisibility } from "@/lib/assessmentVisibility";
+import { useParams } from "next/navigation";
+
+const params = useParams();
+const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
 import { useAccess } from "@/app/context/AccessContext";
 import {
   generateCarePlan,
@@ -1829,18 +1833,15 @@ const alerts = await generateAssessmentAlerts(form);
 const carePlan = generateCarePlan(form, alerts);
 
 // ✅ APPLY ALERTS TO CARE PLAN (CORRECT)
-const enrichedCarePlan = applyAlertsToCarePlan(
-  carePlan,
-  allAlerts
-);
+await applyAlertsToCarePlan({
+  clientId: id as string,
+  alerts: allAlerts,
+});
 
 await removeResolvedActionsFromCarePlan({
   clientId: form.client_id,
   activeAlerts: allAlerts,
 });
-
-// ✅ USE ORIGINAL CARE PLAN FOR TASK GENERATION
-const tasks = generateTasks(enrichedCarePlan);
 
 await saveAlerts({
   clientId: form.client_id,
@@ -1890,18 +1891,7 @@ alerts.forEach((a) => {
   }
 });
 
-  if (enrichedCarePlan?.length) {
-  await supabase.from("care_plan_section").insert(
-    enrichedCarePlan.map((c: any) => ({
-      client_id: form.client_id,
-      organisation_id: organisationId || undefined,
-      title: c.title,
-      care_need: c.care_need,
-      outcome: c.outcome,
-      actions: c.actions,
-    }))
-  );
-}
+ 
 
 if (tasks?.length) {
   await supabase.from("visit_tasks").insert(
