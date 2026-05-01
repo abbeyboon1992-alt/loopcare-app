@@ -10,6 +10,7 @@ import {
   applyAlertsToCarePlan,
 } from "./carePlanEngine";
 import { generateInsights } from "./insightsEngine";
+import { syncTasksWithAlerts } from "./alertEngine";
 import { removeResolvedActionsFromCarePlan } from "./carePlanEngine";
 import { mergeAlerts } from "@/lib/mergeAlerts";
 import { generateDiagnosisAlerts } from "@/lib/alertEngine";
@@ -105,46 +106,26 @@ const scoredAlerts = scoreAlerts(mergedAlerts);
   })),
 });
 
-await removeResolvedActionsFromCarePlan({
+const { data: freshAlerts } = await supabase
+  .from("alerts")
+  .select("*")
+  .eq("client_id", clientId)
+  .eq("status", "active");
+
+await applyAlertsToCarePlan({
   clientId,
-  activeAlerts: scoredAlerts,
+  alerts: freshAlerts || [],
 });
 
-// 🧠 GENERATE + APPLY CARE PLAN
-const matrix = generateCareFromMatrix(
-  { ...assessments, ...data },
-  client
-);
+await removeResolvedActionsFromCarePlan({
+  clientId,
+  activeAlerts: freshAlerts || [],
+});
 
-const baseCarePlan = Object.entries(matrix).map(([title, val]: any) => ({
-  title,
-  care_need: val.care_need.join(" | "),
-  outcome: Array.from(val.outcome).join(" | "),
-  actions: Array.from(val.actions).map((a: any) => String(a)),
-}));
-
-const finalCarePlan = applyAlertsToCarePlan(
-  baseCarePlan,
-  scoredAlerts
-);
-
-// 💾 SAVE TO DB
-for (const section of finalCarePlan) {
-  await supabase
-    .from("care_plan_sections") // ⚠️ check table name
-    .upsert(
-      {
-        client_id: clientId,
-        title: section.title,
-        care_need: section.care_need,
-        outcome: section.outcome,
-        actions: section.actions.join("\n"),
-      },
-      {
-        onConflict: "client_id,title",
-      }
-    );
-}
+await syncTasksWithAlerts({
+  clientId,
+  activeAlerts: freshAlerts || [],
+});
 
   // 🚨 PRIORITY
   const totalScore = scoredAlerts.reduce(
@@ -260,32 +241,20 @@ if (assessments) {
   const refreshedAlerts = generateAssessmentAlerts(updatedAssessment);
   const matrix = generateCareFromMatrix(updatedAssessment, client);
 
-const updatedCarePlan = applyAlertsToCarePlan(
-  Object.entries(matrix).map(([title, val]: any) => ({
-    title,
-    care_need: val.care_need.join(" | "),
-    outcome: Array.from(val.outcome).join(" | "),
-    actions: Array.from(val.actions).map((a: any) => String(a)),
-  })),
-  refreshedAlerts
-);
+await applyAlertsToCarePlan({
+  clientId,
+  alerts: refreshedAlerts,
+});
 
-for (const section of updatedCarePlan) {
-  await supabase
-    .from("care_plan_sections")
-    .upsert(
-      {
-        client_id: clientId,
-        title: section.title,
-        care_need: section.care_need,
-        outcome: section.outcome,
-        actions: section.actions.join("\n"),
-      },
-      {
-        onConflict: "client_id,title",
-      }
-    );
-}
+await removeResolvedActionsFromCarePlan({
+  clientId,
+  activeAlerts: refreshedAlerts,
+});
+
+await syncTasksWithAlerts({
+  clientId,
+  activeAlerts: refreshedAlerts,
+});
 
   await saveAlerts({
     clientId,
@@ -296,11 +265,6 @@ for (const section of updatedCarePlan) {
       source: "assessments",
       triggered_by: userId,
     })),
-  });
-
-  await removeResolvedActionsFromCarePlan({
-    clientId,
-    activeAlerts: refreshedAlerts,
   });
 }
 
