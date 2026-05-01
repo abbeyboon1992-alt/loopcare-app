@@ -65,7 +65,7 @@ export function generateTasks(
         description: Array.isArray(item.actions)
           ? item.actions.join(", ")
           : item.actions || "",
-        prompts: [],
+        prompts: [`Record care for: ${item.title}`],
         due: new Date().toISOString(),
         status: "pending",
       });

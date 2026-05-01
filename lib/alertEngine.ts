@@ -551,11 +551,14 @@ const nutrition = visitData.nutrition === "adequate"
   ? "poor"
   : visitData.nutrition;
 
-const mood = visitData.mood === "positive"
-  ? "good"
-  : visitData.mood === "neutral"
-  ? "stable"
-  : visitData.mood;
+const mood =
+  visitData.mood === "positive"
+    ? "good"
+    : visitData.mood === "neutral"
+    ? "stable"
+    : visitData.mood === "distressed"
+    ? "low"
+    : visitData.mood;
 
 const cognition = visitData.cognition === "baseline"
   ? "clear"
@@ -874,7 +877,10 @@ addAlert({
 });
   }
 
-  if (visitData.mood === "low" && alertConfig.mood_low) {
+  if (
+  (visitData.mood === "low" || visitData.mood === "distressed") &&
+  alertConfig.mood_low
+) {
     const type = "mood";
 
 addAlert({
