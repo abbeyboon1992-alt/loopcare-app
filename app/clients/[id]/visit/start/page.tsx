@@ -152,6 +152,43 @@ const getTasks = () => {
 
   let tasks: any[] = [];
 
+  // ✅ AUTO TASKS (PRIMARY SOURCE)
+const autoTasks = getAutoTasksFromObservations();
+
+tasks.push(
+  ...autoTasks.map((t) => ({
+    title: t.title,
+    category: mapTaskToSection(t.title),
+    priority: "high",
+    source: "auto",
+    prompts: getPromptsForTask(t.title),
+    reasoning: t.reason, // 🔥 NEW
+  }))
+);
+
+// 🔒 ASSESSMENT ENFORCEMENT (ONLY CRITICAL)
+if (assessments?.hydration === "poor") {
+  tasks.push({
+    title: "Monitor fluid intake closely",
+    category: "Nutrition & Hydration",
+    priority: "high",
+    source: "assessment_required",
+    prompts: [],
+    reasoning: "Assessment indicates dehydration risk",
+  });
+}
+
+if (assessments?.mobility === "high risk") {
+  tasks.push({
+    title: "Observe mobility",
+    category: "Mobility & Moving",
+    priority: "high",
+    source: "assessment_required",
+    prompts: [],
+    reasoning: "Assessment indicates high falls risk",
+  });
+}
+
   // 1️⃣ CARE PLAN TASKS (PRIMARY)
   if (tasksFromDB.length > 0) {
   tasks.push(
@@ -165,224 +202,6 @@ const getTasks = () => {
   );
 }
 
-  // 2️⃣ ALERT TASKS (HIGH PRIORITY)
-  alerts.forEach((a) => {
-  if (a.type === "hydration_low") {
-    const title = "Encourage fluid intake";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "high",
-      source: "alert",
-      prompts: [],
-    });
-  }
-
-  if (a.type === "medication" || a.type === "medication_refused") {
-    const title = "Review medication compliance";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "high",
-      source: "alert",
-      prompts: [],
-    });
-  }
-
-      if (a.type === "falls_risk" || a.type === "falls_event") {
-    const title = "Implement falls prevention measures";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "high",
-      source: "alert",
-      prompts: [],
-    });
-  }
-
-  if (a.type === "bowel_issue" || a.type === "bowel_risk") {
-    const title = "Monitor bowel movements";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "medium",
-      source: "alert",
-      prompts: [],
-    });
-  }
-});
-
-  // 3️⃣ assessments-DRIVEN TASKS
-if (assessments) {
-  if (assessments.hydration === "poor") {
-    const title = "Monitor fluid intake closely";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "high",
-      source: "assessments",
-      prompts: [],
-    });
-  }
-
-  if (assessments.nutrition === "poor") {
-    const title = "Encourage meals and monitor intake";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "high",
-      source: "assessments",
-      prompts: [],
-    });
-  }
-
-    if (assessments.mobility === "high risk") {
-    const title = "Assist with mobility and prevent falls";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "high",
-      source: "assessments",
-      prompts: [],
-    });
-  }
-
-  if (assessments.medication_compliance === "risk") {
-    const title = "Monitor medication compliance";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "high",
-      source: "assessments",
-      prompts: [],
-    });
-  }
-
-  if (assessments.emotional_wellbeing === "concern") {
-    const title = "Provide emotional reassurance";
-    tasks.push({
-      title,
-      category: mapTaskToSection(title),
-      priority: "medium",
-      source: "assessments",
-      prompts: [],
-    });
-  }
-}
-
-// 🔴 FORCED OBSERVATIONS FROM ASSESSMENT
-if (assessments) {
-
-  // 🧃 HYDRATION
-  if (assessments.hydration === "poor") {
-    tasks.push({
-      title: "Monitor fluid intake",
-      category: "Nutrition & Hydration",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Encourage fluids", "Record intake"],
-    });
-  }
-
-  // 🍽️ NUTRITION
-  if (assessments.nutrition === "poor" || assessments.recent_weight_loss === "yes") {
-    tasks.push({
-      title: "Monitor nutrition and weight",
-      category: "Nutrition & Hydration",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Encourage meals", "Record intake", "Weigh client"],
-    });
-  }
-
-  // 🚶 MOBILITY
-  if (assessments.mobility === "high risk") {
-    tasks.push({
-      title: "Observe mobility",
-      category: "Mobility & Moving",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Check balance", "Prevent falls"],
-    });
-  }
-
-  // 💊 MEDICATION
-  if (assessments.medication_compliance === "risk") {
-    tasks.push({
-      title: "Monitor medication compliance",
-      category: "Medication Support",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Ensure medication taken"],
-    });
-  }
-
-  // 🧠 COGNITION
-  if (assessments.cognition === "impaired" || assessments.cognition === "confused") {
-    tasks.push({
-      title: "Monitor cognition",
-      category: "Cognitive Wellbeing",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Check orientation", "Observe confusion"],
-    });
-  }
-
-  // 😟 EMOTIONAL
-  if (assessments.emotional_wellbeing === "concern") {
-    tasks.push({
-      title: "Provide emotional support",
-      category: "Emotional Wellbeing",
-      priority: "medium",
-      source: "assessment_required",
-      prompts: ["Offer reassurance"],
-    });
-  }
-
-  // 🧴 SKIN
-  if (assessments.skin_integrity === "at risk") {
-    tasks.push({
-      title: "Check skin condition",
-      category: "Personal Care (ADLs)",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Inspect pressure areas"],
-    });
-  }
-
-  // 😖 PAIN
-  if (assessments.pain === "chronic" || assessments.pain === "high") {
-    tasks.push({
-      title: "Assess pain level",
-      category: "Medical Conditions & Overview",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Ask about pain", "Record severity"],
-    });
-  }
-
-  // 🫁 BREATHING
-  if (assessments.respiratory === "risk") {
-    tasks.push({
-      title: "Monitor breathing",
-      category: "Medical Conditions & Overview",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Observe breathing", "Check distress"],
-    });
-  }
-
-  // 🚨 SAFEGUARDING
-  if (assessments.safeguarding === "concern") {
-    tasks.push({
-      title: "Check safety and wellbeing",
-      category: "Risks & Safety",
-      priority: "high",
-      source: "assessment_required",
-      prompts: ["Ensure client safe"],
-    });
-  }
-}
 // 🟢 OPTIONAL MASTER TASKS (PRO ONLY)
 if (useMasterTasks) {
   const master = getMasterTasksOnly();
