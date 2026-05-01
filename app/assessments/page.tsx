@@ -114,12 +114,12 @@ const CommunicationBox = ({
 }) => {
   return (
     <textarea
-      placeholder="Describe communication needs"
-      value={value || ""}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full p-3 text-base mb-4 rounded bg-[var(--card)]"
-    />
+  placeholder="Describe communication needs"
+  defaultValue={value || ""}
+  disabled={disabled}
+  onBlur={(e) => onChange(e.target.value)}
+  className="w-full p-3 text-base mb-4 rounded bg-[var(--card)]"
+/>
   );
 };
 const TextAreaField = ({
@@ -135,16 +135,15 @@ const TextAreaField = ({
 }) => {
   return (
     <textarea
-      value={value || ""}
+      defaultValue={value || ""}
       placeholder={placeholder}
       disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
+      onBlur={(e) => onChange(e.target.value)}
       className="w-full p-3 text-base mb-4 rounded bg-[var(--card)] text-white"
     />
   );
 };
 function AssessmentPageContent() {
-   console.log("🔥 COMPONENT START");
   const isUserTypingRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -170,7 +169,6 @@ const generatePDF = async () => {
     .from(element)
     .save();
 };
-console.log("STEP 1");
   const [form, setForm] = useState<any>({
   client_id: clientId || "",
   hydration: "",
@@ -617,11 +615,15 @@ useEffect(() => {
 const handleInput = (field: string, value: any) => {
   if (viewMode) return;
   setForm((prev: any) => {
-    if (prev[field] === value) return prev;
-    const updated = { ...prev, [field]: value };
-    formRef.current = updated; // ✅ ALWAYS sync ref
-    return updated;
-  });
+  if (prev[field] === value) return prev;
+
+  const updated = { ...prev };
+  updated[field] = value;
+
+  formRef.current = updated;
+
+  return updated;
+});
   if (saveTimeout.current) clearTimeout(saveTimeout.current);
   saveTimeout.current = setTimeout(async () => {
     if (isSavingRef.current) return;
@@ -1280,10 +1282,14 @@ const bmiCategory = (() => {
   if (bmi < 30) return "overweight";
   return "obese";
 })();
-  useEffect(() => {
+  const hasScrolledRef = useRef(false);
+
+useEffect(() => {
+  if (hasScrolledRef.current) return;
+
   const section = initialSectionRef.current;
   if (!section) return;
-  setOpenSection(section);
+
   const el = document.getElementById(section);
   if (el) {
     el.scrollIntoView({
@@ -1291,6 +1297,8 @@ const bmiCategory = (() => {
       block: "start",
     });
   }
+
+  hasScrolledRef.current = true;
 }, []);
 const SOURCE_OPTIONS = [
   "observation",
@@ -2061,32 +2069,35 @@ const isOverdue =
 </div>
 
       {/* CONTENT */}
-      {isOpen && (
-        <div className="px-4 pb-4">
-        {(() => {
-  const score = calculateSectionConfidence(id);
+      <div
+  className={`px-4 pb-4 transition-all ${
+    isOpen ? "block" : "hidden"
+  }`}
+>
+  {(() => {
+    const score = calculateSectionConfidence(id);
 
-  if (score < 50) {
-    return (
-      <div className="bg-red-600/20 border border-red-500 p-2 rounded mb-3 text-xs">
-        ⚠️ Low confidence — insufficient evidence or sources
-      </div>
-    );
-  }
-
-  if (score < 80) {
-    return (
-      <div className="bg-yellow-600/20 border border-yellow-500 p-2 rounded mb-3 text-xs">
-        ⚠️ Medium confidence — consider adding evidence
-      </div>
-    );
-  }
-
-  return null;
-})()}
-          {children}
+    if (score < 50) {
+      return (
+        <div className="bg-red-600/20 border border-red-500 p-2 rounded mb-3 text-xs">
+          ⚠️ Low confidence — insufficient evidence or sources
         </div>
-      )}
+      );
+    }
+
+    if (score < 80) {
+      return (
+        <div className="bg-yellow-600/20 border border-yellow-500 p-2 rounded mb-3 text-xs">
+          ⚠️ Medium confidence — consider adding evidence
+        </div>
+      );
+    }
+
+    return null;
+  })()}
+
+  {children}
+</div>
     </div>
   );
 };
