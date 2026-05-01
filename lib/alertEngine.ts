@@ -1372,13 +1372,161 @@ export async function generateImprovementAlerts({
  //   }
 //  }
 //}
+// 🧠 AUTO FLAG GENERATION FROM ASSESSMENT
+export function generateAutoFlags(assessments: any): string[] {
+  const flags: string[] = [];
+
+  if (!assessments) return flags;
+
+  // 🔴 CLINICAL DETERIORATION (NEWS2 / vitals)
+  if (assessments.news2_score >= 5) {
+    flags.push("clinical_deterioration");
+  }
+
+  if (
+    assessments.resp_rate > 25 ||
+    assessments.oxygen_sats < 92 ||
+    assessments.temperature > 38 ||
+    assessments.pulse > 120
+  ) {
+    flags.push("clinical_deterioration");
+  }
+
+  // 🍽️ MALNUTRITION
+  if (
+    assessments.must_score >= 2 ||
+    assessments.unplanned_weight_loss === "yes" ||
+    assessments.nutrition === "poor"
+  ) {
+    flags.push("malnutrition_risk");
+  }
+
+  // 🚶 FALLS
+  if (
+    assessments.falls_risk === "high" ||
+    assessments.mobility === "fall" ||
+    (assessments.falls && assessments.falls > 0)
+  ) {
+    flags.push("falls_risk");
+  }
+
+  // 💊 MEDICATION
+  if (
+    assessments.medication_compliance_risk === "high" ||
+    assessments.medication_ability === "unable"
+  ) {
+    flags.push("medication_risk");
+  }
+
+  // 🛡️ SAFEGUARDING
+  if (
+    assessments.safeguarding === "concern" ||
+    assessments.safeguarding_flag === true
+  ) {
+    flags.push("safeguarding");
+  }
+
+  // 💧 HYDRATION (optional but useful)
+  if (assessments.hydration === "poor") {
+    flags.push("hydration_risk");
+  }
+
+  // 🧠 COGNITION DECLINE
+  if (
+    assessments.cognition === "declining" ||
+    assessments.capacity === "fluctuating"
+  ) {
+    flags.push("cognitive_decline");
+  }
+
+  // 🧾 REVIEW REQUIRED
+  if (assessments.requires_review === true) {
+    flags.push("clinical_deterioration");
+  }
+
+  // 🔥 REMOVE DUPLICATES
+  return [...new Set(flags)];
+}
+// 🧠 FLAG → ALERT ENGINE
+export function generateFlagAlerts(flags: string[] = []): AlertItem[] {
+  const alerts: AlertItem[] = [];
+
+  flags.forEach((flag) => {
+    switch (flag) {
+      case "clinical_deterioration":
+        alerts.push({
+          type: "clinical",
+          severity: "critical",
+          message: "Clinical deterioration detected",
+          source: "assessment",
+          section_title: "Medical Conditions & Overview",
+        });
+        break;
+
+      case "malnutrition_risk":
+        alerts.push({
+          type: "nutrition",
+          severity: "high",
+          message: "High malnutrition risk",
+          source: "assessment",
+          section_title: "Nutrition & Hydration",
+        });
+        break;
+
+      case "falls_risk":
+        alerts.push({
+          type: "falls_risk",
+          severity: "high",
+          message: "High falls risk",
+          source: "assessment",
+          section_title: "Mobility & Moving",
+        });
+        break;
+
+      case "safeguarding":
+        alerts.push({
+          type: "safeguarding",
+          severity: "critical",
+          message: "Safeguarding concern",
+          source: "assessment",
+          section_title: "Risks & Safety",
+        });
+        break;
+
+      case "medication_risk":
+        alerts.push({
+          type: "medication",
+          severity: "high",
+          message: "Medication compliance risk",
+          source: "assessment",
+          section_title: "Medication Support",
+        });
+        break;
+    }
+  });
+
+  return alerts;
+}
 // 🧠 NEW: GLOBAL assessments ALERTS
 export function generateAssessmentAlerts(assessments: any) {
-  const alerts: AlertItem[] = [];
-  const addAlert = (alert: AlertItem) => {
+  // 🔥 FLAGS → ALERTS
+// 🧠 AUTO + MANUAL FLAGS
+const autoFlags = generateAutoFlags(assessments);
+const manualFlags = assessments.flags || [];
+
+const combinedFlags = [...new Set([...autoFlags, ...manualFlags])];
+
+// 🔥 FLAGS → ALERTS
+const alerts: AlertItem[] = [];
+
+const addAlert = (alert: AlertItem) => {
   const exists = alerts.some((a: any) => a.type === alert.type);
   if (!exists) alerts.push(alert);
 };
+
+// 🔥 FLAGS → ALERTS
+const flagAlerts = generateFlagAlerts(combinedFlags);
+flagAlerts.forEach(addAlert);
 
   if (assessments.hydration === "poor" || assessments.hydration === "refused") {
     const type = "hydration_low";

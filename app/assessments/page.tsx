@@ -15,55 +15,36 @@ import {
   applyAlertsToCarePlan,
   removeResolvedActionsFromCarePlan,
 } from "@/lib/carePlanEngine";
-
-// ✅ SAFE DATE HELPERS
-
 const toISODate = (value: string | null | undefined) => {
   if (!value) return null;
-
   const d = new Date(value);
   if (isNaN(d.getTime())) return null;
-
   return d.toISOString();
 };
-
 const fromISODate = (value: string | null | undefined) => {
   if (!value) return "";
-
   const d = new Date(value);
   if (isNaN(d.getTime())) return "";
-
   return d.toISOString().split("T")[0]; // YYYY-MM-DD for inputs
 };
-
 const safeDateDiffDays = (date: string | null | undefined) => {
   if (!date) return null;
-
   const d = new Date(date);
   if (isNaN(d.getTime())) return null;
-
   return (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
 };
-
 const calculateAge = (dob: string | null | undefined) => {
   if (!dob) return null;
-
   const birth = new Date(dob);
   if (isNaN(birth.getTime())) return null;
-
   const today = new Date();
-
   let age = today.getFullYear() - birth.getFullYear();
-
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
     age--;
   }
-
   return age;
 };
-
-/* 🔥 REUSABLE SECTION COMPONENT */
 type SectionProps = {
   title: string;
   options: string[];
@@ -72,8 +53,6 @@ type SectionProps = {
   multi?: boolean;
   disabled?: boolean;
 };
-
-
 function Section({
   title,
   options,
@@ -88,24 +67,20 @@ function Section({
       return;
     }
     const current = Array.isArray(value) ? value : [];
-
     if (current.includes(opt)) {
       onChange(current.filter((v) => v !== opt));
     } else {
       onChange([...current, opt]);
     }
   };
-
   return (
     <div className="mb-6">
       <p className="mb-2">{title}</p>
-
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {options.map((opt) => {
           const isActive = multi
   ? Array.isArray(value) && value.includes(opt)
   : String(value) === String(opt);
-
           return (
             <button
             type="button"
@@ -147,7 +122,6 @@ const CommunicationBox = ({
     />
   );
 };
-
 const TextAreaField = ({
   value,
   onChange,
@@ -171,9 +145,7 @@ const TextAreaField = ({
 };
 function AssessmentPageContent() {
    console.log("🔥 COMPONENT START");
-  
   const isUserTypingRef = useRef(false);
-  
   const router = useRouter();
   const searchParams = useSearchParams();
 const clientId = searchParams.get("client") || "";
@@ -181,17 +153,13 @@ const [referral, setReferral] = useState({
   type: "",
   details: "",
 });
-
 const generatePDF = async () => {
   const element =
     pdfMode === "family"
       ? document.getElementById("family-pdf")
       : document.getElementById("pdf-content");
-
   if (!element) return;
-
   const html2pdf = (await import("html2pdf.js")).default;
-
   html2pdf()
     .set({
       margin: 0.5,
@@ -205,7 +173,6 @@ const generatePDF = async () => {
 console.log("STEP 1");
   const [form, setForm] = useState<any>({
   client_id: clientId || "",
-
   hydration: "",
   nutrition: "",
   mobility: "",
@@ -319,7 +286,6 @@ news2_score: 0,
 bmi_category: "",
 waterlow_medication_risk: "",
 });
-
 const hasEvidenceToUpload = () => {
   return [
     form.cognition_evidence,
@@ -330,77 +296,58 @@ const hasEvidenceToUpload = () => {
     form.safeguarding_evidence,
   ].some(Boolean);
 };
-
 const calculateMUST = () => {
   if (!form.weight || !form.height) return 0;
-
   const bmi = Number(form.bmi);
   let score = 0;
-
   // BMI score
   if (bmi < 18.5) score += 2;
   else if (bmi < 20) score += 1;
-
   // Weight loss %
   if (form.weight_3_months_ago) {
     const oldWeight = Number(form.weight_3_months_ago);
     const current = Number(form.weight);
-
     const loss = ((oldWeight - current) / oldWeight) * 100;
-
     if (loss > 10) score += 2;
     else if (loss > 5) score += 1;
   }
-
   // Acute disease effect
   if (form.acute_disease_effect === "yes") {
     score += 2;
   }
-
   return score;
 };
-
 const calculateWaterlow = () => {
   let score = 0;
-
   const bmi = Number(form.bmi);
   const age = calculateAge(form.date_of_birth) || 0;
-
   // 🔹 BMI
   if (bmi < 18.5) score += 3;
   else if (bmi < 20) score += 2;
   else if (bmi > 30) score += 1;
-
   // 🔹 SKIN
   if (form.skin === "at risk") score += 1;
   if (form.skin === "category 1") score += 2;
   if (form.skin === "category 2") score += 3;
   if (form.skin === "category 3") score += 4;
   if (form.skin === "category 4") score += 5;
-
   // 🔹 MOBILITY
   if (form.mobility === "needs support") score += 2;
   if (form.mobility === "dependent") score += 3;
   if (form.mobility === "bed bound") score += 4;
-
   // 🔹 CONTINENCE
   if (form.toileting?.includes("incontinent")) score += 3;
   if (form.toileting?.includes("catheter")) score += 2;
-
   // 🔹 AGE
   if (age >= 75) score += 3;
   else if (age >= 65) score += 2;
   else if (age >= 50) score += 1;
-
   // 🔹 MEDICATION
   if (form.waterlow_medication_risk === "yes") score += 2;
-
   return score;
 };
-
 const calculateNEWS2 = () => {
   let score = 0;
-
   const rr = Number(form.resp_rate);
   const sats = Number(form.oxygen_sats);
   const temp = Number(form.temperature);
@@ -408,14 +355,12 @@ const calculateNEWS2 = () => {
   const consciousness = form.consciousness;
   const oxygen = form.on_oxygen;
   const scale = form.oxygen_scale;
-
   // 🔹 RESPIRATORY RATE
   if (rr <= 8) score += 3;
   else if (rr <= 11) score += 1;
   else if (rr <= 20) score += 0;
   else if (rr <= 24) score += 2;
   else if (rr >= 25) score += 3;
-
   // 🔹 OXYGEN SATS (SCALE 1 - default)
   if (scale === "1") {
     if (sats <= 91) score += 3;
@@ -423,7 +368,6 @@ const calculateNEWS2 = () => {
     else if (sats <= 95) score += 1;
     else if (sats >= 96) score += 0;
   }
-
   // 🔹 OXYGEN SATS (SCALE 2 - COPD etc)
   if (scale === "2") {
     if (sats <= 83) score += 3;
@@ -432,17 +376,14 @@ const calculateNEWS2 = () => {
     else if (sats <= 92) score += 0;
     else if (sats >= 93) score += 3;
   }
-
   // 🔹 OXYGEN SUPPLEMENT
   if (oxygen === "yes") score += 2;
-
   // 🔹 TEMPERATURE
   if (temp <= 35) score += 3;
   else if (temp <= 36) score += 1;
   else if (temp <= 38) score += 0;
   else if (temp <= 39) score += 1;
   else if (temp >= 39.1) score += 2;
-
   // 🔹 PULSE
   if (pulse <= 40) score += 3;
   else if (pulse <= 50) score += 1;
@@ -450,15 +391,12 @@ const calculateNEWS2 = () => {
   else if (pulse <= 110) score += 1;
   else if (pulse <= 130) score += 2;
   else if (pulse >= 131) score += 3;
-
   // 🔹 CONSCIOUSNESS (ACVPU)
   if (consciousness && consciousness !== "alert") {
     score += 3;
   }
-
   return score;
 };
-
 const blockIfView = (fn: () => void) => {
   if (viewMode) return;
   fn();
@@ -469,20 +407,16 @@ const [organisationId, setOrganisationId] = useState<string>("");
 useEffect(() => {
   const loadOrg = async () => {
     const { data } = await supabase.auth.getUser();
-
     if (!data?.user) return;
-
     const { data: profile } = await supabase
       .from("user_profiles")
       .select("organisation_id")
       .eq("id", data.user.id)
       .maybeSingle()
-
     if (profile?.organisation_id) {
       setOrganisationId(profile.organisation_id);
     }
   };
-
   loadOrg();
 }, []);
 const [prompts, setPrompts] = useState<any[]>([]);
@@ -490,8 +424,6 @@ const [loading, setLoading] = useState(false);
 const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [openSection, setOpenSection] = useState<string | null>("cognition");
 const [hasLoaded, setHasLoaded] = useState(false);
-console.log("STEP 2");
-
 const [timeline, setTimeline] = useState<any[]>([]);
 const [isTyping, setIsTyping] = useState(false);
 const [conflicts, setConflicts] = useState<any[]>([]);
@@ -525,7 +457,6 @@ const [safeguardingForm, setSafeguardingForm] =
     follow_up_date: "",
     reported_to: "",
   });
-
   const CATEGORY_OPTIONS = [
   { value: "Physical", label: "Physical" },
   { value: "Emotional/Psychological", label: "Emotional / Psychological" },
@@ -539,7 +470,6 @@ const [safeguardingForm, setSafeguardingForm] =
   { value: "Modern Slavery", label: "Modern Slavery" },
   { value: "Other", label: "Other" },
 ];
-
 const handleLogConcern = async () => {
   if (!safeguardingForm.category) {
   alert("Please select a category");
@@ -549,7 +479,6 @@ const handleLogConcern = async () => {
     alert("No client selected.");
     return;
   }
-
   setIsSubmittingReferral(true);
   const { data: { user } } = await supabase.auth.getUser();
   console.log("🚨 CATEGORY DEBUG:", {
@@ -567,30 +496,23 @@ other_category:
   safeguardingForm.category === "Other"
     ? safeguardingForm.other_category
     : null,
-
       urgency: safeguardingForm.urgency?.toLowerCase(),
       description: safeguardingForm.description,
-
       body_map_location: safeguardingForm.body_map_location,
-
       photo_urls: safeguardingForm.photo_urls
   ? [safeguardingForm.photo_urls]
   : [],
-
 follow_up: safeguardingForm.follow_up
   ? [safeguardingForm.follow_up]
   : [],
-
       action_taken: safeguardingForm.action_taken,
       reported_to: safeguardingForm.reported_to,
       follow_up_date: safeguardingForm.follow_up_date || null,
-
       status: "open",
       created_by: user?.id,
       created_at: new Date().toISOString(),
     },
   ]);
-
     await supabase.from("alerts").insert({
   client_id: clientId,
   organisation_id: organisationId,
@@ -599,7 +521,6 @@ follow_up: safeguardingForm.follow_up
   message: safeguardingForm.description,
   status: "active",
 });
-
   if (error) {
     console.error("Error logging concern:", error.message);
     alert("Failed to save to concern_records: " + error.message);
@@ -622,7 +543,6 @@ follow_up: safeguardingForm.follow_up
   }
   setIsSubmittingReferral(false);
 };
-
 const handleSafeguardingInput = (
   field: keyof SafeguardingFormType,
   value: string
@@ -643,26 +563,22 @@ const hasSyncedRef = useRef(false);
 const isUpdatingRef = useRef(false);
 const [hasSavedAssessment, setHasSavedAssessment] = useState(false);
 const access = useAccess();
-
 // ✅ SAFE DEFAULTS (fixes TS error properly)
 const plan = access?.plan ?? "free";
 const accountType = access?.accountType ?? "solo";
 const isTrialActive = access?.isTrialActive ?? false;
-
 const hasAssessmentAccess = canAccessFeature(
   "assessments",
   plan,
   accountType,
   isTrialActive
 );
-
 const hasMCAAccess = canAccessFeature(
   "mcaAssessment",
   plan,
   accountType,
   isTrialActive
 );
-
 const hasSmartAlertsAccess = canAccessFeature(
   "smartAlerts",
   plan,
@@ -674,12 +590,6 @@ const [biList, setBiList] = useState<any[]>([]);
 const initialSectionRef = useRef<string | null>(null);
 
 useEffect(() => {
-  console.log("FORM:", form);
-  console.log("TIMELINE:", timeline);
-  console.log("PROMPTS:", prompts);
-  console.log("CONFLICTS:", conflicts);}, []);
-
-useEffect(() => {
   if (!initialSectionRef.current) {
     initialSectionRef.current = searchParams.get("section");
   }
@@ -687,56 +597,43 @@ useEffect(() => {
 useEffect(() => {
   if (isUpdatingRef.current) return;
   if (!form.capacity) return;
-
   if (
     form.capacity === "lacks capacity" &&
     form.best_interest_required !== "yes"
   ) {
     isUpdatingRef.current = true;
-
     setForm((prev: any) => ({
       ...prev,
       best_interest_required: "yes",
     }));
-
     setTimeout(() => {
       isUpdatingRef.current = false;
     }, 0);
   }
 }, [form.capacity]);
-
 useEffect(() => {
   formRef.current = form;
 }, [form]);
-
 const handleInput = (field: string, value: any) => {
   if (viewMode) return;
-
   setForm((prev: any) => {
     if (prev[field] === value) return prev;
     const updated = { ...prev, [field]: value };
     formRef.current = updated; // ✅ ALWAYS sync ref
     return updated;
   });
-
   if (saveTimeout.current) clearTimeout(saveTimeout.current);
-
   saveTimeout.current = setTimeout(async () => {
     if (isSavingRef.current) return;
-
     const payload = formRef.current;
     const current = JSON.stringify(payload);
-
     if (current === lastSavedRef.current) return;
-
     try {
       isSavingRef.current = true;
       setSaving("saving");
-
       await supabase
         .from("assessments")
         .upsert(payload, { onConflict: "client_id" });
-
       lastSavedRef.current = current;
       setSaving("saved");
     } catch (err) {
@@ -747,7 +644,6 @@ const handleInput = (field: string, value: any) => {
     }
   }, 800);
 };
-
 const handleEquipmentServiced = (item: string, value: "yes" | "no") => {
   setForm((prev: any) => ({
     ...prev,
@@ -757,7 +653,6 @@ const handleEquipmentServiced = (item: string, value: "yes" | "no") => {
     },
   }));
 };
-
 const handleEquipmentDate = (item: string, date: string | null) => {
   setForm((prev: any) => ({
     ...prev,
@@ -767,7 +662,6 @@ const handleEquipmentDate = (item: string, date: string | null) => {
     },
   }));
 };
-
 const handleFileUpload = async (
   file: File,
   section: string,
@@ -777,23 +671,18 @@ const handleFileUpload = async (
     alert("Missing client or organisation");
     return;
   }
-
   const filePath = `${form.client_id}/${section}/${Date.now()}-${file.name}`;
-
   const { error: uploadError } = await supabase.storage
     .from("assessment-evidence")
     .upload(filePath, file);
-
   if (uploadError) {
     console.error(uploadError);
     alert("Upload failed");
     return;
   }
-
   const { data } = supabase.storage
     .from("assessment-evidence")
     .getPublicUrl(filePath);
-
   await supabase.from("assessment_evidence").insert({
     client_id: form.client_id,
     organisation_id: organisationId,
@@ -803,7 +692,6 @@ const handleFileUpload = async (
     file_name: file.name,
     file_type: file.type,
   });
-
   // 🔥 refresh list
   setEvidenceList((prev) => [
     ...prev,
@@ -815,7 +703,6 @@ const handleFileUpload = async (
     },
   ]);
 };
-
 const addMedication = () => {
   setMedications((prev) => [
     ...prev,
@@ -828,17 +715,14 @@ const addMedication = () => {
     },
   ]);
 };
-
 const updateMedication = (index: number, field: string, value: string) => {
   const updated = [...medications];
   updated[index][field] = value;
   setMedications(updated);
 };
-
 const removeMedication = (index: number) => {
   setMedications((prev) => prev.filter((_, i) => i !== index));
 };
-
 useEffect(() => {
   if (clientId) {
     setForm((prev: any) => ({
@@ -847,24 +731,18 @@ useEffect(() => {
 }));
   }
 }, [clientId]);
-
 const hasLoadedRef = useRef(false);
-
 useEffect(() => {
   const loadAssessment = async () => {
     if (!clientId || hasLoadedRef.current) return;
-
     hasLoadedRef.current = true;
-
     const { data, error } = await supabase
       .from("assessments")
       .select("*")
       .eq("client_id", clientId)
       .maybeSingle();
-
     if (data) {
   setHasSavedAssessment(true); // ✅ THIS IS THE KEY
-
   setForm((prev: any) => ({
   ...prev,
   ...data,
@@ -879,44 +757,37 @@ cognition_source: Array.isArray(data.cognition_source)
   : data.cognition_source
   ? [data.cognition_source]
   : [],
-
 nutrition_source: Array.isArray(data.nutrition_source)
   ? data.nutrition_source
   : data.nutrition_source
   ? [data.nutrition_source]
   : [],
-
 mobility_source: Array.isArray(data.mobility_source)
   ? data.mobility_source
   : data.mobility_source
   ? [data.mobility_source]
   : [],
-
 skin_source: Array.isArray(data.skin_source)
   ? data.skin_source
   : data.skin_source
   ? [data.skin_source]
   : [],
-
 medication_source: Array.isArray(data.medication_source)
   ? data.medication_source
   : data.medication_source
   ? [data.medication_source]
   : [],
-
 safeguarding_source: Array.isArray(data.safeguarding_source)
   ? data.safeguarding_source
   : data.safeguarding_source
   ? [data.safeguarding_source]
   : [],
-
     // ✅ FIX CRASH
     equipment: Array.isArray(data.equipment)
       ? data.equipment
       : data.equipment
       ? [data.equipment]
       : [],
-
     // ✅ FUTURE-PROOF
     equipment_serviced:
       typeof data.equipment_serviced === "object" &&
@@ -925,26 +796,20 @@ safeguarding_source: Array.isArray(data.safeguarding_source)
         : {},
   }));
 }
-
     setHasLoaded(true); // ✅ LOCK AFTER FIRST LOAD
-
     if (error) {
       console.error("Load error:", error.message);
     }
   };
-
   loadAssessment();
 }, [clientId, hasLoaded]);
-
 useEffect(() => {
   if (form.locked) {
     setViewMode(true);
   }
 }, [form.locked]);
-
 useEffect(() => {
   if (!clientId) return;
-
   const loadVersion = async () => {
     const { data } = await supabase
       .from("assessment_versions")
@@ -953,7 +818,6 @@ useEffect(() => {
       .order("version_number", { ascending: false })
       .limit(1)
       .maybeSingle();
-
     if (data) {
       setForm((prev: any) => ({
         ...prev,
@@ -961,13 +825,10 @@ useEffect(() => {
       }));
     }
   };
-
   loadVersion();
 }, [clientId]);
-
 useEffect(() => {
   if (!clientId) return;
-
   const loadMCA = async () => {
     const { data } = await supabase
       .from("mca_assessment")
@@ -977,7 +838,6 @@ useEffect(() => {
 
     if (data) setMcaList(data);
   };
-
   const loadBI = async () => {
     const { data } = await supabase
       .from("best_interest_decisions")
@@ -987,46 +847,35 @@ useEffect(() => {
 
     if (data) setBiList(data);
   };
-
   loadMCA();
   loadBI();
 }, [clientId]);
-
 useEffect(() => {
   if (!clientId) return;
-
   const loadMeds = async () => {
     const { data } = await supabase
       .from("medications")
       .select("*")
       .eq("client_id", clientId);
-
     if (data) {
       setMedications(data);
     }
   };
-
   loadMeds();
 }, [clientId]);
-
 useEffect(() => {
   if (!clientId) return;
-
   const loadEvidence = async () => {
     const { data } = await supabase
       .from("assessment_evidence")
       .select("*")
       .eq("client_id", clientId);
-
     if (data) setEvidenceList(data);
   };
-
   loadEvidence();
 }, [clientId]);
-
 useEffect(() => {
   if (!clientId) return;
-
   const loadPrompts = async () => {
     const { data } = await supabase
       .from("assessment_prompt")
@@ -1034,32 +883,24 @@ useEffect(() => {
       .eq("client_id", clientId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
-
     if (data) setPrompts(data);
   };
-
   loadPrompts();
 }, [clientId]);
-
 useEffect(() => {
   if (!clientId) return;
-
   const loadVisits = async () => {
     const { data } = await supabase
       .from("visit_notes")
       .select("*")
       .eq("client_id", clientId)
       .order("created_at", { ascending: true });
-
     if (data) setRecentVisits(data);
   };
-
   loadVisits();
 }, [clientId]);
-
 useEffect(() => {
   const must = calculateMUST();
-
   setForm((prev: any) => {
     if (prev.must_score === must) return prev;
     return { ...prev, must_score: must };
@@ -1070,11 +911,8 @@ useEffect(() => {
   form.weight_3_months_ago,
   form.acute_disease_effect,
 ]);
-
-
 useEffect(() => {
   const score = calculateWaterlow();
-
   setForm((prev: any) => {
     if (prev.waterlow_score === score) return prev;
     return { ...prev, waterlow_score: score };
@@ -1086,10 +924,8 @@ useEffect(() => {
   form.toileting,
   form.waterlow_medication_risk,
 ]);
-
 useEffect(() => {
   const score = calculateNEWS2();
-
   setForm((prev: any) => {
     if (prev.news2_score === score) return prev;
     return { ...prev, news2_score: score };
@@ -1103,17 +939,12 @@ useEffect(() => {
   form.on_oxygen,
   form.oxygen_scale,
 ]);
-
 const detectConflict = (visits: any[], field: string) => {
   if (visits.length < 2) return false;
-
   const last3 = visits.slice(-3).map((v) => v[field]);
-
   const uniqueValues = [...new Set(last3)];
-
   return uniqueValues.length > 1;
 };
-
 const createPrompt = async ({
   type,
   message,
@@ -1121,7 +952,6 @@ const createPrompt = async ({
   source_visit_id,
 }: any) => {
   const { data } = await supabase.auth.getUser();
-
   // 🚫 prevent duplicates
   const { data: existing } = await supabase
     .from("assessment_prompt")
@@ -1130,9 +960,7 @@ const createPrompt = async ({
     .or(`type.eq.${type},type.eq.${type}_low`)
     .eq("status", "pending")
     .maybeSingle();
-
   if (existing) return;
-
   await supabase.from("assessment_prompt").insert({
     client_id: form.client_id,
     organisation_id: organisationId,
@@ -1144,20 +972,14 @@ const createPrompt = async ({
     status: "pending",
   });
 };
-
 const evaluateConfidence = (visits: any[], field: string, value: any, count = 2) => {
   const recent = visits.slice(-count);
-
   if (recent.length < count) return false;
-
   return recent.every((v) => v[field] === value);
 };
-
 const detectTrend = (visits: any[], field: string) => {
   if (visits.length < 3) return null;
-
   const last3 = visits.slice(-3).map((v) => v[field]);
-
   // worsening logic (example for nutrition)
   if (
     last3.includes("poor") &&
@@ -1165,7 +987,6 @@ const detectTrend = (visits: any[], field: string) => {
   ) {
     return "worsening";
   }
-
   // improving logic
   if (
     last3.includes("adequate") &&
@@ -1173,10 +994,8 @@ const detectTrend = (visits: any[], field: string) => {
   ) {
     return "improving";
   }
-
   return null;
 };
-
 const syncAssessmentFromVisits = async ({
   visits,
   form,
@@ -1184,58 +1003,45 @@ const syncAssessmentFromVisits = async ({
   setPrompts,
 }: any) => {
   if (!visits || visits.length < 2) return;
-
   const lastVisit = visits[visits.length - 1];
-
   const updates: any = {};
   const nutritionTrend = detectTrend(visits, "nutrition");
 const mobilityTrend = detectTrend(visits, "mobility");
-
 if (nutritionTrend === "worsening" || mobilityTrend === "worsening") {
     updates.risk_trend = "declining";
   }
-
   if (nutritionTrend === "improving" && mobilityTrend === "improving") {
     updates.risk_trend = "improving";
   }
-
   const autoUpdates: any[] = [];
-
   // 🧠 RULE 2 — MOBILITY DECLINE
   if (
     evaluateConfidence(visits, "mobility", "needs support", 2) &&
     form.mobility === "independent"
   ) {
     updates.mobility = "needs support";
-
     autoUpdates.push({
       field: "mobility",
       value: "needs support",
       reason: "Decline observed across visits",
     });
   }
-
   // 🧠 RULE 3 — NUTRITION WORSENING
-
   if (nutritionTrend === "worsening" && form.nutrition !== "poor") {
     updates.nutrition = "poor";
-
     autoUpdates.push({
       field: "nutrition",
       value: "poor",
       reason: "Worsening trend detected",
     });
   }
-
   // 🚫 NOTHING TO UPDATE
   if (Object.keys(updates).length === 0) return;
-
   // ✅ APPLY UPDATE TO UI
   setForm((prev: any) => ({
   ...prev,
   ...updates,
 }));
-
   // ✅ SAVE TO DB
   await supabase
     .from("assessments")
@@ -1244,10 +1050,8 @@ if (nutritionTrend === "worsening" || mobilityTrend === "worsening") {
       updated_at: new Date().toISOString(),
     })
     .eq("client_id", form.client_id);
-
   // 🧾 LOG VERSION (AUDIT TRAIL)
   const { data: userData } = await supabase.auth.getUser();
-
   await supabase.from("assessment_versions").insert({
     client_id: form.client_id,
     organisation_id: organisationId,
@@ -1257,7 +1061,6 @@ if (nutritionTrend === "worsening" || mobilityTrend === "worsening") {
     update_reason: "Auto-updated from visit trends",
     created_by: userData?.user?.id || null,
   });
-
   // 🧠 OPTIONAL — CLEAN PROMPTS (avoid duplicates)
   setPrompts((prev: any[]) =>
     prev.filter(
@@ -1267,13 +1070,10 @@ if (nutritionTrend === "worsening" || mobilityTrend === "worsening") {
   );
   console.log("✅ AUTO UPDATED:", autoUpdates);
 };
-
 useEffect(() => {
   if (!recentVisits.length) return;
   if (hasSyncedRef.current) return;
-
   hasSyncedRef.current = true;
-
   syncAssessmentFromVisits({
     visits: recentVisits,
     form: formRef.current, // ✅ use ref not state
@@ -1281,37 +1081,29 @@ useEffect(() => {
     setPrompts,
   });
 }, [recentVisits]);
-
 const lastVisit = recentVisits?.[recentVisits.length - 1];
   // 🔥 AUTO RESOLVE ALERTS FROM VISIT DATA
 const autoResolveAlerts = async () => {
   if (!lastVisit) return;
-
   const updates: string[] = [];
-
   // ✅ SKIN IMPROVED
   if (lastVisit.skin === "intact") {
     updates.push("skin_pressure");
   }
-
   // ✅ NUTRITION IMPROVED
   if (lastVisit.nutrition === "adequate") {
     updates.push("nutrition");
   }
-
   // ✅ HYDRATION IMPROVED
   if (lastVisit.hydration === "adequate") {
     updates.push("hydration");
   }
-
   // ✅ MEDICATION TAKEN
   if (lastVisit.medication === "taken") {
     updates.push("medication");
   }
-
   // 🚫 NOTHING TO RESOLVE
   if (updates.length === 0) return;
-
   // 🔥 UPDATE ALERTS
   for (const type of updates) {
     await supabase
@@ -1325,58 +1117,42 @@ const autoResolveAlerts = async () => {
       .eq("status", "active");
   }
 };
-
 const hasResolvedRef = useRef(false);
-
 useEffect(() => {
   if (!recentVisits.length) return;
   if (hasResolvedRef.current) return;
-
   hasResolvedRef.current = true;
-
   autoResolveAlerts();
 }, [recentVisits]);
-
   useEffect(() => {
   const conflicts: any[] = [];
-
   if (detectConflict(recentVisits, "skin")) {
     conflicts.push({
       field: "skin",
       message: "Conflicting skin records detected",
     });
   }
-
   if (detectConflict(recentVisits, "mobility")) {
     conflicts.push({
       field: "mobility",
       message: "Conflicting mobility records detected",
     });
   }
-
   if (detectConflict(recentVisits, "nutrition")) {
     conflicts.push({
       field: "nutrition",
       message: "Conflicting nutrition records detected",
     });
   }
-
   setConflicts(conflicts);
-
   if (conflicts.length > 0) return;
-
   // KEEP EXISTING PROMPT LOGIC HERE
-
 }, [recentVisits]);
-
 useEffect(() => {
   if (!recentVisits.length) return;
-
   // 🚫 STOP PROMPTS IF CONFLICT EXISTS
   if (conflicts.length > 0) return;
-
   const lastVisit = recentVisits[recentVisits.length - 1];
-
   // 🔥 SKIN IMPROVEMENT
   if (
     evaluateConfidence(recentVisits, "skin", "intact", 3) &&
@@ -1392,10 +1168,8 @@ useEffect(() => {
       source_visit_id: lastVisit.id,
     });
   }
-
   // 🔥 NUTRITION TREND
   const nutritionTrend = detectTrend(recentVisits, "nutrition");
-
   if (nutritionTrend === "worsening") {
     createPrompt({
       type: "nutrition_decline",
@@ -1407,7 +1181,6 @@ useEffect(() => {
       source_visit_id: lastVisit.id,
     });
   }
-
   // 🔥 MOBILITY DECLINE
   if (
     evaluateConfidence(recentVisits, "mobility", "needs support", 2) &&
@@ -1424,32 +1197,26 @@ useEffect(() => {
     });
   }
 }, [recentVisits, conflicts, form]);
-
 useEffect(() => {
   if (!clientId) return;
-
   const loadTimeline = async () => {
     // 🔹 VISITS
     const { data: visits } = await supabase
       .from("visit_notes")
       .select("id, created_at, notes, user_id")
       .eq("client_id", clientId);
-
     // 🔹 PROMPTS
     const { data: prompts } = await supabase
       .from("assessment_prompt")
       .select("*")
       .eq("client_id", clientId);
-
     // 🔹 VERSIONS
     const { data: versions } = await supabase
       .from("assessment_versions")
       .select("*")
       .eq("client_id", clientId);
-
     // 🔥 MERGE INTO TIMELINE
     const events: any[] = [];
-
     visits?.forEach((v) => {
       events.push({
         type: "visit",
@@ -1459,7 +1226,6 @@ useEffect(() => {
         user_id: v.user_id,
       });
     });
-
     prompts?.forEach((p) => {
       events.push({
         type: "prompt",
@@ -1468,7 +1234,6 @@ useEffect(() => {
         description: p.message,
         user_id: p.created_by,
       });
-
       if (p.status === "accepted" || p.status === "ignored") {
         events.push({
           type: "prompt_action",
@@ -1482,7 +1247,6 @@ useEffect(() => {
         });
       }
     });
-
     versions?.forEach((v) => {
       events.push({
         type: "version",
@@ -1492,46 +1256,34 @@ useEffect(() => {
         user_id: v.created_by,
       });
     });
-
     // 🔥 SORT BY DATE
     events.sort(
       (a, b) =>
         new Date(b.date).getTime() -
         new Date(a.date).getTime()
     );
-
     setTimeline(events);
   };
-
   loadTimeline();
 }, [clientId]);
-
 const bmi = (() => {
   if (!form.weight || !form.height) return 0;
-
   const h = Number(form.height) / 100;
   const w = Number(form.weight);
-
   if (h <= 0) return 0;
-
   return Number((w / (h * h)).toFixed(1));
 })();
-
 const bmiCategory = (() => {
   if (!bmi) return "";
-
   if (bmi < 18.5) return "underweight";
   if (bmi < 25) return "healthy";
   if (bmi < 30) return "overweight";
   return "obese";
 })();
-
   useEffect(() => {
   const section = initialSectionRef.current;
   if (!section) return;
-
   setOpenSection(section);
-
   const el = document.getElementById(section);
   if (el) {
     el.scrollIntoView({
@@ -1540,7 +1292,6 @@ const bmiCategory = (() => {
     });
   }
 }, []);
-
 const SOURCE_OPTIONS = [
   "observation",
   "family",
@@ -1558,17 +1309,14 @@ const SOURCE_OPTIONS = [
   "social_worker",
   "other",
 ];
-
 useEffect(() => {
   if (!clientId) return;
-
   const loadClient = async () => {
     const { data } = await supabase
       .from("clients")
       .select("date_of_birth")
       .eq("id", clientId)
       .maybeSingle();
-
     if (data?.date_of_birth) {
   setForm((prev: any) => ({
     ...prev,
@@ -1576,15 +1324,11 @@ useEffect(() => {
   }));
 }
   };
-
   loadClient();
-}, [clientId]);
-    
-
+}, [clientId])
   // 🧠 ADVANCED CLINICAL RISK SCORING
 const calculateScore = () => {
   let score = 0;
-
   // 🔹 BASIC RISKS (keep your existing logic)
   if (form.hydration === "poor" || form.hydration === "refused") score += 3;
   if (form.nutrition === "poor" || form.nutrition === "refused") score += 3;
@@ -1623,6 +1367,18 @@ else if (must === 1) score += 3;
   }
 
   return score;
+};
+
+const calculateFlags = (form: any) => {
+  const flags: string[] = [];
+
+  if (form.news2_score >= 5) flags.push("clinical_deterioration");
+  if (form.must_score >= 2) flags.push("malnutrition_risk");
+  if (form.falls_risk === "high") flags.push("falls_risk");
+  if (form.safeguarding === "concern") flags.push("safeguarding");
+  if (form.medication_compliance_risk === "high") flags.push("medication_risk");
+
+  return flags;
 };
 const age = calculateAge(form.date_of_birth);
 
@@ -1836,12 +1592,29 @@ const getProgress = () => {
 
   return Math.round((total / sections.length) * 100);
 };
+const generateFlagAlerts = (flags: string[]) => {
+  return flags.map((f) => ({
+    type: f,
+    severity: "high",
+    message: f.replace(/_/g, " "),
+  }));
+};
+const generateAISummary = (form: any) => {
+  return `
+Client has ${form.mobility || "unknown"} mobility,
+${form.nutrition || "unknown"} nutrition,
+and ${form.falls_risk || "unknown"} falls risk.
 
-
+Overall risk score: ${calculateScore()}.
+`;
+};
   const handleSubmit = async () => {
   setLoading(true);
 
   const riskScore = calculateScore();
+const flags = calculateFlags(form);
+
+const aiRiskScore = riskScore + (flags.length * 2);
 
   // ✅ DETERMINE STATUS PROPERLY
   let status = "completed";
@@ -1849,7 +1622,9 @@ const getProgress = () => {
   if (!form.hydration || !form.mobility) {
     status = "partial";
   }
-
+  const autoFlags = calculateFlags(form);
+const manualFlags = form.flags || [];
+const combinedFlags = [...new Set([...autoFlags, ...manualFlags])];
   // 💾 SAVE assessments
   const cleanedForm = {
   ...Object.fromEntries(
@@ -1858,14 +1633,14 @@ const getProgress = () => {
       value === "" ? null : value,
     ])
   ),
-  
-
   cognition_source: form.cognition_source || [],
   nutrition_source: form.nutrition_source || [],
   mobility_source: form.mobility_source || [],
   skin_source: form.skin_source || [],
   medication_source: form.medication_source || [],
   safeguarding_source: form.safeguarding_source || [],
+  ai_summary: generateAISummary(form),
+ai_last_updated: new Date().toISOString(),
 };
 
 const { data, error } = await supabase
@@ -1873,10 +1648,14 @@ const { data, error } = await supabase
   .upsert(
     {
       ...cleanedForm,
-      client_id: form.client_id,
-      risk_score: riskScore,
-      status,
-      locked: true,
+client_id: form.client_id,
+risk_score: riskScore,
+ai_risk_score: aiRiskScore,
+requires_review: flags.length > 0,
+safeguarding_flag: flags.includes("safeguarding"),
+status,
+flags: combinedFlags,
+locked: true,
     },
     { onConflict: "client_id" }
   );
@@ -1944,10 +1723,14 @@ if (hasSmartAlertsAccess) {
     .eq("client_id", form.client_id)
     .eq("source", "assessments");
 
-  const globalAlerts = generateAssessmentAlerts(form);
+  const flags = calculateFlags(form);
+
+const flagAlerts = generateFlagAlerts(flags);
+const globalAlerts = generateAssessmentAlerts(form);
 const risks = generateRisks(form);
 
 const allAlerts = [
+  ...flagAlerts,
   ...risks.map((r: any) => ({
     message: r.title,
     severity: r.severity,
@@ -1981,6 +1764,29 @@ await saveAlerts({
   organisation_id: organisationId,
   visit_id: null,
   alerts: allAlerts,
+});
+
+allAlerts.forEach((a: any) => {
+  if (a.type === "safeguarding") {
+    tasks.push({
+      title: "Escalate safeguarding concern immediately",
+      priority: "high",
+    });
+  }
+
+  if (a.type === "nutrition") {
+    tasks.push({
+      title: "Monitor food and fluid intake",
+      priority: "high",
+    });
+  }
+
+  if (a.type === "falls") {
+    tasks.push({
+      title: "Implement falls prevention measures",
+      priority: "high",
+    });
+  }
 });
 
   if (enrichedCarePlan?.length) {
@@ -2031,8 +1837,51 @@ if (form.capacity === "lacks capacity" || form.capacity === "fluctuating") {
 }
   };
 
+const MultiSelectDropdown = ({
+  value = [],
+  onChange,
+  options,
+  placeholder = "Select sources",
+  disabled,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  options: string[];
+  placeholder?: string;
+  disabled?: boolean;
+}) => {
+  return (
+    <select
+      multiple
+      value={value}
+      disabled={disabled}
+      onChange={(e) => {
+        const selected = Array.from(e.target.selectedOptions).map(
+          (o) => o.value
+        );
+        onChange(selected);
+      }}
+      className="w-full p-3 rounded bg-[var(--card)] text-white min-h-[120px]"
+    >
+      <option disabled value="">
+        {placeholder}
+      </option>
+
+      {options.map((opt) => (
+        <option key={opt} value={opt}>
+          {opt}
+        </option>
+      ))}
+    </select>
+  );
+};
+
 const getImmediateAlerts = () => {
   const alerts = [];
+
+  if (form.safeguarding_flag) {
+  alerts.push("🚨 Safeguarding flag raised — immediate escalation required");
+}
 
   if (Number(form.frailty_score) >= 7) {
   alerts.push("🚨 Severe frailty — high risk of deterioration");
@@ -2146,12 +1995,9 @@ if (form.medication_side_effects) {
 
   return alerts;
 };
-
 const daysSinceReview = safeDateDiffDays(form.last_reviewed);
-
 const isOverdue =
   daysSinceReview !== null && daysSinceReview > 30;
-
   const SectionWrapper = ({
   id,
   title,
@@ -2298,6 +2144,13 @@ const FamilyPDFView = () => (
     <h1 className="text-xl font-bold mb-2">
       Care Summary
     </h1>
+
+    {form.ai_summary && (
+  <div className="bg-blue-900/20 border border-blue-500 p-3 rounded mb-4">
+    <h2 className="font-semibold mb-2">🧠 AI Summary</h2>
+    <p className="text-sm whitespace-pre-line">{form.ai_summary}</p>
+  </div>
+)}
 
     <p>
       This summary explains the current care needs and support in place.
@@ -2955,14 +2808,12 @@ return (
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <Section
-    title="Sources of Information (select all that apply)"
-    options={SOURCE_OPTIONS}
-    value={form.cognition_source || []}
-    onChange={(v) => handleInput("cognition_source", v)}
-    multi
-    disabled={viewMode}
-  />
+  <MultiSelectDropdown
+  value={form.cognition_source || []}
+  onChange={(v) => handleInput("cognition_source", v)}
+  options={SOURCE_OPTIONS}
+  disabled={viewMode}
+/>
 
   <label className="flex items-center gap-2 text-sm mt-3">
   <input
@@ -3130,14 +2981,12 @@ return (
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <Section
-    title="Sources of Information (select all that apply)"
-    options={SOURCE_OPTIONS}
-    value={form.nutrition_source || []}
-    onChange={(v) => handleInput("nutrition_source", v)}
-    multi
-    disabled={viewMode}
-  />
+  <MultiSelectDropdown
+  value={form.nutrition_source || []}
+  onChange={(v) => handleInput("nutrition_source", v)}
+  options={SOURCE_OPTIONS}
+  disabled={viewMode}
+/>
 
   <label className="flex items-center gap-2 text-sm mt-3">
   <input
@@ -3329,14 +3178,12 @@ disabled={viewMode}
   <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <Section
-    title="Sources of Information (select all that apply)"
-    options={SOURCE_OPTIONS}
-    value={form.mobility_source || []}
-    onChange={(v) => handleInput("mobility_source", v)}
-    multi
-    disabled={viewMode}
-  />
+  <MultiSelectDropdown
+  value={form.mobility_source || []}
+  onChange={(v) => handleInput("mobility_source", v)}
+  options={SOURCE_OPTIONS}
+  disabled={viewMode}
+/>
 
   <label className="flex items-center gap-2 text-sm mt-3">
   <input
@@ -3483,14 +3330,12 @@ onChange={(e) => handleInput("pad_delivery", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <Section
-    title="Sources of Information (select all that apply)"
-    options={SOURCE_OPTIONS}
-    value={form.skin_source || []}
-    onChange={(v) => handleInput("skin_source", v)}
-    multi
-    disabled={viewMode}
-  />
+  <MultiSelectDropdown
+  value={form.skin_source || []}
+  onChange={(v) => handleInput("skin_source", v)}
+  options={SOURCE_OPTIONS}
+  disabled={viewMode}
+/>
 
   <label className="flex items-center gap-2 text-sm mt-3">
   <input
@@ -3706,14 +3551,12 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <Section
-    title="Sources of Information (select all that apply)"
-    options={SOURCE_OPTIONS}
-    value={form.medication_source || []}
-    onChange={(v) => handleInput("medication_source", v)}
-    multi
-    disabled={viewMode}
-  />
+  <MultiSelectDropdown
+  value={form.medication_source || []}
+  onChange={(v) => handleInput("medication_source", v)}
+  options={SOURCE_OPTIONS}
+  disabled={viewMode}
+/>
 
   <label className="flex items-center gap-2 text-sm mt-3">
   <input
@@ -4229,14 +4072,12 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
 <div className="bg-[var(--card)] p-3 rounded mt-4">
   <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
 
-  <Section
-    title="Sources of Information (select all that apply)"
-    options={SOURCE_OPTIONS}
-    value={form.safeguarding_source || []}
-    onChange={(v) => handleInput("safeguarding_source", v)}
-    multi
-    disabled={viewMode}
-  />
+  <MultiSelectDropdown
+  value={form.safeguarding_source || []}
+  onChange={(v) => handleInput("safeguarding_source", v)}
+  options={SOURCE_OPTIONS}
+  disabled={viewMode}
+/>
 
   <label className="flex items-center gap-2 text-sm mt-3">
   <input
@@ -4331,6 +4172,17 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
 <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6 border border-yellow-500/30">
    
 <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4">
+{form.flags?.length > 0 && (
+  <div className="bg-red-900/20 border border-red-500 p-4 rounded mb-4">
+    <h2 className="font-semibold mb-2">🚨 System Flags</h2>
+
+    {form.flags.map((f: string) => (
+      <p key={f} className="text-sm text-red-400">
+        • {f.replace("_", " ")}
+      </p>
+    ))}
+  </div>
+)}
   <h2 className="font-semibold mb-2">Risk Score</h2>
 
   {calculateScore() >= 10 && (
@@ -4352,6 +4204,11 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   </p>
 </div>
 </div>
+{form.requires_review && (
+  <div className="bg-yellow-600 p-3 rounded mb-4 text-sm">
+    ⚠️ This assessment requires review due to identified risks
+  </div>
+)}
 <SectionWrapper
   id="review"
   title="Review & Compliance"

@@ -9,6 +9,8 @@ import { useAccess } from "@/app/context/AccessContext";
 import { generateAssessmentAlerts, generateDiagnosisAlerts, saveAlerts } from "@/lib/alertEngine";
 import { removeResolvedActionsFromCarePlan } from "@/lib/carePlanEngine";
 import { syncTasksWithAlerts } from "@/lib/alertEngine";
+import { generateAutoFlags } from "@/lib/flagEngine";
+import { generateFlagAlerts } from "@/lib/flagAlerts";
 import {
   LineChart,
   Line,
@@ -64,6 +66,7 @@ const groupedAlerts = {
   assessments: alerts.filter((a) => a.source === "assessments"),
   visit: alerts.filter((a) => a.source === "visit"),
   diagnosis: alerts.filter((a) => a.source === "diagnosis"),
+  flags: alerts.filter((a) => a.source === "flags"), // ✅ ADD THIS
 };
 
 const triggerFeedbackNotification = (feedback: any) => {
@@ -132,42 +135,58 @@ useEffect(() => {
 if (!client) return;
 
   const loadAssessment = async () => {
-    const { data } = await supabase
-      .from("assessments")
-      .select("*")
-      .eq("client_id", id)
-      .maybeSingle();
+  const { data } = await supabase
+    .from("assessments")
+    .select("*")
+    .eq("client_id", id)
+    .maybeSingle();
 
-    if (!data) return;
+  if (!data) return;
 
-    setAssessments(data);
+  setAssessments(data);
 
-    // 🔥 GENERATE ASSESSMENT ALERTS
-const assessmentAlerts = generateAssessmentAlerts(data);
+  // 🧠 STEP 1 — AUTO FLAGS (FROM DATA)
+  const autoFlags = generateAutoFlags(data);
 
-await saveAlerts({
-  alerts: assessmentAlerts,
-  clientId: id as string,
-});
+  // 🧠 STEP 2 — MERGE WITH SAVED FLAGS
+  const allFlags = [...new Set([...(data.flags || []), ...autoFlags])];
 
-    const { data: freshAlerts } = await supabase
-      .from("alerts")
-      .select("*")
-      .eq("client_id", id)
-      .eq("status", "active");
+  // 🧠 STEP 3 — FLAG ALERTS
+  const flagAlerts = generateFlagAlerts(allFlags);
 
-    await removeResolvedActionsFromCarePlan({
-  clientId: id as string,
-  activeAlerts: freshAlerts || [],
-});
+  // 🧠 STEP 4 — NORMAL ALERTS
+  const assessmentAlerts = generateAssessmentAlerts(data);
 
-    await syncTasksWithAlerts({
-  clientId: id as string,
-  activeAlerts: freshAlerts || [],
-});
+  // 🧠 STEP 5 — COMBINE EVERYTHING
+  const allAlerts = [...assessmentAlerts, ...flagAlerts];
 
-    loadAlerts();
-  };
+  // 💾 SAVE ALL ALERTS
+  await saveAlerts({
+    alerts: allAlerts,
+    clientId: id as string,
+  });
+
+  // 🔄 REFRESH ALERTS
+  const { data: freshAlerts } = await supabase
+    .from("alerts")
+    .select("*")
+    .eq("client_id", id)
+    .eq("status", "active");
+
+  // 🔗 CLEAN CARE PLAN
+  await removeResolvedActionsFromCarePlan({
+    clientId: id as string,
+    activeAlerts: freshAlerts || [],
+  });
+
+  // 🔗 SYNC TASKS
+  await syncTasksWithAlerts({
+    clientId: id as string,
+    activeAlerts: freshAlerts || [],
+  });
+
+  loadAlerts();
+};
 
   loadAssessment();
 }, [id, client]);
@@ -176,16 +195,38 @@ const calculateRiskScore = () => {
   if (!alerts.length) return 0;
 
   return alerts.reduce((total: number, alert: any) => {
-    if (alert.severity === "critical") return total + 5;
-    if (alert.severity === "high") return total + 3;
-    if (alert.severity === "medium") return total + 2;
-    return total + 1;
+    let score = 1;
+
+    if (alert.severity === "critical") score = 5;
+    else if (alert.severity === "high") score = 3;
+    else if (alert.severity === "medium") score = 2;
+
+    // 🔥 BOOST FLAGS (THE KEY BIT)
+    if (alert.source === "flags") {
+      score += 2; // flags carry extra weight
+    }
+
+    return total + score;
   }, 0);
 };
 
 const getRiskLevel = (score: number) => {
-  if (score >= 6) return { label: "High Risk", color: "bg-red-600" };
-  if (score >= 3) return { label: "Medium Risk", color: "bg-yellow-500" };
+  const hasCriticalFlag = alerts.some(
+    (a) => a.source === "flags" && a.severity === "critical"
+  );
+
+  if (hasCriticalFlag) {
+    return { label: "Critical Risk", color: "bg-red-800" };
+  }
+
+  if (score >= 8) {
+    return { label: "High Risk", color: "bg-red-600" };
+  }
+
+  if (score >= 4) {
+    return { label: "Medium Risk", color: "bg-yellow-500" };
+  }
+
   return { label: "Low Risk", color: "bg-green-600" };
 };
 
@@ -201,9 +242,17 @@ const getRiskTrend = () => {
 
   const scoreSet = (set: any[]) =>
     set.reduce((total, alert) => {
-      if (alert.severity === "high") return total + 3;
-      if (alert.severity === "medium") return total + 2;
-      return total + 1;
+      let score = 1;
+
+if (alert.severity === "critical") score = 5;
+else if (alert.severity === "high") score = 3;
+else if (alert.severity === "medium") score = 2;
+
+if (alert.source === "flags") {
+  score += 2;
+}
+
+return total + score;
     }, 0);
 
   const recentScore = scoreSet(recent);
@@ -288,7 +337,7 @@ if (userData?.user) {
     } catch {
       return null;
     }
-  }).filter(Boolean);
+  }).filter((a): a is any => a !== null);
 
   setSummaryHistory(parsed);
 };
@@ -1058,7 +1107,7 @@ useEffect(() => {
   </p>
 )}
 {/* 🔥 GROUPED ALERTS */}
-<div className="grid md:grid-cols-3 gap-4 mt-6">
+<div className="grid md:grid-cols-4 gap-4 mt-6">
 
   {/* 🚨 assessments */}
   <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
@@ -1110,6 +1159,34 @@ useEffect(() => {
       ))
     )}
   </div>
+  {/* 🚩 FLAGS */}
+<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
+  <h2 className="text-sm font-semibold mb-2">
+    🚩 Flag Risks
+  </h2>
+
+  {groupedAlerts.flags.length === 0 ? (
+    <p className="text-xs text-gray-500">None</p>
+  ) : (
+    limitAlerts(groupedAlerts.flags).map((alert) => (
+  <div
+    key={alert.id}
+    className={`text-xs mb-1 px-2 py-1 rounded flex justify-between ${
+      alert.severity === "critical"
+        ? "bg-red-700"
+        : alert.severity === "high"
+        ? "bg-red-500"
+        : alert.severity === "medium"
+        ? "bg-yellow-500"
+        : "bg-blue-500"
+    }`}
+  >
+    <span>🚩 {alert.message}</span>
+    <span className="opacity-70">{alert.severity}</span>
+  </div>
+))
+  )}
+</div>
 
 </div>
   </div>
