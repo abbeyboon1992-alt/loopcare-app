@@ -992,7 +992,11 @@ if (visitData.skin) {
 const diagnosisAlerts = generateDiagnosisAlerts(client);
 
 diagnosisAlerts.forEach((a: any) => {
-  if (!alerts.some((x) => x.type === a.type)) {
+  if (
+    !alerts.some(
+      (x) => x.type === a.type && x.source === a.source
+    )
+  ) {
     alerts.push(a);
   }
 });

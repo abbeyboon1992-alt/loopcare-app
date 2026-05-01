@@ -11,6 +11,9 @@ import {
 } from "./carePlanEngine";
 import { generateInsights } from "./insightsEngine";
 import { removeResolvedActionsFromCarePlan } from "./carePlanEngine";
+import { mergeAlerts } from "@/lib/mergeAlerts";
+import { generateDiagnosisAlerts } from "@/lib/alertEngine";
+import { generateCareFromMatrix } from "@/lib/carePlanMatrix";
 
 export async function processVisit({
   clientId,
@@ -65,13 +68,23 @@ const { data: assessments } = await supabase
   .eq("client_id", clientId)
   .maybeSingle();
   // 🧠 GENERATE ALERTS
-  const rawAlerts = await generateVisitAlerts({
+  const visitAlerts = await generateVisitAlerts({
   client,
   visitData: data,
   assessments,
 });
 
-  const scoredAlerts = scoreAlerts(rawAlerts);
+const assessmentAlerts = generateAssessmentAlerts(assessments || {});
+const diagnosisAlerts = generateDiagnosisAlerts(client);
+
+const allAlerts = [
+  ...visitAlerts,
+  ...assessmentAlerts,
+  ...diagnosisAlerts,
+];
+
+const mergedAlerts = mergeAlerts(allAlerts);
+const scoredAlerts = scoreAlerts(mergedAlerts);
 
   await saveAlerts({
   clientId,
@@ -90,7 +103,17 @@ await removeResolvedActionsFromCarePlan({
 });
 
 // 🧠 GENERATE + APPLY CARE PLAN
-const baseCarePlan = generateCarePlan(data, scoredAlerts);
+const matrix = generateCareFromMatrix(
+  { ...assessments, ...data },
+  client
+);
+
+const baseCarePlan = Object.entries(matrix).map(([title, val]: any) => ({
+  title,
+  care_need: val.care_need.join(" | "),
+  outcome: Array.from(val.outcome).join(" | "),
+  actions: Array.from(val.actions),
+}));
 
 const finalCarePlan = applyAlertsToCarePlan(
   baseCarePlan,
@@ -227,8 +250,15 @@ if (assessments) {
 
   // 🔥 RE-SYNC ALERTS FROM UPDATED assessments
   const refreshedAlerts = generateAssessmentAlerts(updatedAssessment);
-  const updatedCarePlan = applyAlertsToCarePlan(
-  generateCarePlan(updatedAssessment, refreshedAlerts),
+  const matrix = generateCareFromMatrix(updatedAssessment, client);
+
+const updatedCarePlan = applyAlertsToCarePlan(
+  Object.entries(matrix).map(([title, val]: any) => ({
+    title,
+    care_need: val.care_need.join(" | "),
+    outcome: Array.from(val.outcome).join(" | "),
+    actions: Array.from(val.actions),
+  })),
   refreshedAlerts
 );
 

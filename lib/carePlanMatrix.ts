@@ -441,9 +441,9 @@ export function generateCareFromMatrix(
 
     sectionMap[section].care_need.push(rule.care_need);
     sectionMap[section].outcome.add(rule.outcome);
-    rule.actions.forEach((a) =>
-      sectionMap[section].actions.add(a)
-    );
+    (rule.actions || []).forEach((a) =>
+  sectionMap[section].actions.add(a.trim())
+);
   };
 
   carePlanMatrix.forEach((rule) => {
