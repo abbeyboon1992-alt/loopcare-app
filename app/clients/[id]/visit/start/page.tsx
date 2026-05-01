@@ -1789,12 +1789,6 @@ const createConcernFromAlert = async (alert: any) => {
         ))}
       </div>
     </div>
-
-    <div className="mb-4">Pain...</div>
-    <div className="mb-4">Breathing...</div>
-    <div className="mb-4">Cognition...</div>
-    <div className="mb-4">Skin...</div>
-    <div className="mb-4">Safeguarding...</div>
   </>
 )}
     <div className="mb-4">
