@@ -1552,6 +1552,26 @@ addAlert({
   });
 }
 
+if (assessments.early_warning_signs) {
+  alerts.push({
+    type: "early_warning",
+    severity: "high",
+    message: "Early warning signs identified",
+    action: "Monitor closely and follow escalation plan",
+    source: "assessment",
+  });
+}
+
+if (assessments.risk_trend === "declining") {
+  alerts.push({
+    type: "deterioration",
+    severity: "critical",
+    message: "Client condition declining",
+    action: "Immediate clinical review required",
+    source: "assessment",
+  });
+}
+
   if (assessments.mood === "distressed") {
   const type = "mental_health";
 
@@ -1640,17 +1660,17 @@ export async function syncTasksWithAlerts({
     }
   }
 }
-
-export async function removeResolvedActionsFromCarePlan({
+  export async function cleanResolvedAlertsFromCarePlan({
   clientId,
   activeAlerts,
 }: {
   clientId: string;
-  activeAlerts?: any[]; // 👈 THIS LINE
+  activeAlerts: any[];
 }) {
-  const activeMessages =
-  activeAlerts?.map((a: any) => a.message) || [];
+  if (!clientId) return;
 
+  const activeMessages =
+    activeAlerts?.map((a: any) => a.message) || [];
 
   const { data: sections } = await supabase
     .from("care_plan_section")
@@ -1666,7 +1686,9 @@ export async function removeResolvedActionsFromCarePlan({
       .filter((l: string) => l.length > 0);
 
     const cleaned = lines.filter((line: string) =>
-      activeMessages.some((msg) => line.includes(msg))
+      activeMessages.some((msg: string) =>
+        line.includes(msg)
+      )
     );
 
     const updated = cleaned.join("\n");

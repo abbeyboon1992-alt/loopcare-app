@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { generateDiagnosisCarePlan } from "@/lib/carePlanDiagnosisTemplates";
 import { useParams, useRouter } from "next/navigation";
 import templates from "@/data/carePlanTemplates.json";
+import { generateCareFromMatrix } from "@/lib/carePlanMatrix";
 import { mapTaskToSection } from "@/lib/taskToSectionMapper";
 
 export default function CarePlanPage() {
@@ -18,23 +20,96 @@ const [tasks, setTasks] = useState<any[]>([]);
     loadPlan();
   }, [id]);
 
-  // 🔥 AUTO APPLY MCA / BEST INTEREST TO CARE PLAN
-
 const [sections, setSections] = useState<any[]>([]);
 const [client, setClient] = useState<any>(null);
 const hasRunLegalUpdate = useRef(false);
 useEffect(() => {
-  if (!client || sections.length === 0 || !assessments) return;
+  const run = async () => {
+    if (!client || sections.length === 0 || !assessments) return;
 
-  if (hasRunLegalUpdate.current) return;
+    if (hasRunLegalUpdate.current) return;
 
-  hasRunLegalUpdate.current = true;
+    hasRunLegalUpdate.current = true;
 
-  updateLegalSections();
+    const diagnosisSections = generateDiagnosisCarePlan(client);
 
-  // 🔥 ADD THIS
-  updateCarePlanFromSystem();
+    // ✅ DEFINE FIRST (IMPORTANT)
+    const ensureSection = async (title: string) => {
+      const exists = sections.some(
+        (s) => s.section_title === title
+      );
 
+      if (exists) return;
+
+      await supabase.from("care_plan_section").insert({
+        client_id: id,
+        section_title: title,
+        content: "",
+        status: "active",
+      });
+    };
+
+    // ✅ DIAGNOSIS SECTIONS
+    for (const template of diagnosisSections) {
+      const exists = sections.some(
+        (s) => s.section_title === template.title
+      );
+
+      if (!exists) {
+        await supabase.from("care_plan_section").insert({
+          client_id: id,
+          section_title: template.title,
+          care_need: template.care_need,
+          outcome: template.outcome,
+          actions: template.actions.join("\n"),
+          content: `
+Care Need:
+${template.care_need}
+
+Outcome:
+${template.outcome}
+
+Actions:
+${template.actions.join("\n")}
+`,
+          status: "active",
+        });
+      }
+    }
+
+    // 🔥 ASSESSMENT RULES (NOW SAFE)
+    if (assessments.toileting?.includes("stoma")) {
+      await ensureSection("Personal Care (ADLs)");
+    }
+
+    if (assessments.toileting?.includes("catheter")) {
+      await ensureSection("Personal Care (ADLs)");
+    }
+
+    if (assessments.capacity === "lacks capacity") {
+      await ensureSection("Cognitive Wellbeing");
+    }
+
+    if (client?.dnacpr) {
+      await ensureSection("Medical Conditions & Overview");
+    }
+
+    if (assessments.breathing === "laboured") {
+      await ensureSection("Medical Conditions & Overview");
+    }
+
+    if (assessments.safeguarding === "concern") {
+      await ensureSection("Risks & Safety");
+    }
+
+    // ✅ SYSTEM ENGINES LAST
+    await updateLegalSections();
+    await updateCarePlanFromSystem();
+
+    await loadPlan();
+  };
+
+  run();
 }, [client, sections, assessments]);
 const [openSection, setOpenSection] = useState<string | null>(null);
 const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -234,6 +309,7 @@ if (editActions && editActions.trim().length > 0) {
   await loadPlan();
   await updateCarePlanFromSystem();
 };
+
 const buildSmartContent = (section: string, diagnosis: string[]) => {
   let content = `### ${section}\n\n`;
 
@@ -275,189 +351,6 @@ const buildSmartContent = (section: string, diagnosis: string[]) => {
   return content;
 };
 
-const buildCareFromAssessment = (section: string, a: any) => {
-  let care_need: string[] = [];
-  let outcome: string[] = [];
-  let actions: string[] = [];
-
-  const add = (need: string, out: string, act: string[]) => {
-    care_need.push(need);
-    outcome.push(out);
-    actions.push(...act);
-  };
-
-  // 🥤 NUTRITION & HYDRATION
-  if (section === "Nutrition & Hydration") {
-    if (a.hydration === "poor" || a.hydration === "refused") {
-      add(
-        "Risk of dehydration",
-        "Maintain adequate hydration",
-        ["Encourage fluids", "Monitor intake"]
-      );
-    }
-
-    if (a.hydration === "none") {
-      add(
-        "Severe dehydration risk",
-        "Urgently restore hydration",
-        ["Encourage fluids immediately", "Escalate if continues"]
-      );
-    }
-
-    if (a.nutrition === "poor" || a.nutrition === "refused") {
-      add(
-        "Risk of poor nutrition",
-        "Maintain adequate nutrition",
-        ["Encourage meals", "Monitor intake"]
-      );
-    }
-  }
-
-  // 🚶 MOBILITY
-  if (section === "Mobility & Moving") {
-    if (a.mobility === "fall") {
-      add(
-        "High falls risk",
-        "Prevent falls",
-        ["Supervise mobility", "Ensure aids are used"]
-      );
-    }
-
-    if (a.mobility === "decline") {
-      add(
-        "Mobility decline",
-        "Maintain safe mobility",
-        ["Assist with movement", "Monitor changes"]
-      );
-    }
-  }
-
-  // 🧠 COGNITION
-  if (section === "Cognitive Wellbeing") {
-    if (a.cognition === "confused") {
-      add(
-        "Cognitive impairment",
-        "Maintain orientation",
-        ["Use reassurance", "Provide prompts"]
-      );
-    }
-  }
-
-  // 😊 EMOTIONAL
-  if (section === "Emotional Wellbeing") {
-    if (a.mood === "low") {
-      add(
-        "Low mood",
-        "Improve emotional wellbeing",
-        ["Offer reassurance", "Encourage engagement"]
-      );
-    }
-
-    if (a.behaviour === "agitated") {
-      add(
-        "Agitated behaviour",
-        "Reduce distress",
-        ["Use calming techniques", "Monitor triggers"]
-      );
-    }
-  }
-
-  // 💊 MEDICATION
-  if (section === "Medication Support") {
-    if (a.medication === "missed") {
-      add(
-        "Medication non-compliance",
-        "Ensure medication taken safely",
-        ["Record reason", "Monitor compliance"]
-      );
-    }
-
-    if (a.medication === "refused") {
-      add(
-        "Medication refusal",
-        "Promote safe medication use",
-        ["Encourage gently", "Escalate if repeated"]
-      );
-    }
-  }
-
-  // 🧴 SKIN
-  if (section === "Personal Care (ADLs)") {
-    if (a.skin?.includes("category")) {
-      add(
-        "Pressure damage risk",
-        "Maintain skin integrity",
-        ["Reposition regularly", "Monitor skin"]
-      );
-    }
-
-    if (a.skin === "breakdown") {
-      add(
-        "Skin breakdown",
-        "Promote healing",
-        ["Monitor closely", "Escalate if worsening"]
-      );
-    }
-  }
-
-  // 🚽 TOILETING
-  if (section === "Personal Care (ADLs)") {
-    if (a.toileting === "diarrhoea") {
-      add(
-        "Risk of dehydration from diarrhoea",
-        "Maintain hydration",
-        ["Monitor bowel movements", "Encourage fluids"]
-      );
-    }
-  }
-
-  // 🫁 BREATHING
-  if (section === "Medical Conditions & Overview") {
-    if (a.breathing === "laboured") {
-      add(
-        "Respiratory distress",
-        "Maintain safe breathing",
-        ["Monitor closely", "Escalate if worsening"]
-      );
-    }
-  }
-
-  // 💢 PAIN
-  if (section === "Medical Conditions & Overview") {
-    if (a.pain === "high") {
-      add(
-        "Pain impacting wellbeing",
-        "Control pain effectively",
-        ["Administer medication", "Monitor pain levels"]
-      );
-    }
-  }
-
-  // ⚠️ SAFEGUARDING
-  if (section === "Risks & Safety") {
-    if (a.safeguarding === "concern") {
-      add(
-        "Safeguarding concern",
-        "Ensure safety",
-        ["Report immediately", "Follow safeguarding procedure"]
-      );
-    }
-
-    if (a.no_response === true) {
-      add(
-        "No response from client",
-        "Ensure welfare",
-        ["Follow welfare check protocol"]
-      );
-    }
-  }
-
-  return {
-    care_need: care_need.join("\n"),
-    outcome: outcome.join("\n"),
-    actions: actions.join("\n"),
-  };
-};
 const getVisitSlot = (text: string) => {
   const lower = text.toLowerCase();
 
@@ -771,14 +664,23 @@ let content = "";
 
     // 🟢 FREE VERSION
    if (!isPaidUser && assessments) {
-  const result = buildCareFromAssessment(
-    section.section_title,
-    assessments
-  );
+  const matrix = generateCareFromMatrix(assessments);
 
-  care_need = result.care_need || "Refer to prompts below";
-  outcome = result.outcome || "Maintain wellbeing";
-  actions = result.actions || "";
+  const base = matrix[section.section_title];
+
+  if (base) {
+    care_need =
+      typeof base.care_need === "string"
+        ? base.care_need
+        : base.care_need?.join("\n") || "";
+
+    outcome =
+      typeof base.outcome === "string"
+        ? base.outcome
+        : Array.from(base.outcome || []).join("\n") || "";
+
+    actions = (base.actions || []).join("\n");
+  }
 }
 
     // 💰 PAID VERSION
@@ -807,6 +709,29 @@ let content = "";
 
 const updateCarePlanFromSystem = async () => {
   if (!client || !assessments || sections.length === 0) return;
+  // 🔥 STEP 1 — GENERATE MATRIX OUTPUT
+const matrix = generateCareFromMatrix(assessments);
+
+// 🔥 STEP 2 — CREATE MISSING SECTIONS
+for (const sectionTitle of Object.keys(matrix)) {
+  const exists = sections.some(
+    (s) => s.section_title === sectionTitle
+  );
+
+  if (!exists) {
+    await supabase.from("care_plan_section").insert({
+      client_id: id,
+      section_title: sectionTitle,
+      content: "",
+      status: "active",
+    });
+
+    console.log("➕ AUTO-CREATED SECTION:", sectionTitle);
+  }
+}
+
+// 🔁 RELOAD SECTIONS AFTER CREATION
+await loadPlan();
 
   console.log("🔁 AUTO UPDATING CARE PLAN...");
 
@@ -838,16 +763,14 @@ const updateCarePlanFromSystem = async () => {
     );
 
     // 🧠 BUILD FROM assessments
-    const base = buildCareFromAssessment(
-      section.section_title,
-      assessments
-    );
+const base = matrix[section.section_title] || {
+  care_need: "",
+  outcome: "",
+  actions: [],
+};
 
-    const assessmentLines = (base.actions || "")
-      .split("\n")
-      .map((l: string) => l.trim())
-      .filter((l: string) => l.length > 0)
-      .map((l: string) => `${l} [AUTO]`);
+    const assessmentLines =
+  (base.actions || []).map((a: string) => `${a} [AUTO]`);
 
     // 🚨 BUILD FROM ALERTS
     const alertLines =
@@ -864,8 +787,15 @@ const updateCarePlanFromSystem = async () => {
     ].join("\n");
 
     // 🧠 CARE NEED + OUTCOME (ONLY FROM assessments)
-    const care_need = base.care_need || section.care_need;
-    const outcome = base.outcome || section.outcome;
+    const care_need =
+  typeof base.care_need === "string"
+    ? base.care_need
+    : base.care_need?.join("\n") || section.care_need;
+
+const outcome =
+  typeof base.outcome === "string"
+    ? base.outcome
+    : Array.from(base.outcome || []).join("\n") || section.outcome;
 
     // 💾 SAVE
     await supabase

@@ -3,12 +3,14 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
+import { generateDiagnosisAlerts } from "@/lib/diagnosisAlertMap";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { generateRisks } from "@/lib/riskEngine";
 import { saveAlerts, generateAssessmentAlerts } from "@/lib/alertEngine";
 import { generateTasks } from "@/lib/taskEngine";
 import React from "react";
+import { assessmentVisibility } from "@/lib/assessmentVisibility";
 import { useAccess } from "@/app/context/AccessContext";
 import {
   generateCarePlan,
@@ -144,6 +146,21 @@ const TextAreaField = ({
   );
 };
 function AssessmentPageContent() {
+
+// 🔥 ORG
+const [organisationId, setOrganisationId] = useState<string | null>(null);
+
+// 🔥 EVIDENCE
+const [evidenceList, setEvidenceList] = useState<any[]>([]);
+
+// 🔥 MEDICATIONS
+const [medications, setMedications] = useState<any[]>([]);
+
+// 🔥 UI STATE
+const [viewMode, setViewMode] = useState(false);
+const [pdfMode, setPdfMode] = useState<"standard" | "family">("standard");
+const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
+const [loading, setLoading] = useState(false);
   const isUserTypingRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -252,7 +269,7 @@ safeguarding_outcome: "",
 consent_obtained: "",
 consent_type: "",
 advance_decision: "",
-lpA_health_welfare: "",
+lpa_health_welfare: "",
 cognition_source: [],
 cognition_evidence: false,
 nutrition_source: [],
@@ -293,6 +310,10 @@ const hasEvidenceToUpload = () => {
     form.medication_evidence,
     form.safeguarding_evidence,
   ].some(Boolean);
+};
+const client = {
+  id: clientId,
+  diagnosis: form.diagnosis || [],
 };
 const calculateMUST = () => {
   if (!form.weight || !form.height) return 0;
@@ -399,35 +420,32 @@ const blockIfView = (fn: () => void) => {
   if (viewMode) return;
   fn();
 };
-const [medications, setMedications] = useState<any[]>([]);
-const [evidenceList, setEvidenceList] = useState<any[]>([]);
-const [organisationId, setOrganisationId] = useState<string>("");
-useEffect(() => {
+  useEffect(() => {
   const loadOrg = async () => {
     const { data } = await supabase.auth.getUser();
+
     if (!data?.user) return;
+
     const { data: profile } = await supabase
       .from("user_profiles")
       .select("organisation_id")
-      .eq("id", data.user.id)
-      .maybeSingle()
+      .eq("user_id", data.user.id)
+      .single();
+
     if (profile?.organisation_id) {
       setOrganisationId(profile.organisation_id);
     }
   };
+
   loadOrg();
 }, []);
 const [prompts, setPrompts] = useState<any[]>([]);
-const [loading, setLoading] = useState(false);
-const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [openSection, setOpenSection] = useState<string | null>("cognition");
 const [hasLoaded, setHasLoaded] = useState(false);
 const [timeline, setTimeline] = useState<any[]>([]);
 const [isTyping, setIsTyping] = useState(false);
 const [conflicts, setConflicts] = useState<any[]>([]);
 const [recentVisits, setRecentVisits] = useState<any[]>([]);
-const [viewMode, setViewMode] = useState(false);
-const [pdfMode, setPdfMode] = useState<"standard" | "family">("standard");
 const [isSubmittingReferral, setIsSubmittingReferral] = useState(false);
 const [showSafeguardingForm, setShowSafeguardingForm] = useState(false);
 type SafeguardingFormType = {
@@ -488,7 +506,7 @@ const handleLogConcern = async () => {
   .insert([
     {
       client_id: clientId,
-      organisation_id: organisationId,
+      organisation_id: organisationId || undefined,
       category: safeguardingForm.category,
 other_category:
   safeguardingForm.category === "Other"
@@ -513,7 +531,7 @@ follow_up: safeguardingForm.follow_up
   ]);
     await supabase.from("alerts").insert({
   client_id: clientId,
-  organisation_id: organisationId,
+  organisation_id: organisationId || undefined,
   type: "safeguarding",
   severity: safeguardingForm.urgency,
   message: safeguardingForm.description,
@@ -565,6 +583,9 @@ const access = useAccess();
 const plan = access?.plan ?? "free";
 const accountType = access?.accountType ?? "solo";
 const isTrialActive = access?.isTrialActive ?? false;
+const visibility =
+  assessmentVisibility[accountType as keyof typeof assessmentVisibility] ||
+  assessmentVisibility.solo;
 const hasAssessmentAccess = canAccessFeature(
   "assessments",
   plan,
@@ -613,17 +634,25 @@ useEffect(() => {
   formRef.current = form;
 }, [form]);
 const handleInput = (field: string, value: any) => {
-  if (viewMode) return;
   setForm((prev: any) => {
-  if (prev[field] === value) return prev;
+    // ✅ BASELINE OBJECT HANDLING
+    if (field === "baseline_observations") {
+      return {
+        ...prev,
+        baseline_observations: {
+          ...(prev.baseline_observations || {}),
+          ...(typeof value === "object" ? value : {}),
+        },
+      };
+    }
 
-  const updated = { ...prev };
-  updated[field] = value;
-
-  formRef.current = updated;
-
-  return updated;
-});
+    // ✅ NORMAL FIELD UPDATE
+    return {
+      ...prev,
+      [field]: value,
+    };
+  });
+};
   if (saveTimeout.current) clearTimeout(saveTimeout.current);
   saveTimeout.current = setTimeout(async () => {
     if (isSavingRef.current) return;
@@ -645,7 +674,6 @@ const handleInput = (field: string, value: any) => {
       isSavingRef.current = false;
     }
   }, 800);
-};
 const handleEquipmentServiced = (item: string, value: "yes" | "no") => {
   setForm((prev: any) => ({
     ...prev,
@@ -687,7 +715,7 @@ const handleFileUpload = async (
     .getPublicUrl(filePath);
   await supabase.from("assessment_evidence").insert({
     client_id: form.client_id,
-    organisation_id: organisationId,
+    organisation_id: organisationId || undefined,
     section,
     field,
     file_url: data.publicUrl,
@@ -706,24 +734,24 @@ const handleFileUpload = async (
   ]);
 };
 const addMedication = () => {
-  setMedications((prev) => [
+  setMedications((prev: any[]) => [
     ...prev,
-    {
-      name: "",
-      dose: "",
-      frequency: "",
-      route: "",
-      time_of_day: "",
-    },
+    { name: "", dose: "", frequency: "", route: "", time_of_day: "" },
   ]);
 };
-const updateMedication = (index: number, field: string, value: string) => {
-  const updated = [...medications];
-  updated[index][field] = value;
-  setMedications(updated);
-};
+
 const removeMedication = (index: number) => {
-  setMedications((prev) => prev.filter((_, i) => i !== index));
+  setMedications((prev: any[]) =>
+    prev.filter((_, i) => i !== index)
+  );
+};
+
+const updateMedication = (index: number, field: string, value: string) => {
+  setMedications((prev: any[]) =>
+    prev.map((m, i) =>
+      i === index ? { ...m, [field]: value } : m
+    )
+  );
 };
 useEffect(() => {
   if (clientId) {
@@ -965,7 +993,7 @@ const createPrompt = async ({
   if (existing) return;
   await supabase.from("assessment_prompt").insert({
     client_id: form.client_id,
-    organisation_id: organisationId,
+    organisation_id: organisationId || undefined,
     type,
     message,
     suggested_value,
@@ -1056,7 +1084,7 @@ if (nutritionTrend === "worsening" || mobilityTrend === "worsening") {
   const { data: userData } = await supabase.auth.getUser();
   await supabase.from("assessment_versions").insert({
     client_id: form.client_id,
-    organisation_id: organisationId,
+    organisation_id: organisationId || undefined,
     version_number: form.version_number,
     data: updates,
     review_type: "auto_update",
@@ -1618,6 +1646,19 @@ Overall risk score: ${calculateScore()}.
 };
   const handleSubmit = async () => {
   setLoading(true);
+  const lowConfidenceSections = [
+  "cognition",
+  "nutrition",
+  "mobility",
+  "clinical",
+].filter((section) => calculateSectionConfidence(section) < 50);
+
+if (lowConfidenceSections.length > 0) {
+  alert(
+    `Cannot complete assessment.\nLow confidence in: ${lowConfidenceSections.join(", ")}`
+  );
+  return;
+}
 
   const riskScore = calculateScore();
 const flags = calculateFlags(form);
@@ -1668,10 +1709,33 @@ locked: true,
     { onConflict: "client_id" }
   );
 
+  // 🔥 GENERATE ALERTS
+  const diagnosisAlerts = generateDiagnosisAlerts(client.diagnosis || []);
+const alerts = [
+  ...generateDiagnosisAlerts(client.diagnosis || []),
+  ...generateAssessmentAlerts(form),
+];
+
+// 🔥 SAVE ALERTS
+await saveAlerts({
+  alerts,
+  clientId: form.client_id,
+});
+
+// 🔥 GENERATE CARE PLAN
+const carePlan = generateCarePlan(cleanedForm, alerts);
+
+// 🔥 OPTIONAL: persist care plan here if needed
+
+// 🔥 GENERATE TASKS
+const tasks = generateTasks(carePlan, alerts);
+
+// 🔥 OPTIONAL: save tasks if not already handled
+
 // 📊 CREATE BASELINE VISIT (🔥 CRITICAL FOR GRAPHS)
 await supabase.from("visit_notes").insert({
   client_id: form.client_id,
-  organisation_id: organisationId,
+  organisation_id: organisationId || undefined,
   hydration: form.hydration,
   nutrition: form.nutrition,
   mood: form.mood || "neutral",
@@ -1693,7 +1757,7 @@ const { data: userData } = await supabase.auth.getUser();
 
 await supabase.from("assessment_versions").insert({
   client_id: form.client_id,
-  organisation_id: organisationId,
+  organisation_id: organisationId || undefined,
   version_number: form.version_number,
   data: cleanedForm,
   review_type: form.review_type || "initial",
@@ -1712,7 +1776,7 @@ if (medications.length > 0) {
   await supabase.from("medications").insert(
     medications.map((m) => ({
       client_id: form.client_id,
-      organisation_id: organisationId,
+      organisation_id: organisationId || undefined,
       name: m.name,
       dose: m.dose,
       frequency: m.frequency,
@@ -1751,7 +1815,9 @@ const allAlerts = [
   })),
 ];
 
-const carePlan = generateCarePlan(risks);
+const alerts = await generateAssessmentAlerts(form);
+
+const carePlan = generateCarePlan(form, alerts);
 
 // ✅ APPLY ALERTS TO CARE PLAN (CORRECT)
 const enrichedCarePlan = applyAlertsToCarePlan(
@@ -1769,15 +1835,21 @@ const tasks = generateTasks(enrichedCarePlan);
 
 await saveAlerts({
   clientId: form.client_id,
-  organisation_id: organisationId,
+  organisation_id: organisationId || undefined,
   visit_id: null,
   alerts: allAlerts,
 });
 
-allAlerts.forEach((a: any) => {
+alerts.forEach((a) => {
   if (a.type === "safeguarding") {
     tasks.push({
       title: "Escalate safeguarding concern immediately",
+      category: "safeguarding",
+      description: "Safeguarding concern identified — requires immediate escalation",
+      prompts: ["Notify manager", "Complete safeguarding referral"],
+      due: new Date().toISOString(),
+      status: "pending",
+      linked_alert_type: a.type,
       priority: "high",
     });
   }
@@ -1785,6 +1857,12 @@ allAlerts.forEach((a: any) => {
   if (a.type === "nutrition") {
     tasks.push({
       title: "Monitor food and fluid intake",
+      category: "nutrition",
+      description: "Nutrition risk identified — monitor intake closely",
+      prompts: ["Encourage meals", "Record intake"],
+      due: new Date().toISOString(),
+      status: "pending",
+      linked_alert_type: a.type,
       priority: "high",
     });
   }
@@ -1792,6 +1870,12 @@ allAlerts.forEach((a: any) => {
   if (a.type === "falls") {
     tasks.push({
       title: "Implement falls prevention measures",
+      category: "mobility",
+      description: "Falls risk identified — ensure safety measures are in place",
+      prompts: ["Check environment", "Review equipment"],
+      due: new Date().toISOString(),
+      status: "pending",
+      linked_alert_type: a.type,
       priority: "high",
     });
   }
@@ -1801,7 +1885,7 @@ allAlerts.forEach((a: any) => {
   await supabase.from("care_plan_section").insert(
     enrichedCarePlan.map((c: any) => ({
       client_id: form.client_id,
-      organisation_id: organisationId,
+      organisation_id: organisationId || undefined,
       title: c.title,
       care_need: c.care_need,
       outcome: c.outcome,
@@ -1814,7 +1898,7 @@ if (tasks?.length) {
   await supabase.from("visit_tasks").insert(
     tasks.map((t: any) => ({
       client_id: form.client_id,
-      organisation_id: organisationId,
+      organisation_id: organisationId || undefined,
       task: t.title, // ✅ FIXED
       priority: t.priority || "normal",
       status: "pending",
@@ -2020,9 +2104,6 @@ const isOverdue =
   disabled?: boolean;
 }) => {
   const isOpen = openSection === id;
-
-
-
   return (
     <div id={id} className="bg-[var(--card)] rounded mb-4 overflow-hidden">
       {/* HEADER */}
@@ -2141,9 +2222,11 @@ const getFriendly = (field: string, value: any) => {
 };
 
 const compareToBaseline = (field: string, current: any) => {
-  if (!form.baseline_observations) return null;
+  const baseline = form.baseline_observations?.[field];
 
-  if (form.baseline_observations.includes(field)) {
+  if (!baseline) return null;
+
+  if (baseline !== current) {
     return "⚠️ Changed from baseline";
   }
 
@@ -2786,8 +2869,8 @@ return (
   <Section
     title="LPA Health & Welfare"
     options={["no", "yes"]}
-    value={form.lpA_health_welfare || ""}
-    onChange={(v) => handleInput("lpA_health_welfare", v)}
+    value={form.lpa_health_welfare || ""}
+    onChange={(v) => handleInput("lpa_health_welfare", v)}
     disabled={viewMode}
   />
 
@@ -3155,7 +3238,7 @@ disabled={viewMode}
   onClick={async () => {
     await supabase.from("referrals").insert({
       client_id: form.client_id,
-      organisation_id: organisationId,
+      organisation_id: organisationId || undefined,
       referral_type: "Equipment Service",
       details: `${item} requires servicing`,
       status: "pending",
@@ -3867,12 +3950,48 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   disabled={viewMode}
 />
 
-<TextAreaField
-  value={form.baseline_observations}
-  onChange={(val) => handleInput("baseline_observations", val)}
-  placeholder="Baseline observations (normal for this client)"
-  disabled={viewMode}
-/>
+<div className="bg-[var(--card)] p-3 rounded mt-4 space-y-3">
+  <p className="text-sm font-semibold">Baseline (Normal for Client)</p>
+
+  <Section
+    title="Baseline Mobility"
+    options={["independent", "needs support", "dependent", "bed bound"]}
+    value={form.baseline_observations?.mobility || ""}
+    onChange={(v) =>
+      handleInput("baseline_observations", {
+        ...form.baseline_observations,
+        mobility: v,
+      })
+    }
+    disabled={viewMode}
+  />
+
+  <Section
+    title="Baseline Nutrition"
+    options={["adequate", "reduced", "poor", "refused"]}
+    value={form.baseline_observations?.nutrition || ""}
+    onChange={(v) =>
+      handleInput("baseline_observations", {
+        ...form.baseline_observations,
+        nutrition: v,
+      })
+    }
+    disabled={viewMode}
+  />
+
+  <Section
+    title="Baseline Cognition"
+    options={["no impairment", "mild", "moderate", "severe"]}
+    value={form.baseline_observations?.cognition || ""}
+    onChange={(v) =>
+      handleInput("baseline_observations", {
+        ...form.baseline_observations,
+        cognition: v,
+      })
+    }
+    disabled={viewMode}
+  />
+</div>
 
 <input
   type="date"
@@ -4324,7 +4443,7 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
       client_id: form.client_id,
       referral_type: referral.type,
       details: referral.details,
-      organisation_id: organisationId,
+      organisation_id: organisationId || undefined,
       status: "pending",
     });
 
