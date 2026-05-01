@@ -213,6 +213,7 @@ console.log("STEP 1");
   continence_ability: "",
   pad_type: "",
 pad_delivery: "",
+date_of_birth: "",
 catheter_type: "",
 stoma_type: "",
   mood: "",
@@ -1569,15 +1570,16 @@ useEffect(() => {
       .from("clients")
       .select("date_of_birth")
       .eq("id", clientId)
-      .maybeSingle()
+      .maybeSingle();
 
     if (data?.date_of_birth) {
       const age = calculateAge(data.date_of_birth);
 
       setForm((prev: any) => ({
-  ...prev,
-  age,
-}));
+        ...prev,
+        date_of_birth: data.date_of_birth, // ✅ STORE DOB
+        age, // ✅ DERIVE AGE
+      }));
     }
   };
 

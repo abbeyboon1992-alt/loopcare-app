@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,8 +48,23 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--card)] text-white p-6">
       <div className="bg-[var(--card)] p-6 rounded w-full max-w-md">
-        <h1 className="text-xl mb-4">Login</h1>
+        <div className="flex flex-col items-center mb-6">
+  <Image
+    src="/logo.png"
+    alt="LoopCare"
+    width={100}
+    height={100}
+    className="mb-3 drop-shadow-lg"
+    priority
+  />
 
+  <h1 className="text-2xl font-bold">
+    Login
+  </h1>
+</div>
+<p className="text-sm text-gray-400 mt-1">
+  Welcome back
+</p>
         <input
           placeholder="Email"
           value={form.email}

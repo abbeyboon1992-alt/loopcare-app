@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 
 function SignupPageContent() {
 
@@ -75,9 +76,20 @@ useEffect(() => {
 
       <div className="w-full max-w-md bg-[var(--card)] p-6 rounded-xl">
 
-        <h1 className="text-2xl font-bold mb-4">
-          Create Account
-        </h1>
+        <div className="flex flex-col items-center mb-4">
+  <Image
+    src="/icon-192.png"
+    alt="LoopCare"
+    width={120}
+    height={120}
+    className="mb-3 drop-shadow-lg"
+    priority
+  />
+
+  <h1 className="text-2xl font-bold">
+    Create Account
+  </h1>
+</div>
 
         <input
           placeholder="Full name"
