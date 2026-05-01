@@ -60,6 +60,7 @@ const hasEvidenceToUpload = () => {
 
 const [tasks, setTasks] = useState<any[]>([]);
 const access = useAccess();
+const isTrialActive = access?.isTrialActive;
 const plan = access?.plan || "free";
 const [assessments, setAssessments] = useState<any>(null);
 const groupedAlerts = {
@@ -79,7 +80,7 @@ const triggerFeedbackNotification = (feedback: any) => {
 };
 
 const limitAlerts = (list: any[]) =>
-  plan === "free" ? list.slice(0, 2) : list;
+  plan === "free" && !isTrialActive ? list.slice(0, 2) : list;
 
 const buildTrendData = () => {
   return visits
@@ -538,7 +539,10 @@ useEffect(() => {
   if (!visits.length) return;
 
   const autoUpdateAlerts = async () => {
-    const last2 = visits.slice(0, 2);
+    const last2 =
+  plan === "free" && !isTrialActive
+    ? visits.slice(0, 2)
+    : visits;
 
     if (last2.length < 2) return;
 
@@ -1517,7 +1521,10 @@ useEffect(() => {
       Latest Notes
     </p>
 
-    {visits.slice(0, 2).map((v) => (
+    {(plan === "free" && !isTrialActive
+  ? visits.slice(0, 2)
+  : visits
+).map((v) => (
       <div key={v.id} className="text-xs text-gray-300 mb-1 line-clamp-2">
         {v.notes || "No notes"}
       </div>

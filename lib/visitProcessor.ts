@@ -14,11 +14,7 @@ import { removeResolvedActionsFromCarePlan } from "./carePlanEngine";
 import { mergeAlerts } from "@/lib/mergeAlerts";
 import { generateDiagnosisAlerts } from "@/lib/alertEngine";
 import { generateCareFromMatrix } from "@/lib/carePlanMatrix";
-const {
-  data: { user },
-} = await supabase.auth.getUser();
 
-const safeUserId = user?.id || null;
 export async function processVisit({
   clientId,
   userId,
@@ -31,6 +27,13 @@ export async function processVisit({
   data: any;
 }) 
 {
+  const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+const safeUserId = user?.id || null;
+
+console.log("SAFE USER ID:", safeUserId);
   // 💾 Save visit
   const { data: visit, error } = await supabase
   .from("visit_notes")

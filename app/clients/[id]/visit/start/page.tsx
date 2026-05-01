@@ -67,8 +67,20 @@ const getBaseAlerts = () => {
 };
 
 const getPromptsForTask = (taskName: string) => {
+  const clean = (str: string) =>
+    (str || "").toLowerCase().replace(/[^a-z]/g, "");
+
+  const task = clean(taskName);
+
   return carePlanPrompts
-    .filter((p: any) => p.task_name === taskName)
+    .filter((p: any) => {
+      const promptName = clean(p.task_name);
+
+      return (
+        task.includes(promptName) ||
+        promptName.includes(task)
+      );
+    })
     .map((p: any) => p.prompt_text);
 };
 
@@ -776,12 +788,20 @@ ${data.notes ? "Notes: " + data.notes : ""}
 };
 
 const clientId = id as string;
-const userId = "temp-user";
 
 // 🔴 CHECK REQUIRED TASKS BEFORE FINISH
 const finishVisitCore = async () => {
+const {
+  data: { user },
+} = await supabase.auth.getUser();
 
-  await processVisit({
+const userId = user?.id;
+  if (!userId) {
+  alert("User not logged in");
+  return;
+}
+
+await processVisit({
   clientId,
   userId,
   visitId: activeVisitId,
@@ -849,6 +869,7 @@ const continueFinishWithOverride = async () => {
 
   await finishVisitCore();
 };
+
 
 const handleFinish = async () => {
   if (hasSavedVisit.current) return;
@@ -1126,14 +1147,14 @@ const createConcernFromAlert = async (alert: any) => {
     <p className="text-[var(--muted)]">No alerts</p>
   ) : (
     combinedAlerts.map((a: any, i) => (
-  <div key={i} className="bg-red-600 p-2 rounded mb-2 flex justify-between items-center">
+  <div key={i}  className="bg-red-600 px-2 py-1 rounded mb-1 flex items-center justify-between text-sm">
 
-    <span>{a.message}</span>
+    <span className="truncate">{a.message}</span>
 
-    {a.id && (
+    {a.id && a.source !== "clinical" && (
       <button
         onClick={() => resolveAlert(a.id)}
-        className="text-xs bg-black px-2 py-1 rounded"
+        className="text-[10px] bg-black px-2 py-0.5 rounded"
       >
         Resolve
       </button>
@@ -1732,15 +1753,6 @@ const auto = autoAddedTasks.some(a => a.title === task.title);
     ))}
   </div>
 )}
-
-    {/* ALERTS (SIMPLE SOLO VERSION) */}
-    <div className="mb-4">
-      <h2 className="font-semibold mb-2">Alerts</h2>
-
-      {!data.hydration && !data.mood && !data.medication && (
-        <p className="text-[var(--muted)]">No alerts</p>
-      )}
-    </div>
 
     {/* NOTES */}
     <div className="mb-6">
