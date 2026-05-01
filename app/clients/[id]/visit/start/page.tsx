@@ -355,7 +355,6 @@ const { data: tasks } = await supabase
   .eq("status", "pending");
 
 if (tasks) {
-  setTasksFromDB(tasks);
 }
   };
 
@@ -378,7 +377,11 @@ if (tasks) {
   setTasksFromDB(carePlanTasks);
 };
 
-  if (id) loadClient();
+    if (id) {
+    loadClient();
+    loadCarePlan();
+  }
+
 }, [id]);
 
 useEffect(() => {
