@@ -1039,6 +1039,7 @@ const continueFinishWithOverride = async () => {
 
 const handleFinish = async () => {
   if (hasSavedVisit.current) return;
+hasSavedVisit.current = true;
 
   const requiredTasks = getTasks().filter(
     (t: any) => t.source === "assessment_required"
@@ -1145,7 +1146,15 @@ const combinedAlerts = [
   ...alerts,
   ...liveAlerts,
   ...getClinicalAlerts(),
-];
+].filter(
+  (a, index, self) =>
+    index ===
+    self.findIndex(
+      (x) =>
+        x.type === a.type &&
+        x.message === a.message
+    )
+);
 
 const resolveAlert = async (alertId: string) => {
   await supabase
