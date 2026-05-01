@@ -112,7 +112,7 @@ const baseCarePlan = Object.entries(matrix).map(([title, val]: any) => ({
   title,
   care_need: val.care_need.join(" | "),
   outcome: Array.from(val.outcome).join(" | "),
-  actions: Array.from(val.actions),
+  actions: Array.from(val.actions).map((a: any) => String(a)),
 }));
 
 const finalCarePlan = applyAlertsToCarePlan(
@@ -257,7 +257,7 @@ const updatedCarePlan = applyAlertsToCarePlan(
     title,
     care_need: val.care_need.join(" | "),
     outcome: Array.from(val.outcome).join(" | "),
-    actions: Array.from(val.actions),
+    actions: Array.from(val.actions).map((a: any) => String(a)),
   })),
   refreshedAlerts
 );
