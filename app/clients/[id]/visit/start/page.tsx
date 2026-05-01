@@ -150,7 +150,7 @@ const getMasterTasksOnly = () => {
     category: mapTaskToSection(task.name),
     priority: "medium",
     source: "master",
-    prompts: getPromptsForTask(task.name),
+    prompts: task.prompts || [],
   }));
 };
 
@@ -232,17 +232,17 @@ if (useMasterTasks) {
   const master = getMasterTasksOnly();
 
   master.forEach((task) => {
-    const exists = tasks.some(
-      (t) => t.title.toLowerCase() === task.title.toLowerCase()
-    );
+  const exists = tasks.some(
+    (t) => t.title === task.title
+  );
 
-    if (!exists) {
-      tasks.push({
-        ...task,
-        priority: "low",
-      });
-    }
-  });
+  if (!exists) {
+    tasks.push({
+      ...task,
+      priority: "low",
+    });
+  }
+});
 }
 
   // 🔥 REMOVE DUPLICATES (important)
@@ -279,14 +279,17 @@ const tasks = getTasks();
     return acc;
   }, {});
 };
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<number>(1);
   const [recording, setRecording] = useState(false);
 const [transcript, setTranscript] = useState("");
 const [autoAddedTasks, setAutoAddedTasks] = useState<
   { title: string; reason: string }[]
 >([]);
   const [data, setData] = useState<{
-  tasks: string[];
+  tasks: {
+  title: string;
+  responses?: Record<string, string>;
+}[];
   hydration: string;
   nutrition: string;
   mood: string;
@@ -405,15 +408,15 @@ useEffect(() => {
 
   const toggleTask = (task: string) => {
   setData((prev: any) => {
-    const exists = prev.tasks.includes(task);
+    const exists = prev.tasks.some((t: any) => t.title === task);
 
     let updated;
 
     if (exists) {
-      updated = prev.tasks.filter((t: string) => t !== task);
-    } else {
-      updated = [...prev.tasks, task];
-    }
+  updated = prev.tasks.filter((t: any) => t.title !== task);
+} else {
+  updated = [...prev.tasks, { title: task }];
+}
 
     return {
       ...prev,
@@ -465,15 +468,17 @@ useEffect(() => {
   setData((prev) => {
     const cleaned = prev.tasks.filter(
       (t) =>
-        !autoTasks.map((a) => a.title).includes(t)
+        !autoTasks.some((a) => a.title === t.title)
     );
 
     return {
       ...prev,
-      tasks: Array.from(new Set([
-        ...cleaned,
-        ...autoTitles
-      ])),
+      tasks: [
+  ...cleaned,
+  ...autoTasks.map(t => ({
+    title: t.title
+  }))
+]
     };
   });
 }, [
@@ -504,25 +509,79 @@ useEffect(() => {
     (window as any).SpeechRecognition;
 
   if (!SpeechRecognition) {
-    alert("Speech recognition not supported in this browser");
+    alert("Speech not supported");
     return;
   }
 
-const recognition = new SpeechRecognition();
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  const recognition = new SpeechRecognition();
 
   recognition.onstart = () => setRecording(true);
 
   recognition.onresult = (event: any) => {
-    const text = event.results[0][0].transcript;
+    const text =
+      event.results[0][0].transcript.toLowerCase();
+
+    const voiceTasks = extractTasksFromVoice(text);
+
+    setAutoAddedTasks(prev => [
+      ...prev,
+      ...voiceTasks,
+    ]);
+
+    setData(prev => ({
+      ...prev,
+      notes: (prev.notes || "") + " " + text,
+    }));
+
+    // AUTO TAG
+    if (text.includes("refused medication")) {
+      setData(prev => ({ ...prev, medication: "refused" }));
+    }
+
+    if (text.includes("not drinking")) {
+      setData(prev => ({ ...prev, hydration: "poor" }));
+    }
+
     setTranscript(text);
-    setData((prev) => ({ ...prev, notes: text }));
   };
 
   recognition.onend = () => setRecording(false);
 
   recognition.start();
+};
+
+const extractTasksFromVoice = (text: string) => {
+  const tasks: { title: string; reason: string }[] = [];
+
+  if (text.includes("refused medication")) {
+    tasks.push({
+      title: "Review medication compliance",
+      reason: "Voice: medication refusal",
+    });
+  }
+
+  if (text.includes("did not eat")) {
+    tasks.push({
+      title: "Encourage meals and monitor intake",
+      reason: "Voice: poor nutrition",
+    });
+  }
+
+  if (text.includes("not drinking")) {
+    tasks.push({
+      title: "Encourage fluid intake",
+      reason: "Voice: low fluids",
+    });
+  }
+
+  if (text.includes("pain")) {
+    tasks.push({
+      title: "Assess pain level",
+      reason: "Voice: pain mentioned",
+    });
+  }
+
+  return tasks;
 };
 
 // ✅ FIRST
@@ -588,6 +647,13 @@ const getAutoTasksFromObservations = () => {
       reason: "Low fluid intake",
     });
   }
+
+  if (data.pain === "moderate" || data.pain === "high") {
+  autoTasks.push({
+    title: "Manage pain and report if needed",
+    reason: "Pain observed",
+  });
+}
 
   if (data.hydration === "none") {
     autoTasks.push({
@@ -748,7 +814,105 @@ if (hydration === "poor" || hydration === "refused") {
       message: "Diarrhoea — monitor hydration",
     });
   }
+// 🔥 STRUCTURED TASK ANALYSIS (PROMPT-BASED)
 
+data.tasks.forEach((task: any) => {
+  if (!task || typeof task === "string") return;
+
+  // 💧 HYDRATION (ml check)
+  if (task.title?.toLowerCase().includes("fluid")) {
+    const amount =
+      task.responses?.["How much fluid was taken?"];
+
+    if (amount) {
+      const ml = parseInt(amount);
+
+      if (!isNaN(ml) && ml < 500) {
+        results.push({
+          type: "hydration_low",
+          severity: "high",
+          message: "Low fluid intake (<500ml)",
+          source: "clinical",
+        });
+      }
+    }
+  }
+
+  // 🍽️ NUTRITION (% check)
+  if (task.title?.toLowerCase().includes("meal")) {
+    const eaten =
+      task.responses?.["How much was eaten?"];
+
+    if (eaten && eaten.includes("%")) {
+      const percent = parseInt(eaten);
+
+      if (!isNaN(percent) && percent < 50) {
+        results.push({
+          type: "nutrition_risk",
+          severity: "medium",
+          message: "Poor food intake (<50%)",
+          source: "clinical",
+        });
+      }
+    }
+  }
+});
+
+// 🔥 ADDITIONAL CLINICAL RULES
+
+if (data.mood === "low" || data.mood === "distressed") {
+  results.push({
+    type: "mood_concern",
+    severity: "medium",
+    message: "Low or distressed mood",
+    source: "clinical",
+  });
+}
+
+if (data.medication === "missed") {
+  results.push({
+    type: "medication_missed",
+    severity: "medium",
+    message: "Medication missed",
+    source: "clinical",
+  });
+}
+
+if (data.pain === "moderate" || data.pain === "high") {
+  results.push({
+    type: "pain_alert",
+    severity: "high",
+    message: "Pain reported",
+    source: "clinical",
+  });
+}
+
+if (data.breathing !== "normal") {
+  results.push({
+    type: "breathing_concern",
+    severity: "high",
+    message: "Breathing issue",
+    source: "clinical",
+  });
+}
+
+if (data.skin === "redness") {
+  results.push({
+    type: "skin_risk",
+    severity: "medium",
+    message: "Skin redness",
+    source: "clinical",
+  });
+}
+
+if (data.skin?.includes("category")) {
+  results.push({
+    type: "pressure_ulcer",
+    severity: "high",
+    message: "Pressure damage risk",
+    source: "clinical",
+  });
+}
   return results;
 };
 
@@ -769,7 +933,9 @@ const generateVisitSummary = () => {
   return {
     summary: `
 Visit duration: ${Math.floor(seconds / 60)} minutes.
-Tasks completed: ${data.tasks.join(", ") || "none"}.
+Tasks completed: ${
+  data.tasks.map((t) => t.title).join(", ") || "none"
+}
 Hydration: ${data.hydration || "not recorded"}, 
 Nutrition: ${data.nutrition || "not recorded"}, 
 Mood: ${data.mood || "not recorded"}, 
@@ -816,10 +982,10 @@ await processVisit({
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    client_id: id,
-    data,
-    autoTasks: autoAddedTasks, // ✅ ADD
-  }),
+  client_id: id,
+  observations: data,
+  structured_tasks: data.tasks,
+})
 });
 
   await fetch("/api/ai/generate", {
@@ -883,9 +1049,9 @@ const handleFinish = async () => {
   const missedRequired = requiredTasks.filter(
     (t: any) =>
       !completedTasks.some(
-        (ct: string) =>
-          ct.toLowerCase() === t.title.toLowerCase()
-      )
+  (ct: any) =>
+    ct.title?.toLowerCase() === t.title.toLowerCase()
+)
   );
 
   if (missedRequired.length > 0) {
@@ -893,6 +1059,15 @@ const handleFinish = async () => {
     setShowOverride(true);
     return;
   }
+
+  if (data.safeguarding === "concern") {
+  await supabase.from("concern_records").insert({
+    client_id: id,
+    description: "Safeguarding concern raised during visit",
+    priority: "high",
+    status: "open",
+  });
+}
 
   await finishVisitCore();
 };
@@ -1010,6 +1185,7 @@ const createConcernFromAlert = async (alert: any) => {
   return (
     
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6">
+
       {showOverride && (
   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
     <div className="bg-[var(--card)] p-6 rounded-lg w-full max-w-md">
@@ -1173,6 +1349,26 @@ const createConcernFromAlert = async (alert: any) => {
       {step === 1 && (
         <>
           <h1 className="text-2xl mb-4">Start Visit</h1>
+          <div className="mb-6">
+  <h2 className="text-lg font-semibold mb-2">
+    🎤 Quick Voice Start (Optional)
+  </h2>
+
+  <button
+    onClick={startVoice}
+    className={`w-full p-3 text-base rounded ${
+      recording ? "bg-red-600" : "bg-purple-600"
+    }`}
+  >
+    {recording ? "Recording..." : "Start Voice Note"}
+  </button>
+
+  {transcript && (
+    <div className="bg-[var(--card)] p-3 mt-2 rounded text-sm">
+      {transcript}
+    </div>
+  )}
+</div>
           <div className="mb-4">
   <p className="text-sm text-[var(--muted)] mb-2">Select visit type</p>
 
@@ -1248,26 +1444,27 @@ const createConcernFromAlert = async (alert: any) => {
 {step === 2 && (
   <>
     <h1 className="mb-4">Tasks</h1>
-    <div className="mb-3 flex items-center gap-3">
-  <button
-    onClick={() => {
-      if (!isPro) return;
-      setUseMasterTasks((prev) => !prev);
-    }}
-    disabled={!isPro}
-    className={`px-3 py-1 rounded text-sm ${
-      useMasterTasks ? "bg-green-600" : "bg-gray-600"
-    } ${!isPro ? "opacity-50 cursor-not-allowed" : ""}`}
-  >
-    {useMasterTasks ? "Master Tasks ON" : "Master Tasks OFF"}
-  </button>
 
-  {!isPro && (
-    <span className="text-xs text-yellow-400">
-      Upgrade to unlock smart tasks
-    </span>
-  )}
-</div>
+    <div className="mb-3 flex items-center gap-3">
+      <button
+        onClick={() => {
+          if (!isPro) return;
+          setUseMasterTasks((prev) => !prev);
+        }}
+        disabled={!isPro}
+        className={`px-3 py-1 rounded text-sm ${
+          useMasterTasks ? "bg-green-600" : "bg-gray-600"
+        } ${!isPro ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        {useMasterTasks ? "Master Tasks ON" : "Master Tasks OFF"}
+      </button>
+
+      {!isPro && (
+        <span className="text-xs text-yellow-400">
+          Upgrade to unlock smart tasks
+        </span>
+      )}
+    </div>
 
     <p className="text-sm text-[var(--muted)] mb-2">
       {tasksFromDB.length > 0
@@ -1275,64 +1472,100 @@ const createConcernFromAlert = async (alert: any) => {
         : "Standard care tasks"}
     </p>
 
-    <div className="space-y-2 mb-6">
+    <div className="space-y-4 mb-6">
       {Object.entries(getGroupedTasks() || {}).map(([section, tasks]: any) => (
-  <div key={section} className="mb-4">
+        <div key={section}>
+          <p className="text-sm text-purple-400 mb-2">{section}</p>
 
-    <p className="text-sm text-purple-400 mb-2">
-      {section}
-    </p>
+          {tasks.map((task: any) => {
+            const selected = data.tasks.some(
+              (t) => t.title === task.title
+            );
+            const auto = autoAddedTasks.some(
+              (a) => a.title === task.title
+            );
 
-    {tasks.map((task: any) => {
-      const selected = data.tasks.includes(task.title);
-const auto = autoAddedTasks.some(a => a.title === task.title);
+            return (
+              <div key={task.title} className="mb-2">
+                <button
+                  onClick={() => toggleTask(task.title)}
+                  className={`w-full p-3 text-base rounded ${
+                    selected
+                      ? auto
+                        ? "bg-blue-600"
+                        : "bg-green-600"
+                      : "bg-[var(--card)]"
+                  }`}
+                >
+                  <div className="text-left">
+                    <p className="font-semibold flex justify-between">
+                      {task.title}
 
-      return (
-        <div key={task.title}>
-          <button
-            onClick={() => toggleTask(task.title)}
-            className={`w-full p-3 text-base rounded ${
-  selected
-    ? auto
-      ? "bg-blue-600"
-      : "bg-green-600"
-    : "bg-[var(--card)]"
-}`}
-          >
-            <div className="text-left">
-              <p className="font-semibold flex justify-between">
-  {task.title}
+                      {task.priority === "high" && (
+                        <span className="text-red-400 text-xs">HIGH</span>
+                      )}
+                      {task.priority === "medium" && (
+                        <span className="text-yellow-400 text-xs">MED</span>
+                      )}
+                    </p>
 
-{autoAddedTasks.find((a) => a.title === task.title) && (
-  <p className="text-xs text-yellow-400 mt-1">
-    ⚠ {autoAddedTasks.find((a) => a.title === task.title)?.reason}
-  </p>
-)}
+                    {auto && (
+                      <p className="text-xs text-yellow-400 mt-1">
+                        ⚠{" "}
+                        {
+                          autoAddedTasks.find(
+                            (a) => a.title === task.title
+                          )?.reason
+                        }
+                      </p>
+                    )}
+                  </div>
+                </button>
 
-  {task.priority === "high" && (
-    <span className="text-red-400 text-xs">HIGH</span>
-  )}
-  {task.priority === "medium" && (
-    <span className="text-yellow-400 text-xs">MED</span>
-  )}
-</p>
-            </div>
-          </button>
+                {/* ✅ PROMPTS (NOW IN RIGHT PLACE) */}
+                {selected && task.prompts?.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {task.prompts.map((q: string, i: number) => {
+                      const existing =
+                        data.tasks.find(
+                          (t: any) => t.title === task.title
+                        )?.responses?.[q] || "";
 
-          {selected && task.prompts.length > 0 && (
-            <div className="bg-[var(--card)] p-2 text-sm rounded mt-1 mb-2">
-              {task.prompts.map((p: string, i: number) => (
-                <p key={i}>• {p}</p>
-              ))}
-            </div>
-          )}
+                      return (
+                        <textarea
+                          key={i}
+                          placeholder={q}
+                          value={existing}
+                          onChange={(e) => {
+                            setData((prev: any) => ({
+                              ...prev,
+                              tasks: prev.tasks.map((t: any) => {
+                                if (t.title !== task.title) return t;
+
+                                return {
+                                  ...t,
+                                  responses: {
+                                    ...(t.responses || {}),
+                                    [q]: e.target.value,
+                                  },
+                                };
+                              }),
+                            }));
+                          }}
+                          className="w-full p-2 rounded bg-[var(--card)] text-sm"
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      );
-    })}
-  </div>
-))}
-</div>
+      ))}
+    </div>
 
+    {/* ✅ NEXT BUTTON MOVED OUTSIDE MAP */}
     <button
       onClick={() => setStep(3)}
       className="bg-blue-600 w-full py-3 rounded"
@@ -1526,6 +1759,44 @@ const auto = autoAddedTasks.some(a => a.title === task.title);
       </div>
     </div>
 
+    {data.medication === "refused" && (
+  <>
+    <div className="mb-4">
+      <p className="mb-2">Reason for refusal</p>
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          "side effects observed",
+          "hospitalised",
+          "nausea/vomiting",
+          "dose not available",
+          "customer cancelled",
+          "given by family",
+        ].map((reason) => (
+          <button
+            key={reason}
+            onClick={() =>
+              setData({ ...data, medication_reason: reason })
+            }
+            className={`px-3 py-2 rounded ${
+              data.medication_reason === reason
+                ? "bg-purple-600"
+                : "bg-[var(--card)]"
+            }`}
+          >
+            {reason}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div className="mb-4">Pain...</div>
+    <div className="mb-4">Breathing...</div>
+    <div className="mb-4">Cognition...</div>
+    <div className="mb-4">Skin...</div>
+    <div className="mb-4">Safeguarding...</div>
+  </>
+)}
     <div className="mb-4">
   <p className="mb-2">Pain</p>
   <div className="flex gap-2">
@@ -1619,38 +1890,6 @@ const auto = autoAddedTasks.some(a => a.title === task.title);
   </div>
 </div>
 
-    {/* MEDICATION REFUSAL REASON */}
-{data.medication === "refused" && (
-  <div className="mb-4">
-    <p className="mb-2">Reason for refusal</p>
-
-    <div className="flex flex-wrap gap-2">
-      {[
-        "side effects observed",
-        "hospitalised",
-        "nausea/vomiting",
-        "dose not available",
-        "customer cancelled",
-        "given by family",
-      ].map((reason) => (
-        <button
-          key={reason}
-          onClick={() =>
-            setData({ ...data, medication_reason: reason })
-          }
-          className={`px-3 py-2 rounded ${
-            data.medication_reason === reason
-              ? "bg-purple-600"
-              : "bg-[var(--card)]"
-          }`}
-        >
-          {reason}
-        </button>
-      ))}
-    </div>
-  </div>
-)}
-
     <button
       onClick={() => setStep(4)}
       className="w-full bg-blue-600 py-3 rounded-lg"
@@ -1716,9 +1955,9 @@ const auto = autoAddedTasks.some(a => a.title === task.title);
         <p className="text-[var(--muted)]">No tasks recorded</p>
       ) : (
         <ul className="list-disc pl-5">
-          {data.tasks.map((task: string, i: number) => (
-            <li key={i}>{task}</li>
-          ))}
+          {data.tasks.map((task: any, i: number) => (
+  <li key={i}>{task.title}</li>
+))}
         </ul>
       )}
     </div>

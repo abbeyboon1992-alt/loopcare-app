@@ -56,32 +56,65 @@ export async function POST(req: Request) {
   const grouped: Record<string, { action: string; reasoning: string }[]> = {};
 
   tasks.forEach((t) => {
-    const section = mapTaskToSection(t.title);
+  const section = mapTaskToSection(t.title);
 
-    if (!grouped[section]) grouped[section] = [];
+  let action = t.title;
+  let reasoning = t.reason;
 
-    grouped[section].push({
-      action: t.title,
-      reasoning: t.reason,
-    });
-  });
-
-  // ===============================
-  // 💾 STEP 3 — WRITE TO CARE PLAN
-  // ===============================
-  for (const sectionTitle in grouped) {
-    const lines = grouped[sectionTitle]
-      .map((a) => `• ${a.action} — ${a.reasoning}`)
-      .join("\n");
-
-    await supabase
-      .from("care_plan_section")
-      .update({
-        actions: lines,
-      })
-      .eq("client_id", client_id)
-      .eq("section_title", sectionTitle);
+  // Hydration
+  if (t.title.toLowerCase().includes("fluid")) {
+    if (t.reason?.toLowerCase().includes("low")) {
+      action =
+        "Increase fluid prompting and monitor intake closely";
+      reasoning =
+        "Low hydration observed during visit";
+    }
   }
 
-  return new Response("OK");
+  // Nutrition
+  if (t.title.toLowerCase().includes("meal")) {
+    if (t.reason?.toLowerCase().includes("poor")) {
+      action =
+        "Encourage meals and monitor nutritional intake";
+      reasoning =
+        "Poor nutrition observed during visit";
+    }
+  }
+
+  // Medication
+  if (t.title.toLowerCase().includes("medication")) {
+    if (t.reason?.toLowerCase().includes("refused")) {
+      action =
+        "Review medication compliance and report concerns";
+      reasoning =
+        "Medication refusal observed";
+    }
+  }
+
+  if (!grouped[section]) grouped[section] = [];
+
+  grouped[section].push({
+    action,
+    reasoning,
+  });
+});
+
+// ===============================
+// 💾 STEP 3 — WRITE TO CARE PLAN
+// ===============================
+for (const sectionTitle in grouped) {
+  const lines = grouped[sectionTitle]
+    .map((a) => `• ${a.action} — ${a.reasoning}`)
+    .join("\n");
+
+  await supabase
+    .from("care_plan_section")
+    .update({
+      actions: lines,
+    })
+    .eq("client_id", client_id)
+    .eq("section_title", sectionTitle);
+}
+
+return new Response("OK");
 }
