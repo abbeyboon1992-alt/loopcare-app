@@ -317,7 +317,6 @@ consciousness: "",
 frailty_score: 0,
 news2_score: 0,
 bmi_category: "",
-age: 0,
 waterlow_medication_risk: "",
 });
 
@@ -365,7 +364,7 @@ const calculateWaterlow = () => {
   let score = 0;
 
   const bmi = Number(form.bmi);
-  const age = Number(form.age);
+  const age = calculateAge(form.date_of_birth) || 0;
 
   // 🔹 BMI
   if (bmi < 18.5) score += 3;
@@ -869,7 +868,6 @@ useEffect(() => {
   setForm((prev: any) => ({
   ...prev,
   ...data,
-  age: prev.age || data.age,
     cognition_evidence: data.cognition_evidence === true,
 nutrition_evidence: data.nutrition_evidence === true,
 mobility_evidence: data.mobility_evidence === true,
@@ -1086,7 +1084,6 @@ useEffect(() => {
   form.skin,
   form.mobility,
   form.toileting,
-  form.age,
   form.waterlow_medication_risk,
 ]);
 
@@ -1573,14 +1570,11 @@ useEffect(() => {
       .maybeSingle();
 
     if (data?.date_of_birth) {
-      const age = calculateAge(data.date_of_birth);
-
-      setForm((prev: any) => ({
-        ...prev,
-        date_of_birth: data.date_of_birth, // ✅ STORE DOB
-        age, // ✅ DERIVE AGE
-      }));
-    }
+  setForm((prev: any) => ({
+    ...prev,
+    date_of_birth: data.date_of_birth,
+  }));
+}
   };
 
   loadClient();
@@ -1630,6 +1624,7 @@ else if (must === 1) score += 3;
 
   return score;
 };
+const age = calculateAge(form.date_of_birth);
 
 // ✅ SECTION COMPLETION LOGIC (SMART + CONDITIONAL)
 
@@ -1863,6 +1858,7 @@ const getProgress = () => {
       value === "" ? null : value,
     ])
   ),
+  
 
   cognition_source: form.cognition_source || [],
   nutrition_source: form.nutrition_source || [],
@@ -3765,8 +3761,7 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
 
   <input
   type="number"
-  inputMode="decimal"
-  value={form.age || ""}
+  value={age || ""}
   readOnly
   className="w-full p-3 text-base rounded bg-[var(--card)] cursor-not-allowed"
 />
