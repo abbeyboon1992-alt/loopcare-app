@@ -120,137 +120,137 @@
     "prompt_text": "Avoid rushing or interrupting."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🛁 Bathing / showering / bed bath",
     "prompt_text": "Check water temperature and maintain privacy at all times."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🛁 Bathing / showering / bed bath",
     "prompt_text": "Encourage independence where safe."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🛁 Bathing / showering / bed bath",
     "prompt_text": "Observe skin condition during care."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "👕 Dressing / undressing",
     "prompt_text": "Offer clothing choices to promote independence."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "👕 Dressing / undressing",
     "prompt_text": "Dress affected limbs first if mobility is limited."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "👕 Dressing / undressing",
     "prompt_text": "Ensure clothing is appropriate for weather and comfort."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🦷 Oral hygiene",
     "prompt_text": "Support brushing twice daily and check dentures fit correctly."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🦷 Oral hygiene",
     "prompt_text": "Observe for pain, sores, or infection."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🦷 Oral hygiene",
     "prompt_text": "Ensure dentures are cleaned and stored safely."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "💇 Hair care / shaving",
     "prompt_text": "Maintain regular grooming routine preferred by client."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "💇 Hair care / shaving",
     "prompt_text": "Use safe shaving techniques and appropriate equipment."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "💇 Hair care / shaving",
     "prompt_text": "Respect personal preferences and dignity."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🚽 Toileting support",
     "prompt_text": "Offer regular toileting prompts to prevent accidents."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🚽 Toileting support",
     "prompt_text": "Maintain dignity and privacy."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🚽 Toileting support",
     "prompt_text": "Monitor for signs of discomfort or infection."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🩲 Continence care",
     "prompt_text": "Check and change pads promptly to maintain skin integrity."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🩲 Continence care",
     "prompt_text": "Clean and dry skin thoroughly."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🩲 Continence care",
     "prompt_text": "Record any changes in continence patterns."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🧴 Skin care",
     "prompt_text": "Apply prescribed creams and monitor pressure areas."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🧴 Skin care",
     "prompt_text": "Check for redness, breakdown, or irritation."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🧴 Skin care",
     "prompt_text": "Reposition regularly if at risk."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🛏️ Repositioning",
     "prompt_text": "Reposition at agreed intervals to reduce pressure risk."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🛏️ Repositioning",
     "prompt_text": "Use correct equipment and technique."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "🛏️ Repositioning",
     "prompt_text": "Check comfort after repositioning."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "💅 Nails checked",
     "prompt_text": "Check nails are clean and trimmed appropriately."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "💅 Nails checked",
     "prompt_text": "Report any signs of infection or injury."
   },
   {
-    "task_category": "Personal Care",
+    "task_category": "Personal Care (ADLs)",
     "task_name": "💅 Nails checked",
     "prompt_text": "Do not cut nails if contraindicated."
   },
@@ -330,437 +330,437 @@
     "prompt_text": "Report ongoing concerns to management."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🧹 Cleaning / tidying",
     "prompt_text": "Maintain a clean and safe environment."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🧹 Cleaning / tidying",
     "prompt_text": "Focus on high-use areas."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🧹 Cleaning / tidying",
     "prompt_text": "Respect client’s personal belongings."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🧺 Laundry / ironing",
     "prompt_text": "Ensure clean clothing is available."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🧺 Laundry / ironing",
     "prompt_text": "Separate items appropriately."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🧺 Laundry / ironing",
     "prompt_text": "Follow client preferences."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🛏️ Bed making",
     "prompt_text": "Ensure bedding is clean and comfortable."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🛏️ Bed making",
     "prompt_text": "Check for pressure relief needs."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🛏️ Bed making",
     "prompt_text": "Replace linen as required."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🛒 Shopping / errands",
     "prompt_text": "Purchase essential items based on client needs."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🛒 Shopping / errands",
     "prompt_text": "Check stock levels regularly."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🛒 Shopping / errands",
     "prompt_text": "Keep receipts if required."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🗑️ Waste disposal",
     "prompt_text": "Remove waste safely and regularly."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🗑️ Waste disposal",
     "prompt_text": "Follow infection control where required."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🗑️ Waste disposal",
     "prompt_text": "Ensure bins are clean and accessible."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🔌 Appliance safety",
     "prompt_text": "Check appliances are safe and switched off when not in use."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🔌 Appliance safety",
     "prompt_text": "Report faults immediately."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "🔌 Appliance safety",
     "prompt_text": "Avoid unsafe usage."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "📦 Stocking essentials",
     "prompt_text": "Ensure basic supplies are available."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "📦 Stocking essentials",
     "prompt_text": "Monitor levels of food, hygiene, and medication."
   },
   {
-    "task_category": "Daily Living & Domestic",
+    "task_category": "Daily Living",
     "task_name": "📦 Stocking essentials",
     "prompt_text": "Report shortages promptly."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "💬 Companionship",
     "prompt_text": "Engage in meaningful conversation."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "💬 Companionship",
     "prompt_text": "Respect communication pace."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "💬 Companionship",
     "prompt_text": "Reduce feelings of isolation."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "😊 Emotional support",
     "prompt_text": "Offer reassurance and calm presence."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "😊 Emotional support",
     "prompt_text": "Validate feelings without correcting unnecessarily."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "😊 Emotional support",
     "prompt_text": "Observe emotional changes."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🎲 Activities / hobbies",
     "prompt_text": "Encourage participation in preferred activities."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🎲 Activities / hobbies",
     "prompt_text": "Adapt activities to ability."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🎲 Activities / hobbies",
     "prompt_text": "Promote enjoyment and engagement."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🚶 Walks / outings",
     "prompt_text": "Ensure safety during outings."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🚶 Walks / outings",
     "prompt_text": "Encourage mobility where safe."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🚶 Walks / outings",
     "prompt_text": "Respect client comfort levels."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🧠 Cognitive stimulation",
     "prompt_text": "Use memory prompts and simple activities."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🧠 Cognitive stimulation",
     "prompt_text": "Avoid overwhelming tasks."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "🧠 Cognitive stimulation",
     "prompt_text": "Encourage participation gently."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "👨‍👩‍👧 Family interaction",
     "prompt_text": "Support communication with family."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "👨‍👩‍👧 Family interaction",
     "prompt_text": "Facilitate calls or visits."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "👨‍👩‍👧 Family interaction",
     "prompt_text": "Respect relationships and preferences."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "📣 Mood / behaviour monitoring",
     "prompt_text": "Observe and record changes in mood."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "📣 Mood / behaviour monitoring",
     "prompt_text": "Identify triggers for behaviour."
   },
   {
-    "task_category": "Wellbeing & Social",
+    "task_category": "Emotional Wellbeing",
     "task_name": "📣 Mood / behaviour monitoring",
     "prompt_text": "Report concerns promptly."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🩸 Blood pressure",
     "prompt_text": "Take readings as instructed."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🩸 Blood pressure",
     "prompt_text": "Record accurately."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🩸 Blood pressure",
     "prompt_text": "Report abnormal readings."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "❤️ Pulse",
     "prompt_text": "Check pulse regularly if required."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "❤️ Pulse",
     "prompt_text": "Observe for irregularities."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "❤️ Pulse",
     "prompt_text": "Document findings."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🌡️ Temperature",
     "prompt_text": "Monitor temperature when indicated."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🌡️ Temperature",
     "prompt_text": "Report fever or abnormalities."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🌡️ Temperature",
     "prompt_text": "Ensure equipment is clean."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "⚖️ Weight",
     "prompt_text": "Weigh at agreed intervals."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "⚖️ Weight",
     "prompt_text": "Record changes."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "⚖️ Weight",
     "prompt_text": "Report significant loss/gain."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🫁 Oxygen saturation",
     "prompt_text": "Use device correctly."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🫁 Oxygen saturation",
     "prompt_text": "Record readings."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🫁 Oxygen saturation",
     "prompt_text": "Report low levels immediately."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "😣 Pain tracking",
     "prompt_text": "Ask about pain levels regularly."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "😣 Pain tracking",
     "prompt_text": "Use appropriate scale."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "😣 Pain tracking",
     "prompt_text": "Report unmanaged pain."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🚶 Mobility assessments",
     "prompt_text": "Observe mobility changes."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🚶 Mobility assessments",
     "prompt_text": "Encourage safe movement."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "🚶 Mobility assessments",
     "prompt_text": "Report decline or risk."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "⚠️ Falls risk",
     "prompt_text": "Monitor for instability."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "⚠️ Falls risk",
     "prompt_text": "Ensure environment is safe."
   },
   {
-    "task_category": "Health Monitoring",
+    "task_category": "Medical Conditions & Overview",
     "task_name": "⚠️ Falls risk",
     "prompt_text": "Report any incidents."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🔒 Doors / windows",
     "prompt_text": "Ensure home is secure."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🔒 Doors / windows",
     "prompt_text": "Check locks and access points."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🔒 Doors / windows",
     "prompt_text": "Balance safety with independence."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🔥 Fire safety",
     "prompt_text": "Check alarms are functioning."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🔥 Fire safety",
     "prompt_text": "Keep exits clear."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🔥 Fire safety",
     "prompt_text": "Report concerns immediately."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "⚡ Electrical safety",
     "prompt_text": "Check for damaged wires or plugs."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "⚡ Electrical safety",
     "prompt_text": "Avoid overloading sockets."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "⚡ Electrical safety",
     "prompt_text": "Report hazards."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧯 Equipment checked",
     "prompt_text": "Ensure equipment is safe and clean."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧯 Equipment checked",
     "prompt_text": "Use correctly."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧯 Equipment checked",
     "prompt_text": "Report faults."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧼 Infection control",
     "prompt_text": "Use PPE where required."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧼 Infection control",
     "prompt_text": "Follow hygiene protocols."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧼 Infection control",
     "prompt_text": "Dispose of waste safely."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧤 Hand hygiene",
     "prompt_text": "Wash hands before and after care."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧤 Hand hygiene",
     "prompt_text": "Use sanitiser when needed."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "🧤 Hand hygiene",
     "prompt_text": "Encourage client hygiene."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "⚠️ Hazards identified",
     "prompt_text": "Identify risks in environment."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "⚠️ Hazards identified",
     "prompt_text": "Record and report hazards."
   },
   {
-    "task_category": "Safety & Risk Management",
+    "task_category": "Risks & Safety",
     "task_name": "⚠️ Hazards identified",
     "prompt_text": "Take immediate action if needed."
   },

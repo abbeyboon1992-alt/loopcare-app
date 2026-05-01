@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
+import { mergeAlerts } from "@/lib/mergeAlerts";
 import { generateDiagnosisAlerts } from "@/lib/diagnosisAlertMap";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
@@ -117,9 +118,9 @@ const CommunicationBox = ({
   return (
     <textarea
   placeholder="Describe communication needs"
-  defaultValue={value || ""}
+  value={value || ""}
   disabled={disabled}
-  onBlur={(e) => onChange(e.target.value)}
+  onChange={(e) => onChange(e.target.value)}
   className="w-full p-3 text-base mb-4 rounded bg-[var(--card)]"
 />
   );
@@ -137,10 +138,10 @@ const TextAreaField = ({
 }) => {
   return (
     <textarea
-      defaultValue={value || ""}
+      value={value || ""}
       placeholder={placeholder}
       disabled={disabled}
-      onBlur={(e) => onChange(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       className="w-full p-3 text-base mb-4 rounded bg-[var(--card)] text-white"
     />
   );
@@ -634,8 +635,9 @@ useEffect(() => {
   formRef.current = form;
 }, [form]);
 const handleInput = (field: string, value: any) => {
+  isUserTypingRef.current = true;
+
   setForm((prev: any) => {
-    // ✅ BASELINE OBJECT HANDLING
     if (field === "baseline_observations") {
       return {
         ...prev,
@@ -646,13 +648,18 @@ const handleInput = (field: string, value: any) => {
       };
     }
 
-    // ✅ NORMAL FIELD UPDATE
     return {
       ...prev,
       [field]: value,
     };
   });
+
+  // 🔥 release typing lock shortly after
+  setTimeout(() => {
+    isUserTypingRef.current = false;
+  }, 300);
 };
+if (isUserTypingRef.current) return;
   if (saveTimeout.current) clearTimeout(saveTimeout.current);
   saveTimeout.current = setTimeout(async () => {
     if (isSavingRef.current) return;
@@ -1711,10 +1718,12 @@ locked: true,
 
   // 🔥 GENERATE ALERTS
   const diagnosisAlerts = generateDiagnosisAlerts(client.diagnosis || []);
-const alerts = [
-  ...generateDiagnosisAlerts(client.diagnosis || []),
+const rawAlerts = [
+  ...generateDiagnosisAlerts(client.diagnosis),
   ...generateAssessmentAlerts(form),
 ];
+
+const alerts = mergeAlerts(rawAlerts);
 
 // 🔥 SAVE ALERTS
 await saveAlerts({

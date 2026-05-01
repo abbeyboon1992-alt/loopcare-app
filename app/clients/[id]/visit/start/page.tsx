@@ -4,6 +4,7 @@ import { processVisit } from "@/lib/visitProcessor";
 import { useParams } from "next/navigation";
 import { careTypes } from "@/lib/careTypes";
 import { useState, useEffect, useRef } from "react";
+import { useAccess } from "@/app/context/AccessContext";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { masterTasks } from "@/data/masterTasks";
@@ -15,6 +16,11 @@ export default function VisitSessionPage() {
 const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
 const [visitSlot, setVisitSlot] = useState<"morning" | "lunch" | "tea" | "bed">("morning");
 const [tasksFromDB, setTasksFromDB] = useState<any[]>([]);
+const access = useAccess();
+const plan = access?.plan || "free";
+const isPro = plan === "pro";
+
+const [useMasterTasks, setUseMasterTasks] = useState(!isPro);
 const [client, setClient] = useState<any>(null);
 const [timerOn, setTimerOn] = useState(false);
 const [seconds, setSeconds] = useState(0);
@@ -102,8 +108,47 @@ const mapTaskToSection = (title: string) => {
   return "General";
 };
 
+const getMasterTasksOnly = () => {
+  if (!client) return [];
+
+  const diagnosisListLower = Array.isArray(client.diagnosis)
+    ? client.diagnosis.map((d: string) => (d || "").toLowerCase())
+    : [];
+
+  const careTypeLower = client.care_type?.toLowerCase();
+
+  const filtered = masterTasks.filter((task: any) => {
+    if (task.always) return true;
+
+    if (task.care_types?.includes(careTypeLower)) return true;
+
+    if (task.diagnosis) {
+      return task.diagnosis.some((d: string) =>
+        diagnosisListLower.some((cd: string) =>
+          cd.includes(d.toLowerCase())
+        )
+      );
+    }
+
+    return false;
+  });
+
+  return filtered.map((task: any) => ({
+    title: task.name,
+    category: mapTaskToSection(task.name),
+    priority: "medium",
+    source: "master",
+    prompts: getPromptsForTask(task.name),
+  }));
+};
+
 const getTasks = () => {
   if (!client) return [];
+
+  // 🔒 FREE USERS → ONLY MASTER TASKS
+  if (!isPro) {
+    return getMasterTasksOnly();
+  }
 
   let tasks: any[] = [];
 
@@ -338,39 +383,23 @@ if (assessments) {
     });
   }
 }
+// 🟢 OPTIONAL MASTER TASKS (PRO ONLY)
+if (useMasterTasks) {
+  const master = getMasterTasksOnly();
 
-  // 4️⃣ SMART MASTER TASKS
-const diagnosisListLower = Array.isArray(client.diagnosis)
-  ? client.diagnosis.map((d: string) => (d || "").toLowerCase())
-  : [(client.primary_diagnosis || "").toLowerCase()].filter(Boolean);
-
-const careType = client.care_type?.toLowerCase();
-
-const filteredMasterTasks = masterTasks.filter((task: any) => {
-  if (task.always) return true;
-
-  if (task.care_types && task.care_types.includes(careType)) return true;
-
-  if (task.diagnosis) {
-    return task.diagnosis.some((d: string) =>
-      diagnosisListLower.some((cd: string) =>
-        cd.includes(d.toLowerCase())
-      )
+  master.forEach((task) => {
+    const exists = tasks.some(
+      (t) => t.title.toLowerCase() === task.title.toLowerCase()
     );
-  }
 
-  return false;
-});
-
-tasks.push(
-  ...filteredMasterTasks.map((task: any) => ({
-    title: task.name,
-    category: mapTaskToSection(task.name), // ✅ mapped
-    priority: "low",
-    source: "master",
-    prompts: getPromptsForTask(task.name),
-  }))
-);
+    if (!exists) {
+      tasks.push({
+        ...task,
+        priority: "low",
+      });
+    }
+  });
+}
 
   // 🔥 REMOVE DUPLICATES (important)
   const uniqueTasks = tasks.filter(
@@ -409,7 +438,9 @@ const tasks = getTasks();
   const [step, setStep] = useState(1);
   const [recording, setRecording] = useState(false);
 const [transcript, setTranscript] = useState("");
-
+const [autoAddedTasks, setAutoAddedTasks] = useState<
+  { title: string; reason: string }[]
+>([]);
   const [data, setData] = useState<{
   tasks: string[];
   hydration: string;
@@ -528,23 +559,24 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, [timerOn]);
 
-useEffect(() => {
-  const generated = getClinicalAlerts();
-  setLiveAlerts(generated);
-}, [data, client]);
-
   const toggleTask = (task: string) => {
-    setData((prev: any) => {
-      const exists = prev.tasks.includes(task);
-      return {
-        ...prev,
-        tasks: exists
-          ? prev.tasks.filter((t: string) => t !== task)
-          : [...prev.tasks, task],
-      };
-    });
-  };
+  setData((prev: any) => {
+    const exists = prev.tasks.includes(task);
 
+    let updated;
+
+    if (exists) {
+      updated = prev.tasks.filter((t: string) => t !== task);
+    } else {
+      updated = [...prev.tasks, task];
+    }
+
+    return {
+      ...prev,
+      tasks: updated,
+    };
+  });
+};
   useEffect(() => {
   if (!activeVisitId) return;
 
@@ -568,6 +600,41 @@ useEffect(() => {
     supabase.removeChannel(channel);
   };
 }, [activeVisitId]);
+
+useEffect(() => {
+  const autoTasks = getAutoTasksFromObservations();
+
+  setAutoAddedTasks(autoTasks);
+
+  const autoTitles = autoTasks.map((t) => t.title);
+
+  setData((prev) => {
+    const cleaned = prev.tasks.filter(
+      (t) =>
+        !autoAddedTasks.map((a) => a.title).includes(t)
+    );
+
+    return {
+      ...prev,
+      tasks: Array.from(new Set([
+        ...cleaned,
+        ...autoTitles
+      ])),
+    };
+  });
+}, [
+  data.hydration,
+  data.nutrition,
+  data.mobility,
+  data.medication,
+  data.toileting,
+  data.mood,
+  data.cognition,
+  data.skin,
+  data.pain,
+  data.breathing,
+  data.safeguarding,
+]);
 
   const formatTime = () => {
   const mins = Math.floor(seconds / 60);
@@ -602,8 +669,117 @@ const recognition = new SpeechRecognition();
   recognition.start();
 };
 
+const getAutoTasksFromObservations = () => {
+  const autoTasks: { title: string; reason: string }[] = [];
+
+  // 💧 HYDRATION
+  if (data.hydration === "poor" || data.hydration === "refused") {
+    autoTasks.push({
+      title: "Encourage fluid intake",
+      reason: "Low fluid intake",
+    });
+  }
+
+  if (data.hydration === "none") {
+    autoTasks.push({
+      title: "Urgent hydration intervention",
+      reason: "No fluid intake",
+    });
+  }
+
+  // 🍽️ NUTRITION
+  if (data.nutrition === "poor" || data.nutrition === "none") {
+    autoTasks.push({
+      title: "Encourage meals and monitor intake",
+      reason: "Poor nutrition",
+    });
+  }
+
+  // 💊 MEDICATION
+  if (data.medication === "refused" || data.medication === "missed") {
+    autoTasks.push({
+      title: "Review medication compliance",
+      reason: "Medication not taken",
+    });
+  }
+
+  // 🚶 MOBILITY
+  if (data.mobility === "fall") {
+    autoTasks.push({
+      title: "Implement falls prevention measures",
+      reason: "Fall occurred",
+    });
+  }
+
+  if (data.mobility === "unsteady" || data.mobility === "decline") {
+    autoTasks.push({
+      title: "Assist with mobility and prevent falls",
+      reason: "Mobility decline/unsteady",
+    });
+  }
+
+  // 🚽 TOILETING
+  if (data.toileting === "diarrhoea" || data.toileting === "constipated") {
+    autoTasks.push({
+      title: "Monitor bowel movements",
+      reason: "Bowel issue",
+    });
+  }
+
+  // 🧠 COGNITION
+  if (data.cognition === "confused" || data.cognition === "very_confused") {
+    autoTasks.push({
+      title: "Monitor cognition",
+      reason: "Confusion observed",
+    });
+  }
+
+  // 😟 MOOD
+  if (data.mood === "low" || data.mood === "distressed") {
+    autoTasks.push({
+      title: "Provide emotional reassurance",
+      reason: "Low/distressed mood",
+    });
+  }
+
+  // 🧴 SKIN
+  if (data.skin !== "intact") {
+    autoTasks.push({
+      title: "Check skin condition",
+      reason: "Skin concern",
+    });
+  }
+
+  // 😖 PAIN
+  if (data.pain === "moderate" || data.pain === "high") {
+    autoTasks.push({
+      title: "Assess pain level",
+      reason: "Pain reported",
+    });
+  }
+
+  // 🫁 BREATHING
+  if (data.breathing !== "normal") {
+    autoTasks.push({
+      title: "Monitor breathing",
+      reason: "Breathing concern",
+    });
+  }
+
+  // 🚨 SAFEGUARDING
+  if (data.safeguarding === "concern") {
+    autoTasks.push({
+      title: "Check safety and wellbeing",
+      reason: "Safeguarding concern",
+    });
+  }
+
+  return autoTasks;
+};
+
 const getClinicalAlerts = () => {
   if (!client) return [];
+
 
   // ⚡ mimic backend rules (light version only for UI preview)
 
@@ -705,8 +881,6 @@ ${data.notes ? "Notes: " + data.notes : ""}
 const clientId = id as string;
 const userId = "temp-user";
 
-console.log("🔥 processVisit CALLED");
-
 // 🔴 CHECK REQUIRED TASKS BEFORE FINISH
 const finishVisitCore = async () => {
 
@@ -717,17 +891,19 @@ const finishVisitCore = async () => {
   data: {
     ...data,
     duration: seconds,
+    autoTasks: autoAddedTasks, // ✅ ADD THIS
   },
 });
 
   await fetch("/api/update-careplan-from-visit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: id,
-      data,
-    }),
-  });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    client_id: id,
+    data,
+    autoTasks: autoAddedTasks, // ✅ ADD
+  }),
+});
 
   await fetch("/api/ai/generate", {
     method: "POST",
@@ -873,8 +1049,9 @@ if (!client || !config) {
 }
 
 const combinedAlerts = [
-  ...alerts,       // DB alerts (persistent)
-  ...liveAlerts,   // REAL-TIME clinical alerts
+  ...alerts,
+  ...liveAlerts,
+  ...getClinicalAlerts(),
 ];
 
 const resolveAlert = async (alertId: string) => {
@@ -948,11 +1125,11 @@ const createConcernFromAlert = async (alert: any) => {
           <button
             key={reason}
             onClick={() => setOverrideReason(reason)}
-            className={`w-full p-2 rounded ${
-              overrideReason === reason
-                ? "bg-yellow-600"
-                : "bg-[var(--card)]"
-            }`}
+            className={`w-full p-3 text-base rounded ${
+  overrideReason === reason
+    ? "bg-blue-600"
+    : "bg-[var(--card)]"
+}`}
           >
             {reason}
           </button>
@@ -1012,11 +1189,7 @@ const createConcernFromAlert = async (alert: any) => {
           <button
             key={reason}
             onClick={() => setCancelReason(reason)}
-            className={`w-full p-2 rounded ${
-              cancelReason === reason
-                ? "bg-red-600"
-                : "bg-[var(--card)]"
-            }`}
+            className="w-full p-3 text-base rounded bg-[var(--card)]"
           >
             {reason}
           </button>
@@ -1157,6 +1330,26 @@ const createConcernFromAlert = async (alert: any) => {
 {step === 2 && (
   <>
     <h1 className="mb-4">Tasks</h1>
+    <div className="mb-3 flex items-center gap-3">
+  <button
+    onClick={() => {
+      if (!isPro) return;
+      setUseMasterTasks((prev) => !prev);
+    }}
+    disabled={!isPro}
+    className={`px-3 py-1 rounded text-sm ${
+      useMasterTasks ? "bg-green-600" : "bg-gray-600"
+    } ${!isPro ? "opacity-50 cursor-not-allowed" : ""}`}
+  >
+    {useMasterTasks ? "Master Tasks ON" : "Master Tasks OFF"}
+  </button>
+
+  {!isPro && (
+    <span className="text-xs text-yellow-400">
+      Upgrade to unlock smart tasks
+    </span>
+  )}
+</div>
 
     <p className="text-sm text-[var(--muted)] mb-2">
       {tasksFromDB.length > 0
@@ -1174,18 +1367,29 @@ const createConcernFromAlert = async (alert: any) => {
 
     {tasks.map((task: any) => {
       const selected = data.tasks.includes(task.title);
+const auto = autoAddedTasks.includes(task.title);
 
       return (
         <div key={task.title}>
           <button
             onClick={() => toggleTask(task.title)}
             className={`w-full p-3 text-base rounded ${
-              selected ? "bg-green-600" : "bg-[var(--card)]"
-            }`}
+  selected
+    ? auto
+      ? "bg-blue-600"
+      : "bg-green-600"
+    : "bg-[var(--card)]"
+}`}
           >
             <div className="text-left">
               <p className="font-semibold flex justify-between">
   {task.title}
+
+{autoAddedTasks.find((a) => a.title === task.title) && (
+  <p className="text-xs text-yellow-400 mt-1">
+    ⚠ {autoAddedTasks.find((a) => a.title === task.title)?.reason}
+  </p>
+)}
 
   {task.priority === "high" && (
     <span className="text-red-400 text-xs">HIGH</span>
@@ -1544,11 +1748,11 @@ const createConcernFromAlert = async (alert: any) => {
 
     {/* 🎤 VOICE BUTTON */}
     <button
-      onClick={startVoice}
-      className={`w-full py-3 rounded mb-4 ${
-        recording ? "bg-red-600" : "bg-purple-600"
-      }`}
-    >
+  onClick={startVoice}
+  className={`w-full p-3 text-base rounded ${
+    recording ? "bg-red-600" : "bg-purple-600"
+  }`}
+>
       {recording ? "Recording..." : "🎤 Start Voice Note"}
     </button>
 

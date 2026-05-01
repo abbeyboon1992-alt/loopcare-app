@@ -444,7 +444,33 @@ alerts.push({
   });
   return alerts;
 }
-
+const buildAlert = (
+  type: string,
+  {
+    message,
+    severity = "medium",
+    action,
+    source = "visit",
+    triggered_by,
+  }: {
+    message: string;
+    severity?: string;
+    action?: string;
+    source?: string;
+    triggered_by?: string;
+  }
+): AlertItem => {
+  return {
+    type,
+    message,
+    severity,
+    action,
+    source,
+    triggered_by,
+    section_title:
+      ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
+  };
+};
 export function generateVisitAlerts({
   client,
   visitData,
@@ -453,8 +479,11 @@ export function generateVisitAlerts({
 
   const addAlert = (alert: AlertItem) => {
   const exists = alerts.some(
-  (a: any) => a.type === alert.type && a.message === alert.message
-);
+    (a: any) =>
+      a.type === alert.type &&
+      a.source === alert.source // 🔥 prevents duplicates across engines
+  );
+
   if (!exists) alerts.push(alert);
 };
   const alerts: AlertItem[] = [];
@@ -555,14 +584,14 @@ const mobility = visitData.mobility === "independent"
     const type = "hydration_low";
 
 
-addAlert({
-  ...alertConfig.hydration_low,
-  message: alertConfig.hydration_low.message,
-  severity: alertConfig.hydration_low.severity || "low",
-  type,
-  source: "visit",
-  section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
-});
+addAlert(
+  buildAlert("hydration_low", {
+    message: "Low fluid intake",
+    severity: "high",
+    action: "Encourage fluids and record intake",
+    triggered_by: "hydration_poor",
+  })
+);
   }
   if (hydration === "good") {
   addAlert({

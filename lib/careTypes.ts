@@ -1,7 +1,7 @@
 export const careTypes = {
   elderly: {
     tasks: [
-      "Personal Care",
+      "Personal Care (ADLs)",
       "Medication",
       "Hydration",
       "Mobility",
