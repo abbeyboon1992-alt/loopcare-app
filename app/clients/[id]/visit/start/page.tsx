@@ -153,7 +153,20 @@ const getTasks = () => {
   let tasks: any[] = [];
 
   // ✅ AUTO TASKS (PRIMARY SOURCE)
-const autoTasks = getAutoTasksFromObservations();
+const observationTasks = getAutoTasksFromObservations();
+const alertTasks = getAutoTasksFromAlerts();
+
+// 🔥 MERGE + DEDUPE
+const autoTasks = [
+  ...observationTasks,
+  ...alertTasks,
+].filter(
+  (task, index, self) =>
+    index ===
+    self.findIndex(
+      (t) => t.title === task.title
+    )
+);
 
 tasks.push(
   ...autoTasks.map((t) => ({
@@ -421,7 +434,17 @@ useEffect(() => {
 }, [activeVisitId]);
 
 useEffect(() => {
-  const autoTasks = getAutoTasksFromObservations();
+  const observationTasks = getAutoTasksFromObservations();
+  const alertTasks = getAutoTasksFromAlerts();
+
+  const autoTasks = [
+    ...observationTasks,
+    ...alertTasks,
+  ].filter(
+    (task, index, self) =>
+      index ===
+      self.findIndex((t) => t.title === task.title)
+  );
 
   setAutoAddedTasks(autoTasks);
 
@@ -430,7 +453,7 @@ useEffect(() => {
   setData((prev) => {
     const cleaned = prev.tasks.filter(
       (t) =>
-        !autoAddedTasks.map((a) => a.title).includes(t)
+        !autoTasks.map((a) => a.title).includes(t)
     );
 
     return {
@@ -453,6 +476,8 @@ useEffect(() => {
   data.pain,
   data.breathing,
   data.safeguarding,
+  alerts,           // 🔥 ADD
+  liveAlerts,       // 🔥 ADD
 ]);
 
   const formatTime = () => {
@@ -488,6 +513,59 @@ const recognition = new SpeechRecognition();
   recognition.start();
 };
 
+// ✅ FIRST
+const getAutoTasksFromAlerts = () => {
+  const tasks: { title: string; reason: string }[] = [];
+
+  const allAlerts = [
+    ...alerts,
+    ...liveAlerts,
+    ...getClinicalAlerts(),
+  ];
+
+  allAlerts.forEach((a) => {
+    switch (a.type) {
+      case "hydration_low":
+        tasks.push({
+          title: "Encourage fluid intake",
+          reason: "Low hydration alert",
+        });
+        break;
+
+      case "hydration_critical":
+        tasks.push({
+          title: "Urgent hydration intervention",
+          reason: "No fluid intake recorded",
+        });
+        break;
+
+      case "medication_refused":
+        tasks.push({
+          title: "Review medication compliance",
+          reason: "Medication refused",
+        });
+        break;
+
+      case "falls_event":
+        tasks.push({
+          title: "Implement falls prevention measures",
+          reason: "Fall occurred",
+        });
+        break;
+
+      case "bowel_risk":
+        tasks.push({
+          title: "Monitor bowel movements",
+          reason: "Bowel issue",
+        });
+        break;
+    }
+  });
+
+  return tasks;
+};
+
+// ✅ THEN
 const getAutoTasksFromObservations = () => {
   const autoTasks: { title: string; reason: string }[] = [];
 
@@ -1186,7 +1264,7 @@ const createConcernFromAlert = async (alert: any) => {
 
     {tasks.map((task: any) => {
       const selected = data.tasks.includes(task.title);
-const auto = autoAddedTasks.includes(task.title);
+const auto = autoAddedTasks.some(a => a.title === task.title);
 
       return (
         <div key={task.title}>

@@ -5,8 +5,11 @@ import {
   saveAlerts,
   generateAssessmentAlerts,
 } from "./alertEngine";
+import {
+  generateCarePlan,
+  applyAlertsToCarePlan,
+} from "./carePlanEngine";
 import { generateInsights } from "./insightsEngine";
-import { applyAlertsToCarePlan } from "./carePlanEngine";
 import { removeResolvedActionsFromCarePlan } from "./carePlanEngine";
 
 export async function processVisit({
@@ -85,6 +88,32 @@ await removeResolvedActionsFromCarePlan({
   clientId,
   activeAlerts: scoredAlerts,
 });
+
+// 🧠 GENERATE + APPLY CARE PLAN
+const baseCarePlan = generateCarePlan(data, scoredAlerts);
+
+const finalCarePlan = applyAlertsToCarePlan(
+  baseCarePlan,
+  scoredAlerts
+);
+
+// 💾 SAVE TO DB
+for (const section of finalCarePlan) {
+  await supabase
+    .from("care_plan_sections") // ⚠️ check table name
+    .upsert(
+      {
+        client_id: clientId,
+        title: section.title,
+        care_need: section.care_need,
+        outcome: section.outcome,
+        actions: section.actions.join("\n"),
+      },
+      {
+        onConflict: "client_id,title",
+      }
+    );
+}
 
   // 🚨 PRIORITY
   const totalScore = scoredAlerts.reduce(
@@ -198,6 +227,27 @@ if (assessments) {
 
   // 🔥 RE-SYNC ALERTS FROM UPDATED assessments
   const refreshedAlerts = generateAssessmentAlerts(updatedAssessment);
+  const updatedCarePlan = applyAlertsToCarePlan(
+  generateCarePlan(updatedAssessment, refreshedAlerts),
+  refreshedAlerts
+);
+
+for (const section of updatedCarePlan) {
+  await supabase
+    .from("care_plan_sections")
+    .upsert(
+      {
+        client_id: clientId,
+        title: section.title,
+        care_need: section.care_need,
+        outcome: section.outcome,
+        actions: section.actions.join("\n"),
+      },
+      {
+        onConflict: "client_id,title",
+      }
+    );
+}
 
   await saveAlerts({
     clientId,
