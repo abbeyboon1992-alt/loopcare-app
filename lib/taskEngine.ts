@@ -11,6 +11,7 @@ type AlertItem = {
   message: string;
   severity: string;
   section_title?: string;
+  action?: string;
 };
 
 type TaskItem = {
@@ -78,7 +79,11 @@ export function generateTasks(
       title: alert.type,
       category: alert.section_title || "Alerts",
       description: alert.message,
-      prompts: [],
+      prompts: [
+  alert.action
+    ? alert.action
+    : `Respond to alert: ${alert.message}`,
+],
       due: new Date().toISOString(),
       status: "pending",
       linked_alert_type: alert.type,
