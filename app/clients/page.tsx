@@ -541,8 +541,7 @@ if (!user) {
   </span>
 
   {!hasProAccess && (
-    <button
-      onClick={(e) => {
+    <button type="button" onClick={(e) => {
         e.stopPropagation();
         router.push("/upgrade");
       }}
@@ -563,8 +562,7 @@ if (!user) {
 />
 
     {/* EXISTING ADD CLIENT BUTTON */}
-    <button
-  onClick={() => {
+    <button type="button" onClick={() => {
     if (isFreeUser && clients.length >= 1) {
       alert("Free plan allows 1 client only. Upgrade to add more.");
       return;
@@ -656,8 +654,7 @@ if (!user) {
       className="flex-1 p-3 rounded bg-[var(--card)]"
     />
 
-    <button
-      onClick={lookupPostcode}
+    <button type="button" onClick={lookupPostcode}
       className="bg-blue-600 px-4 rounded"
     >
       {loadingAddresses ? "..." : "Find"}
@@ -742,8 +739,7 @@ if (!user) {
   </div>
 </div>
 
-          <button
-  onClick={addClient}
+          <button type="button" onClick={addClient}
             className="w-full bg-green-600 py-3 rounded"
           >
             Save Client
@@ -774,8 +770,7 @@ if (!user) {
     Without this, you're working blind.
   </p>
 
-  <button
-  onClick={(e) => {
+  <button type="button" onClick={(e) => {
     e.stopPropagation();
     router.push("/upgrade");
   }}
@@ -918,7 +913,7 @@ if (!user) {
   }}
 >
     {/* HEADER */}
-<div className="flex justify-between items-center">
+<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
 
   {/* LEFT SIDE → EXPAND */}
   <div
@@ -941,8 +936,7 @@ if (!user) {
     </p>
 
     {client.phone && (
-      <button
-        onClick={(e) => {
+      <button type="button" onClick={(e) => {
           e.stopPropagation();
           if (isLocked) {
     router.push("/upgrade");
@@ -950,7 +944,7 @@ if (!user) {
   }
           window.location.href = `tel:${client.phone}`;
         }}
-        className="text-xs text-green-400 mt-1"
+        className="text-xs text-green-400 mt-1 px-2 py-1 bg-green-900/30 rounded"
       >
         📞 Call
       </button>
@@ -958,13 +952,12 @@ if (!user) {
   </div>
 
   {/* RIGHT SIDE → ACTIONS */}
-  <div className="flex items-center gap-2">
+  <div className="flex flex-wrap items-center gap-2">
 
     {/* OPEN CLIENT (arrow) */}
     <button
   type="button"
   onClick={(e) => {
-    e.preventDefault();
     e.stopPropagation();
 
     if (isLocked) {
@@ -974,14 +967,13 @@ if (!user) {
 
     router.push(`/clients/${client.id}`);
   }}
-  className="text-xs bg-gray-700 px-2 py-1 rounded"
+  className="text-sm sm:text-xs bg-gray-700 px-3 py-2 sm:px-2 sm:py-1 rounded min-w-[44px] flex items-center justify-center"
 >
   ➡️
 </button>
 
     {/* STATUS */}
-    <button
-      onClick={(e) => {
+    <button type="button" onClick={(e) => {
         e.stopPropagation();
         if (isLocked) {
     router.push("/upgrade");
@@ -1030,30 +1022,6 @@ if (!user) {
           <p>🔑 Keysafe: {client.keysafe_access}</p>
         )}
 
-        {client.phone && (
-  <div className="flex items-center justify-between mt-2">
-
-    <span className="text-sm text-gray-300 truncate">
-      📞 {client.phone}
-    </span>
-
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        if (isLocked) {
-    router.push("/upgrade");
-    return;
-  }
-        window.location.href = `tel:${client.phone}`;
-      }}
-      className="bg-green-600 px-3 py-1 rounded text-xs text-white"
-    >
-      Call
-    </button>
-
-  </div>
-)}
-
         <p>Assessment: {progress}%</p>
       </div>
     )}
@@ -1062,8 +1030,7 @@ if (!user) {
     <div className="mt-3 flex gap-2 flex-wrap">
 
       {!hasAssessment && (
-        <button
-          onClick={(e) => {
+        <button type="button" onClick={(e) => {
             e.stopPropagation();
             if (isLocked) {
     router.push("/upgrade");
@@ -1078,8 +1045,7 @@ if (!user) {
       )}
 
       {isAssessmentStarted && (
-        <button
-          onClick={(e) => {
+        <button type="button" onClick={(e) => {
             e.stopPropagation();
             if (isLocked) {
     router.push("/upgrade");
@@ -1159,15 +1125,13 @@ if (!user) {
       />
 
       <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setShowInactiveModal(false)}
+        <button type="button" onClick={() => setShowInactiveModal(false)}
           className="px-3 py-1 bg-gray-600 rounded"
         >
           Cancel
         </button>
 
-        <button
-          onClick={() => {
+        <button type="button" onClick={() => {
             if (!inactiveReason.trim()) {
               alert("Please enter a reason");
               return;
