@@ -310,7 +310,15 @@ const calculateIgnoredRiskScore = () => {
 };
 
 const checkIgnoredRiskEscalation = async () => {
-  if (!id || !alerts.length) return;
+  if (!id || !alerts.length || !client?.id) return;
+
+const { data: exists } = await supabase
+  .from("clients")
+  .select("id")
+  .eq("id", id)
+  .maybeSingle();
+
+if (!exists) return;
 
   const ignoredScore = calculateIgnoredRiskScore();
 
@@ -318,11 +326,11 @@ const checkIgnoredRiskEscalation = async () => {
   if (ignoredScore < 15) return;
 
   // ✅ check if already exists
-  const exists = alerts.find(
-    (a) => a.type === "neglect_risk" && a.status === "active"
-  );
+  const existingAlert = alerts.find(
+  (a) => a.type === "neglect_risk" && a.status === "active"
+);
 
-  if (exists) return;
+  if (existingAlert) return;
 
   // 🚨 CREATE ESCALATION ALERT
   const escalationAlert = {
@@ -344,7 +352,15 @@ const checkIgnoredRiskEscalation = async () => {
   }, 300);
 };
 const createEscalationTasks = async () => {
-  if (!id || !alerts.length) return;
+  if (!id || !alerts.length || !client?.id) return;
+
+  const { data: exists } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!exists) return;
 
   // 🔐 ACCESS CONTROL
   if (access?.accountType !== "team") return;
@@ -365,11 +381,11 @@ const createEscalationTasks = async () => {
   // 🔍 get existing tasks
   const { data: existing } = await supabase
     .from("tasks")
-    .select("section_title")
+    .select("title")
     .eq("client_id", id);
 
   const existingTitles =
-    existing?.map((t: any) => t.title) || [];
+  existing?.map((t: any) => t.section_title) || [];
 
   // ✅ filter new only
   const newTasks = escalationTasks
@@ -389,7 +405,15 @@ const createEscalationTasks = async () => {
   console.log("🚨 Escalation tasks created");
 };
 const enforceCarePlanFromEscalation = async () => {
-  if (!id || !alerts.length) return;
+  if (!id || !alerts.length || !client?.id) return;
+
+const { data: exists } = await supabase
+  .from("clients")
+  .select("id")
+  .eq("id", id)
+  .maybeSingle();
+
+if (!exists) return;
 
   // 🔐 ACCESS CONTROL
   if (access?.accountType !== "team") return;
@@ -430,7 +454,7 @@ const enforceCarePlanFromEscalation = async () => {
   // 🔁 UPSERT (prevent duplicates)
   await supabase
     .from("care_plan_section")
-    .upsert(section, { onConflict: "client_id,title" });
+    .upsert(section, { onConflict: "client_id,section_title" });
 
   console.log("🚨 Care plan safeguarding enforced");
 };
@@ -711,12 +735,17 @@ const deleteClient = async () => {
   if (!confirmDelete) return;
 
   // 🔥 DELETE ALL DEPENDENCIES FIRST
-  await supabase.from("alert_audit_log").delete().eq("client_id", id);
-  await supabase.from("visit_cancellations").delete().eq("client_id", id);
-  await supabase.from("visit_notes").delete().eq("client_id", id);
-  await supabase.from("alerts").delete().eq("client_id", id);
-  await supabase.from("tasks").delete().eq("client_id", id);
-  await supabase.from("care_plan_section").delete().eq("client_id", id);
+await supabase.from("alert_audit_log").delete().eq("client_id", id);
+await supabase.from("visit_cancellations").delete().eq("client_id", id);
+await supabase.from("visit_notes").delete().eq("client_id", id);
+await supabase.from("alerts").delete().eq("client_id", id);
+await supabase.from("tasks").delete().eq("client_id", id);
+await supabase.from("care_plan_section").delete().eq("client_id", id);
+
+// ✅ ADD THESE HERE
+await supabase.from("assessment_versions").delete().eq("client_id", id);
+await supabase.from("family_feedback").delete().eq("client_id", id);
+await supabase.from("assessment_prompts").delete().eq("client_id", id);
 
   // 🔥 THEN DELETE CLIENT
   const { error } = await supabase
@@ -776,7 +805,7 @@ useEffect(() => {
 }, [id]);
 
 useEffect(() => {
-  if (!visits.length) return;
+  if (!visits.length || !client?.id) return;
 
   const autoUpdateAlerts = async () => {
     const last2 =
@@ -915,9 +944,7 @@ useEffect(() => {
   if (!client || !id) return;
 
 const runDiagnosisAlerts = async () => {
-  if (!client || !client.id) {
-  return <div className="p-6">Loading...</div>;
-}
+  if (!client || !client.id) return;
 
   const diagnosisAlerts = generateDiagnosisAlerts(client);
 
