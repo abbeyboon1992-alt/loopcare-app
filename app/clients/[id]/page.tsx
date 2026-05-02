@@ -28,9 +28,6 @@ const id = params?.id;
   const [client, setClient] = useState<any>(null);
 const [visits, setVisits] = useState<any[]>([]);
 const [alerts, setAlerts] = useState<any[]>([]);
-useEffect(() => {
-  console.log("UI ALERTS:", alerts);
-}, [alerts]);
 const [resolvedAlerts, setResolvedAlerts] = useState<any[]>([]);
 const [expandedRiskId, setExpandedRiskId] = useState<string | null>(null);
 const [assessmentProgress, setAssessmentProgress] = useState(0);
@@ -187,7 +184,15 @@ const loadAlerts = async () => {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  setAlerts(data || []);
+  // ✅ PREVENT LOOP: only update if changed
+  setAlerts((prev) => {
+    const prevStr = JSON.stringify(prev);
+    const newStr = JSON.stringify(data || []);
+
+    if (prevStr === newStr) return prev; // 🔥 no re-render
+
+    return data || [];
+  });
 };
 const loadResolvedAlerts = async () => {
   if (!id) return;
@@ -268,6 +273,7 @@ const calculateRiskScore = () => {
     let score = 1;
 
     if (alert.severity === "critical") score = 5;
+    if (alert.type === "neglect_risk") score += 5;
     else if (alert.severity === "high") score = 3;
     else if (alert.severity === "medium") score = 2;
 
@@ -279,7 +285,103 @@ const calculateRiskScore = () => {
     return total + score;
   }, 0);
 };
+const calculateIgnoredRiskScore = () => {
+  return alerts.reduce((total: number, alert: any) => {
+    if (!alert.created_at) return total;
 
+    const age = getAlertAgeDays(alert.created_at);
+
+    if (age < 2) return total;
+
+    let weight = 1;
+
+    if (alert.severity === "critical") weight = 5;
+    else if (alert.severity === "high") weight = 3;
+    else if (alert.severity === "medium") weight = 2;
+
+    return total + weight * age; // 🔥 escalation over time
+  }, 0);
+};
+
+const checkIgnoredRiskEscalation = async () => {
+  if (!id || !alerts.length) return;
+
+  const ignoredScore = calculateIgnoredRiskScore();
+
+  // 🔥 threshold (tune later)
+  if (ignoredScore < 15) return;
+
+  // ✅ check if already exists
+  const exists = alerts.find(
+    (a) => a.type === "neglect_risk" && a.status === "active"
+  );
+
+  if (exists) return;
+
+  // 🚨 CREATE ESCALATION ALERT
+  const escalationAlert = {
+    client_id: id,
+    type: "neglect_risk",
+    message: "⚠ Ongoing risks are not being addressed",
+    severity: "critical",
+    source: "system",
+    status: "active",
+    created_at: new Date().toISOString(),
+  };
+
+  await supabase.from("alerts").insert([escalationAlert]);
+
+  console.log("🚨 NEGLECT RISK TRIGGERED");
+
+  setTimeout(() => {
+    loadAlerts();
+  }, 300);
+};
+const createEscalationTasks = async () => {
+  if (!id || !alerts.length) return;
+
+  // 🔐 ACCESS CONTROL
+  if (access?.accountType !== "team") return;
+  if (!(plan === "pro" || isTrialActive)) return;
+
+  // 🔍 check if escalation alert exists
+  const hasNeglect = alerts.some(
+    (a) => a.type === "neglect_risk" && a.status === "active"
+  );
+
+  if (!hasNeglect) return;
+
+  const escalationTasks = [
+    "🚨 Urgent care plan review required",
+    "👩‍⚕️ Senior staff intervention required",
+  ];
+
+  // 🔍 get existing tasks
+  const { data: existing } = await supabase
+    .from("tasks")
+    .select("title")
+    .eq("client_id", id);
+
+  const existingTitles =
+    existing?.map((t: any) => t.title) || [];
+
+  // ✅ filter new only
+  const newTasks = escalationTasks
+    .filter((task) => !existingTitles.includes(task))
+    .map((task) => ({
+      client_id: id,
+      title: task,
+      status: "pending",
+      priority: "high",
+      linked_alert_type: "neglect_risk",
+    }));
+
+  if (newTasks.length === 0) return;
+
+  await supabase.from("tasks").insert(newTasks);
+
+  console.log("🚨 Escalation tasks created");
+};
 const getRiskLevel = (score: number) => {
   const hasCriticalFlag = alerts.some(
     (a) => a.source === "flags" && a.severity === "critical"
@@ -702,12 +804,23 @@ await supabase
             userId,
             source: "visit_auto",
           });
+
+          // 🔥 REMOVE ESCALATION TASKS IF NEGLECT CLEARED
+if (alert.type === "neglect_risk") {
+  await supabase
+    .from("tasks")
+    .delete()
+    .eq("client_id", id)
+    .eq("linked_alert_type", "neglect_risk");
+}
         }
       }
     }
 
     loadAlerts();
     loadResolvedAlerts();
+
+    
 
     const { data: freshAlerts } = await supabase
   .from("alerts")
@@ -762,9 +875,13 @@ useEffect(() => {
         table: "alerts",
         filter: `client_id=eq.${id}`,
       },
-      () => {
-        loadAlerts(); // refresh on escalation/update
-      }
+      (payload) => {
+  clearTimeout((window as any).alertsTimeout);
+
+  (window as any).alertsTimeout = setTimeout(() => {
+    loadAlerts();
+  }, 300);
+}
     )
     .subscribe();
 
@@ -840,12 +957,16 @@ useEffect(() => {
 
 useEffect(() => {
   if (!alerts.length) return;
-  if (access?.accountType !== "team") return;
 
   const runEscalation = async () => {
-    for (const alert of alerts) {
-      if (!shouldEscalate(alert)) continue;
+    // 🔥 STEP 1: standard escalation (your existing logic)
+    const toEscalate = alerts.filter(
+      (alert) =>
+        shouldEscalate(alert) &&
+        !alert.escalated
+    );
 
+    for (const alert of toEscalate) {
       await supabase
         .from("alerts")
         .update({
@@ -856,14 +977,21 @@ useEffect(() => {
         .eq("id", alert.id);
     }
 
-    loadAlerts();
+    // 🔥 STEP 2: ignored risk escalation (NEW)
+    // 🔥 STEP 2: ignored risk escalation
+await checkIgnoredRiskEscalation();
+
+// 🔥 STEP 3: create tasks from escalation
+await createEscalationTasks();
+
+    // 🔄 refresh once
+    setTimeout(() => {
+      loadAlerts();
+    }, 300);
   };
 
   runEscalation();
 }, [alerts]);
-
-  if (!id) return null;
-
 
 if (!client) {
   return <div className="p-6 text-[var(--text)]">Loading client...</div>;
@@ -1069,6 +1197,9 @@ if (!client) {
         ? ""
         : `Score: ${riskScore}`}
     </p>
+    <p className="text-[10px] text-red-400 mt-1">
+  Ignored Risk: {calculateIgnoredRiskScore()}
+</p>
 
     {/* 🔻 TREND (optional but useful) */}
     <p className="text-[10px] mt-1 text-gray-400">
@@ -1265,17 +1396,20 @@ if (!client) {
             expandedRiskId === alert.id ? null : alert.id
           )
         }
-        className={`cursor-pointer flex flex-col text-xs py-2 border-b border-[var(--border)] ${
-          alert.severity === "low" ? "opacity-40" : ""
-        } ${
-          alert.created_at &&
-          getAlertAgeDays(alert.created_at) > 2
-            ? "bg-red-900/30"
-            : ""
-        }`}
+        className={`cursor-pointer flex flex-col text-xs py-2 border-b border-[var(--border)]
+${alert.severity === "low" ? "opacity-40" : ""}
+${alert.created_at && getAlertAgeDays(alert.created_at) >= 4
+  ? "bg-red-900/40"
+  : alert.created_at && getAlertAgeDays(alert.created_at) >= 2
+  ? "bg-yellow-900/30"
+  : ""}
+`}
       >
         <div className="flex items-center gap-2">
-          <span className="truncate">{alert.message}</span>
+          <span className="truncate">
+  {alert.type === "neglect_risk" && "🚨 "}
+  {alert.message}
+</span>
 
           {alert.created_at && isNewAlert(alert.created_at) && (
             <span className="text-[9px] text-green-400">
@@ -1461,7 +1595,10 @@ if (!client) {
     ) : (
       tasks.slice(0, 5).map((task) => (
   <div key={task.id} className="flex justify-between text-sm mb-1">
-  <span>• {task.title}</span>
+  <span>
+  {task.priority === "high" && "🚨 "}
+  • {task.title}
+</span>
 
   {task.linked_alert_type && (
     <span className="text-[10px] text-red-400">
