@@ -962,18 +962,22 @@ if (!user) {
 
     {/* OPEN CLIENT (arrow) */}
     <button
-      onClick={(e) => {
-        e.stopPropagation();
-        if (isLocked) {
-    router.push("/upgrade");
-    return;
-  }
-        router.push(`/clients/${client.id}`);
-      }}
-      className="text-xs bg-gray-700 px-2 py-1 rounded"
-    >
-      ➡️
-    </button>
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isLocked) {
+      router.push("/upgrade");
+      return;
+    }
+
+    router.push(`/clients/${client.id}`);
+  }}
+  className="text-xs bg-gray-700 px-2 py-1 rounded"
+>
+  ➡️
+</button>
 
     {/* STATUS */}
     <button
