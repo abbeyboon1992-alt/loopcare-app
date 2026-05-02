@@ -182,13 +182,19 @@ mood: moodMap[v.mood as keyof typeof moodMap] ?? 0,
 const loadAlerts = async () => {
   if (!id) return;
 
-  const { data } = await supabase
-    .from("alerts")
-    .select("*")
-    .eq("client_id", id)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const { data, error } = await supabase
+  .from("alerts")
+  .select("*")
+  .eq("client_id", id)
+  .eq("status", "active")
+  .order("created_at", { ascending: false })
+  .limit(20);
+
+if (error) {
+  console.error("🚨 LOAD ALERTS ERROR:", error);
+} else {
+  console.log("✅ LOAD ALERTS SUCCESS:", data);
+}
 
   // ✅ PREVENT LOOP: only update if changed
   setAlerts((prev) => {
@@ -705,24 +711,27 @@ const generateTasksFromCareType = async () => {
 };
 
 const updateClient = async () => {
-  const { error } = await supabase
-    .from("clients")
-    .update({
-  name: form.name,
-  date_of_birth: form.date_of_birth,
-  care_type: form.care_type,
-  diagnosis: form.diagnosis,
-  address: form.address,
-  contact_number: form.contact_number,
-  keysafe: form.keysafe,
-})
-    .eq("id", id as string);
+  const { data: updatedClient, error } = await supabase
+  .from("clients")
+  .update({
+    name: form.name,
+    date_of_birth: form.date_of_birth,
+    care_type: form.care_type,
+    diagnosis: form.diagnosis,
+    address: form.address,
+    contact_number: form.contact_number,
+    keysafe: form.keysafe,
+  })
+  .eq("id", id)
+  .select();
 
-  if (error) {
-    console.error(error);
-    alert("Error updating client");
-    return;
-  }
+if (error) {
+  console.error("🚨 UPDATE CLIENT ERROR:", error);
+  alert("Error updating client");
+  return;
+}
+
+console.log("✅ CLIENT UPDATED:", updatedClient);
 
   setEditing(false);
 
@@ -1631,24 +1640,34 @@ ${alert.created_at && getAlertAgeDays(alert.created_at) >= 4
                 await supabase.auth.getUser();
               const userId = userData?.user?.id;
 
-              await supabase
-                .from("alerts")
-                .update({
-                  status: "resolved",
-                  closed_at: new Date().toISOString(),
-                  resolution_source: "manual",
-                  resolved_by: userId,
-                })
-                .eq("id", alert.id);
+              const { error: resolveError } = await supabase
+  .from("alerts")
+  .update({
+    status: "resolved",
+    closed_at: new Date().toISOString(),
+    resolution_source: "manual",
+    resolved_by: userId,
+  })
+  .eq("id", alert.id);
 
-              await logAlertAudit({
-                alert,
-                action: "resolved",
-                previous: { status: "active" },
-                next: { status: "resolved" },
-                userId,
-                source: "manual_ui",
-              });
+if (resolveError) {
+  console.error("🚨 RESOLVE ERROR:", resolveError, alert);
+} else {
+  console.log("✅ RESOLVED ALERT:", alert.id);
+}
+
+              try {
+  await logAlertAudit({
+    alert,
+    action: "resolved",
+    previous: { status: "active" },
+    next: { status: "resolved" },
+    userId,
+    source: "manual_ui",
+  });
+} catch (e) {
+  console.error("🚨 AUDIT LOG ERROR:", e);
+}
 
               loadAlerts();
               loadResolvedAlerts();
