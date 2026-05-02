@@ -43,11 +43,26 @@ const isNewAlert = (created_at: string) => {
   const diff = Date.now() - new Date(created_at).getTime();
   return diff < 1000 * 60 * 60 * 24; // 24 hours
 };
+const shouldEscalate = (alert: any) => {
+  if (!alert.created_at) return false;
+
+  const days = Math.floor(
+    (Date.now() - new Date(alert.created_at).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  return days >= 3 && alert.severity !== "critical";
+};
+
+const getAlertAgeDays = (date: string) => {
+  const diff = Date.now() - new Date(date).getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+};
+
 const getLiveClinicalPreview = () => {
   const aiAlerts = latestSummary?.alerts || [];
   const dbAlerts = alerts || [];
 
-  // NORMALISE AI
   const normalisedAI = aiAlerts.map((a: any) => ({
     ...a,
     source: "ai",
@@ -57,10 +72,9 @@ const getLiveClinicalPreview = () => {
 
   const combined = [...dbAlerts, ...normalisedAI];
 
-  // DEDUPE
   const unique = combined.filter(
     (a, i, self) =>
-      i === self.findIndex(b => b.message === a.message)
+      i === self.findIndex((b) => b.message === a.message)
   );
 
   const order: Record<string, number> = {
@@ -70,27 +84,11 @@ const getLiveClinicalPreview = () => {
     low: 1,
   };
 
-  // 🔥 SORT
   const sorted = unique.sort(
     (a, b) => (order[b.severity] || 0) - (order[a.severity] || 0)
   );
 
-  // 🔥 FORCE INCLUDE CRITICAL FLAGS
-  const criticalFlags = sorted.filter(
-    (a) => a.source === "flags" && a.severity === "critical"
-  );
-
-  const top3 = sorted.slice(0, 3);
-
-  const merged = [...criticalFlags, ...top3];
-
-  // FINAL DEDUPE AGAIN
-  const final = merged.filter(
-    (a, i, self) =>
-      i === self.findIndex(b => b.message === a.message)
-  );
-
-  return final.slice(0, 4); // allow 1 extra if critical flag exists
+  return sorted.slice(0, 4);
 };
 const [summaryHistory, setSummaryHistory] = useState<any[]>([]);
 const [familyFeedback, setFamilyFeedback] = useState<any[]>([]);
@@ -840,7 +838,32 @@ useEffect(() => {
   }
 }, []);
 
+useEffect(() => {
+  if (!alerts.length) return;
+  if (access?.accountType !== "team") return;
+
+  const runEscalation = async () => {
+    for (const alert of alerts) {
+      if (!shouldEscalate(alert)) continue;
+
+      await supabase
+        .from("alerts")
+        .update({
+          severity: "high",
+          escalated: true,
+          escalated_at: new Date().toISOString(),
+        })
+        .eq("id", alert.id);
+    }
+
+    loadAlerts();
+  };
+
+  runEscalation();
+}, [alerts]);
+
   if (!id) return null;
+
 
 if (!client) {
   return <div className="p-6 text-[var(--text)]">Loading client...</div>;
@@ -1221,68 +1244,128 @@ if (!client) {
   </h2>
 
   {alerts.length === 0 ? (
-    <p className="text-xs text-gray-500">No risks</p>
-  ) : (
-    alerts.map((alert) => (
+  <p className="text-xs text-gray-500">No risks</p>
+) : (
+  (() => {
+    const visibleAlerts =
+      plan === "free" && !isTrialActive
+        ? [
+            ...alerts.filter((a) => a.severity === "critical"),
+            ...alerts
+              .filter((a) => a.severity !== "critical")
+              .slice(0, 2),
+          ]
+        : alerts;
+
+    return visibleAlerts.map((alert) => (
       <div
-  key={alert.id}
-  onClick={() =>
-    setExpandedRiskId(expandedRiskId === alert.id ? null : alert.id)
-  }
-  className={`cursor-pointer flex flex-col text-xs py-2 border-b border-[var(--border)] ${
-    alert.severity === "low" ? "opacity-40" : ""
-  }`}
->
-  <div className="flex justify-between items-center">
-  <div className="flex items-center gap-2">
-    <span className="truncate">{alert.message}</span>
-
-    {alert.created_at && isNewAlert(alert.created_at) && (
-      <span className="text-[9px] text-green-400">
-        NEW
-      </span>
-    )}
-  </div>
-
-    <span className={`ml-2 px-2 py-0.5 rounded ${
-      alert.severity === "critical"
-        ? "bg-red-800"
-        : alert.severity === "high"
-        ? "bg-red-500"
-        : alert.severity === "medium"
-        ? "bg-yellow-500"
-        : "bg-blue-500"
-    }`}>
-      {alert.severity}
-    </span>
-  </div>
-
-  {expandedRiskId === alert.id && (
-  <div className="mt-2 text-[11px] text-gray-400 space-y-1">
-
-    <p>Source: {alert.source || "unknown"}</p>
-
-    <p className="text-gray-500">
-      {explainAlert(alert.type)}
-    </p>
-
-    {alert.section_title && (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          router.push(`/clients/${id}/care-plan#${alert.section_title}`);
-        }}
-        className="text-blue-400 underline text-[11px]"
+        key={alert.id}
+        onClick={() =>
+          setExpandedRiskId(
+            expandedRiskId === alert.id ? null : alert.id
+          )
+        }
+        className={`cursor-pointer flex flex-col text-xs py-2 border-b border-[var(--border)] ${
+          alert.severity === "low" ? "opacity-40" : ""
+        } ${
+          alert.created_at &&
+          getAlertAgeDays(alert.created_at) > 2
+            ? "bg-red-900/30"
+            : ""
+        }`}
       >
-        View in care plan
-      </button>
-    )}
+        <div className="flex items-center gap-2">
+          <span className="truncate">{alert.message}</span>
 
-  </div>
+          {alert.created_at && isNewAlert(alert.created_at) && (
+            <span className="text-[9px] text-green-400">
+              NEW
+            </span>
+          )}
+
+          {alert.escalated && (
+            <span className="text-[9px] text-red-500">
+              ESCALATED
+            </span>
+          )}
+        </div>
+
+        <span
+          className={`ml-2 px-2 py-0.5 rounded ${
+            alert.severity === "critical"
+              ? "bg-red-800"
+              : alert.severity === "high"
+              ? "bg-red-500"
+              : alert.severity === "medium"
+              ? "bg-yellow-500"
+              : "bg-blue-500"
+          }`}
+        >
+          {alert.severity}
+        </span>
+
+        <p>Source: {alert.source || "unknown"}</p>
+
+        <p className="text-gray-500">
+          {isPro
+            ? explainAlert(alert.type)
+            : "🔒 Upgrade to see clinical explanation"}
+        </p>
+
+        {alert.section_title && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(
+                `/clients/${id}/care-plan#${alert.section_title}`
+              );
+            }}
+            className="text-blue-400 underline text-[11px]"
+          >
+            View in care plan
+          </button>
+        )}
+
+        {alert.source !== "visit_auto" && isPro && (
+          <button
+            onClick={async (e) => {
+              e.stopPropagation();
+
+              const { data: userData } =
+                await supabase.auth.getUser();
+              const userId = userData?.user?.id;
+
+              await supabase
+                .from("alerts")
+                .update({
+                  status: "resolved",
+                  closed_at: new Date().toISOString(),
+                  resolution_source: "manual",
+                  resolved_by: userId,
+                })
+                .eq("id", alert.id);
+
+              await logAlertAudit({
+                alert,
+                action: "resolved",
+                previous: { status: "active" },
+                next: { status: "resolved" },
+                userId,
+                source: "manual_ui",
+              });
+
+              loadAlerts();
+              loadResolvedAlerts();
+            }}
+            className="text-xs bg-green-600 px-2 py-1 rounded mt-1"
+          >
+            Mark as resolved
+          </button>
+        )}
+      </div>
+    ));
+  })()
 )}
-</div>
-    ))
-  )}
 <div className="bg-[var(--card)] p-5 rounded-lg mt-4">
 
   <h2 className="text-sm font-semibold mb-2 text-green-400">
@@ -1294,7 +1377,10 @@ if (!client) {
       No recent improvements
     </p>
   ) : (
-    resolvedAlerts.map((alert) => (
+    (plan === "free" && !isTrialActive
+  ? resolvedAlerts.slice(0, 2)
+  : resolvedAlerts
+).map((alert) => (
       <div
         key={alert.id}
         className="flex justify-between items-center text-xs py-1 border-b border-[var(--border)] opacity-70"
@@ -1311,6 +1397,17 @@ if (!client) {
       </div>
     ))
   )}
+  {plan === "free" && !isTrialActive && (
+  <div className="text-xs text-center text-gray-400 mt-2">
+    🔒 Showing limited risks —{" "}
+    <span
+      onClick={() => router.push("/upgrade")}
+      className="text-blue-400 underline cursor-pointer"
+    >
+      upgrade to unlock full clinical insights
+    </span>
+  </div>
+)}
 
 </div>
 </div>
