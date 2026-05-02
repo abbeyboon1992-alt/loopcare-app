@@ -31,16 +31,23 @@ const [alerts, setAlerts] = useState<any[]>([]);
 useEffect(() => {
   console.log("UI ALERTS:", alerts);
 }, [alerts]);
+const [resolvedAlerts, setResolvedAlerts] = useState<any[]>([]);
+const [expandedRiskId, setExpandedRiskId] = useState<string | null>(null);
 const [assessmentProgress, setAssessmentProgress] = useState(0);
 const [editing, setEditing] = useState(false);
 const [preferences, setPreferences] = useState("");
 const [goals, setGoals] = useState("");
 const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 const [latestSummary, setLatestSummary] = useState<any>(null);
+const isNewAlert = (created_at: string) => {
+  const diff = Date.now() - new Date(created_at).getTime();
+  return diff < 1000 * 60 * 60 * 24; // 24 hours
+};
 const getLiveClinicalPreview = () => {
   const aiAlerts = latestSummary?.alerts || [];
   const dbAlerts = alerts || [];
-  // 🔥 STEP 1 — NORMALISE (AI alerts don’t always have same shape)
+
+  // NORMALISE AI
   const normalisedAI = aiAlerts.map((a: any) => ({
     ...a,
     source: "ai",
@@ -48,16 +55,14 @@ const getLiveClinicalPreview = () => {
     message: a.message || a,
   }));
 
-  // 🔥 STEP 2 — MERGE
   const combined = [...dbAlerts, ...normalisedAI];
 
-  // 🔥 STEP 3 — DEDUPE (by message)
+  // DEDUPE
   const unique = combined.filter(
     (a, i, self) =>
       i === self.findIndex(b => b.message === a.message)
   );
 
-  // 🔥 STEP 4 — SORT BY PRIORITY
   const order: Record<string, number> = {
     critical: 4,
     high: 3,
@@ -65,9 +70,27 @@ const getLiveClinicalPreview = () => {
     low: 1,
   };
 
-  return unique
-    .sort((a, b) => (order[b.severity] || 0) - (order[a.severity] || 0))
-    .slice(0, 3); // 🔥 TOP 3 ONLY
+  // 🔥 SORT
+  const sorted = unique.sort(
+    (a, b) => (order[b.severity] || 0) - (order[a.severity] || 0)
+  );
+
+  // 🔥 FORCE INCLUDE CRITICAL FLAGS
+  const criticalFlags = sorted.filter(
+    (a) => a.source === "flags" && a.severity === "critical"
+  );
+
+  const top3 = sorted.slice(0, 3);
+
+  const merged = [...criticalFlags, ...top3];
+
+  // FINAL DEDUPE AGAIN
+  const final = merged.filter(
+    (a, i, self) =>
+      i === self.findIndex(b => b.message === a.message)
+  );
+
+  return final.slice(0, 4); // allow 1 extra if critical flag exists
 };
 const [summaryHistory, setSummaryHistory] = useState<any[]>([]);
 const [familyFeedback, setFamilyFeedback] = useState<any[]>([]);
@@ -78,6 +101,8 @@ const [form, setForm] = useState({
   care_type: "",
   diagnosis: [] as string[],
   address: "",
+  contact_number: "",
+  keysafe: "",
 });
 const hasEvidenceToUpload = () => {
   return [
@@ -165,6 +190,19 @@ const loadAlerts = async () => {
     .limit(20);
 
   setAlerts(data || []);
+};
+const loadResolvedAlerts = async () => {
+  if (!id) return;
+
+  const { data } = await supabase
+    .from("alerts")
+    .select("*")
+    .eq("client_id", id)
+    .eq("status", "resolved")
+    .order("closed_at", { ascending: false })
+    .limit(3);
+
+  setResolvedAlerts(data || []);
 };
 
 useEffect(() => {
@@ -309,6 +347,8 @@ setLastUpdated(data.updated_at || null); // ✅ correct place
     ? data.diagnosis
     : [data.diagnosis].filter(Boolean),
   address: data.address,
+  contact_number: data.contact_number || "",
+  keysafe: data.keysafe || "",
 });
   const { data: userData } = await supabase.auth.getUser();
 
@@ -488,6 +528,8 @@ const updateClient = async () => {
   care_type: form.care_type,
   diagnosis: form.diagnosis,
   address: form.address,
+  contact_number: form.contact_number,
+  keysafe: form.keysafe,
 })
     .eq("id", id as string);
 
@@ -667,6 +709,7 @@ await supabase
     }
 
     loadAlerts();
+    loadResolvedAlerts();
 
     const { data: freshAlerts } = await supabase
   .from("alerts")
@@ -777,6 +820,7 @@ useEffect(() => {
   loadLatestSummary();
   loadSummaryHistory();
   loadFamilyFeedback();
+  loadResolvedAlerts(); // ✅ ADD THIS
 }, [id]);
 
     useEffect(() => {
@@ -804,6 +848,17 @@ if (!client) {
   const riskScore = calculateRiskScore();
   const risk = getRiskLevel(riskScore);
   const trend = getRealTrend();
+  const explainAlert = (type: string) => {
+  const map: Record<string, string> = {
+    hydration: "Low hydration increases risk of UTIs, confusion, and falls.",
+    nutrition: "Poor nutrition can lead to weight loss and slower recovery.",
+    mobility: "Reduced mobility increases risk of pressure sores and falls.",
+    medication: "Missed medication can destabilise conditions.",
+    skin_pressure: "Skin breakdown can lead to serious pressure ulcers.",
+  };
+
+  return map[type] || "Monitor closely to prevent deterioration.";
+};
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6">
       {feedbackNotification && (
@@ -845,7 +900,15 @@ if (!client) {
       {preview.map((a: any, i: number) => (
         <div
           key={i}
-          className="text-xs bg-red-700 px-2 py-1 rounded mb-1 flex justify-between"
+          className={`text-xs px-2 py-1 rounded mb-1 flex justify-between ${
+  a.severity === "critical"
+    ? "bg-red-800"
+    : a.severity === "high"
+    ? "bg-red-500"
+    : a.severity === "medium"
+    ? "bg-yellow-500"
+    : "bg-blue-500"
+}`}
         >
           <span>⚠ {a.message}</span>
           <span className="opacity-70">{a.severity}</span>
@@ -867,12 +930,12 @@ if (!client) {
     ⚠ assessment needs completing
   </p>
 )}
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg flex flex-col gap-3 md:col-span-2">
+  <div className="bg-[var(--card)] p-4 sm:p-5 rounded-xl border border-[var(--border)] flex flex-col gap-4 md:col-span-2">
 
   {/* 🔹 NAME + ACTIONS */}
-  <div className="flex justify-between items-start">
+  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
 
   {/* LEFT SIDE */}
   <div className="flex-1">
@@ -885,23 +948,41 @@ if (!client) {
       {/* ✏️ EDIT + ❌ DELETE */}
       <div className="flex gap-2 ml-3">
 
-        {/* EDIT */}
-        <button
-          onClick={() => setEditing(true)}
-          className="text-blue-400 hover:text-blue-300 text-sm"
-          title="Edit client"
-        >
-          ✏️
-        </button>
+         {/* EDIT */}
+  <button
+    onClick={() => setEditing(true)}
+    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition"
+    title="Edit client"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-4 h-4 text-blue-400"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6-6 3 3-6 6H9v-3z" />
+    </svg>
+  </button>
 
-        {/* DELETE */}
-        <button
-          onClick={deleteClient}
-          className="text-red-500 hover:text-red-400 text-sm"
-          title="Delete client"
-        >
-          ✕
-        </button>
+  {/* DELETE */}
+  <button
+    onClick={deleteClient}
+    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition"
+    title="Delete client"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-4 h-4 text-red-500"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7v12m6-12v12M10 11h4M5 7l1-3h12l1 3" />
+    </svg>
+  </button>
 
       </div>
 
@@ -944,13 +1025,13 @@ if (!client) {
       onClick={() => router.push(`/clients/${id}/timeline`)}
       className="bg-gray-700 px-2 py-1 text-xs rounded mt-2"
     >
-      View Timeline
+      View Timeline (coming soon)
     </button>
 
   </div>
 
   {/* RIGHT SIDE — RISK BOX */}
-  <div className="ml-4 border border-[var(--border)] rounded p-3 min-w-[120px] text-center">
+  <div className="sm:ml-4 border border-[var(--border)] rounded p-3 w-full sm:w-[120px] text-center">
 
     <p className="text-xs text-[var(--muted)] mb-1">
       Risk
@@ -977,7 +1058,7 @@ if (!client) {
 
 
   {/* 🧠 CLINICAL SUMMARY */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
+  <div className="bg-[var(--card)] p-5 rounded-lg">
     <h2 className="text-sm text-[var(--muted)] mb-2">
       Clinical Overview
     </h2>
@@ -1048,121 +1129,190 @@ if (!client) {
 </div>
   </div>
 </div>
-  {/* 🚨 ACTIVE RISKS */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
+  
+  <div className="bg-[var(--card)] p-5 rounded-lg">
 
-    <div className="flex justify-between items-center mb-3">
-      <h2 className="text-lg font-semibold">Active Risks</h2>
+  <div className="flex justify-between items-center mb-3">
+    <h2 className="text-sm font-semibold">
+      🧠 Risk Insights
+    </h2>
 
-      {plan === "free" && (
-        <span className="text-xs bg-yellow-500 text-black px-2 py-1 rounded">
-          Limited
-        </span>
-      )}
-    </div>
+    <span className="text-[10px] text-gray-400">
+      grouped by source
+    </span>
+  </div>
 
-    {alerts.length === 0 && (
-      <p className="text-gray-500 text-sm">
-        No current risks
+  {/* 🔴 FLAGS (TOP PRIORITY) */}
+  {groupedAlerts.flags.length > 0 && (
+    <div className="mb-3">
+      <p className="text-[11px] text-red-400 mb-1">
+        🚩 Flags
       </p>
-    )}
 
-    {alerts.slice(0, plan === "free" ? 2 : 10).map((alert) => (
-      <div
-  key={alert.id}
-  className="flex justify-between items-center border-b border-[var(--border)]-700 py-2"
->
-  <div>
-  <p className="text-sm">{alert.message}</p>
+      {limitAlerts(groupedAlerts.flags).map((alert) => (
+        <div
+          key={alert.id}
+          className="flex justify-between text-xs mb-1 px-2 py-1 rounded bg-red-900/40"
+        >
+          <span>{alert.message}</span>
+          <span className="opacity-70">{alert.severity}</span>
+        </div>
+      ))}
+    </div>
+  )}
 
-  <p className="text-[10px] text-gray-500">
-    {alert.source}
-  </p>
+  {/* 🧠 ASSESSMENTS */}
+  {groupedAlerts.assessments.length > 0 && (
+    <div className="mb-3">
+      <p className="text-[11px] text-blue-300 mb-1">
+        🧠 Assessments
+      </p>
 
-  {tasks.some(t => t.title === alert.message) && (
-    <p className="text-[10px] text-blue-400">
-      → Task created
+      {limitAlerts(groupedAlerts.assessments).map((alert) => (
+        <div key={alert.id} className="text-xs mb-1">
+          • {alert.message}
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* 📊 VISITS */}
+  {groupedAlerts.visit.length > 0 && (
+    <div className="mb-3">
+      <p className="text-[11px] text-yellow-300 mb-1">
+        📊 Visits
+      </p>
+
+      {limitAlerts(groupedAlerts.visit).map((alert) => (
+        <div key={alert.id} className="text-xs mb-1">
+          • {alert.message}
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* 🧬 DIAGNOSIS */}
+  {groupedAlerts.diagnosis.length > 0 && (
+    <div>
+      <p className="text-[11px] text-purple-300 mb-1">
+        🧬 Diagnosis
+      </p>
+
+      {limitAlerts(groupedAlerts.diagnosis).map((alert) => (
+        <div key={alert.id} className="text-xs mb-1">
+          • {alert.message}
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* EMPTY STATE */}
+  {alerts.length === 0 && (
+    <p className="text-xs text-gray-500">
+      No risk insights available
     </p>
   )}
-</div>
 
-  <span className={`text-xs px-2 py-1 rounded ${
-    alert.severity === "critical"
-      ? "bg-red-700"
-      : alert.severity === "high"
-      ? "bg-red-500"
-      : alert.severity === "medium"
-      ? "bg-yellow-500"
-      : "bg-blue-500"
-  }`}>
-    {alert.severity}
-  </span>
 </div>
-    ))}
-    {plan === "free" && alerts.length > 2 && (
-  <p className="text-xs text-yellow-400 mt-2">
-    Showing 2 of {alerts.length} risks — upgrade to view all
-  </p>
-)}
-</div>
-  {/* 📊 VISIT */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
-    <h2 className="text-sm font-semibold mb-2">
-      📊 Visit Risks
-    </h2>
+<div className="bg-[var(--card)] p-5 rounded-lg mt-4">
 
-    {groupedAlerts.visit.length === 0 ? (
-      <p className="text-xs text-gray-500">None</p>
-    ) : (
-      limitAlerts(groupedAlerts.visit).map((alert) => (
-        <div key={alert.id} className="text-xs mb-1">
-          • {alert.message}
-        </div>
-      ))
-    )}
-  </div>
-  {/* 🧠 DIAGNOSIS */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
-    <h2 className="text-sm font-semibold mb-2">
-      🧠 Diagnosis Risks
-    </h2>
-
-    {groupedAlerts.diagnosis.length === 0 ? (
-      <p className="text-xs text-gray-500">None</p>
-    ) : (
-      limitAlerts(groupedAlerts.diagnosis).map((alert) => (
-        <div key={alert.id} className="text-xs mb-1">
-          • {alert.message}
-        </div>
-      ))
-    )}
-  </div>
-  {/* 🚩 FLAGS */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
   <h2 className="text-sm font-semibold mb-2">
-    🚩 Flag Risks
+    📋 All Active Risks
   </h2>
-  {groupedAlerts.flags.length === 0 ? (
-    <p className="text-xs text-gray-500">None</p>
+
+  {alerts.length === 0 ? (
+    <p className="text-xs text-gray-500">No risks</p>
   ) : (
-    limitAlerts(groupedAlerts.flags).map((alert) => (
-  <div
-    key={alert.id}
-    className={`text-xs mb-1 px-2 py-1 rounded flex justify-between ${
+    alerts.map((alert) => (
+      <div
+  key={alert.id}
+  onClick={() =>
+    setExpandedRiskId(expandedRiskId === alert.id ? null : alert.id)
+  }
+  className={`cursor-pointer flex flex-col text-xs py-2 border-b border-[var(--border)] ${
+    alert.severity === "low" ? "opacity-40" : ""
+  }`}
+>
+  <div className="flex justify-between items-center">
+  <div className="flex items-center gap-2">
+    <span className="truncate">{alert.message}</span>
+
+    {alert.created_at && isNewAlert(alert.created_at) && (
+      <span className="text-[9px] text-green-400">
+        NEW
+      </span>
+    )}
+  </div>
+
+    <span className={`ml-2 px-2 py-0.5 rounded ${
       alert.severity === "critical"
-        ? "bg-red-700"
+        ? "bg-red-800"
         : alert.severity === "high"
         ? "bg-red-500"
         : alert.severity === "medium"
         ? "bg-yellow-500"
         : "bg-blue-500"
-    }`}
-  >
-    <span>🚩 {alert.message}</span>
-    <span className="opacity-70">{alert.severity}</span>
+    }`}>
+      {alert.severity}
+    </span>
   </div>
-))
+
+  {expandedRiskId === alert.id && (
+  <div className="mt-2 text-[11px] text-gray-400 space-y-1">
+
+    <p>Source: {alert.source || "unknown"}</p>
+
+    <p className="text-gray-500">
+      {explainAlert(alert.type)}
+    </p>
+
+    {alert.section_title && (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          router.push(`/clients/${id}/care-plan#${alert.section_title}`);
+        }}
+        className="text-blue-400 underline text-[11px]"
+      >
+        View in care plan
+      </button>
+    )}
+
+  </div>
+)}
+</div>
+    ))
   )}
+<div className="bg-[var(--card)] p-5 rounded-lg mt-4">
+
+  <h2 className="text-sm font-semibold mb-2 text-green-400">
+    ✅ Recently Resolved
+  </h2>
+
+  {resolvedAlerts.length === 0 ? (
+    <p className="text-xs text-gray-500">
+      No recent improvements
+    </p>
+  ) : (
+    resolvedAlerts.map((alert) => (
+      <div
+        key={alert.id}
+        className="flex justify-between items-center text-xs py-1 border-b border-[var(--border)] opacity-70"
+      >
+        <span className="truncate">
+          {alert.message}
+        </span>
+
+        <span className="text-[10px] text-gray-400">
+          {alert.closed_at
+            ? new Date(alert.closed_at).toLocaleDateString()
+            : ""}
+        </span>
+      </div>
+    ))
+  )}
+
+</div>
 </div>
 </div>
 
@@ -1170,7 +1320,7 @@ if (!client) {
 <div className="grid md:grid-cols-3 gap-4 mb-6">
 
   {/* 🧠 CARE PLAN (WIDE) */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg md:col-span-2">
+  <div className="bg-[var(--card)] p-5 rounded-lg md:col-span-2">
 
     <h2 className="text-lg font-semibold mb-3">
       Care Plan Summary
@@ -1202,7 +1352,7 @@ if (!client) {
   </div>
 
   {/* 📋 TASKS (NORMAL WIDTH) */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
+  <div className="bg-[var(--card)] p-5 rounded-lg">
     <h2 className="text-lg font-semibold mb-3">
       Pending Tasks
     </h2>
@@ -1229,7 +1379,7 @@ if (!client) {
 </div>
 
 {/* 🧠 LAST VISIT SUMMARY + RISKS */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6">
+<div className="bg-[var(--card)] p-5 rounded-lg mb-6">
 
   <h2 className="text-lg font-semibold mb-3">
     Last Visit Overview
@@ -1298,7 +1448,7 @@ if (!client) {
 
 {/* ✅ NOW SEPARATE BLOCK (OUTSIDE CONDITIONAL) */}
 {/* 📊 CLINICAL TRENDS */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6">
+<div className="bg-[var(--card)] p-5 rounded-lg mb-6">
 
   <h2 className="text-lg font-semibold mb-4">
     Clinical Trends
@@ -1456,7 +1606,7 @@ if (!client) {
 <div className="grid md:grid-cols-3 gap-4">
 
   {/* 📝 NOTES */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
+  <div className="bg-[var(--card)] p-5 rounded-lg">
 
     <div className="flex gap-2 mb-3">
       <button
@@ -1482,7 +1632,7 @@ if (!client) {
   </div>
 
   {/* 🕒 RECENT VISITS (WIDE) */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg md:col-span-2">
+  <div className="bg-[var(--card)] p-5 rounded-lg md:col-span-2">
 
     <div className="flex justify-between items-center mb-3">
   <h2 className="text-lg font-semibold">
@@ -1498,7 +1648,7 @@ if (!client) {
 </div>
 
       {/* 👨‍👩‍👧 FAMILY FEEDBACK */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mt-6">
+<div className="bg-[var(--card)] p-5 rounded-lg mt-6">
 
   <h2 className="text-lg font-semibold mb-3">
     Family Feedback
