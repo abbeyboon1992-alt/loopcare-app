@@ -354,7 +354,10 @@ useEffect(() => {
 
     const carePlanTasks =
       carePlan?.flatMap((section: any) =>
-        (section.actions || []).map((action: string) => ({
+        (section.actions || "")
+  .split("\n")
+  .filter(Boolean)
+  .map((action: string) => ({
           title: action,
           category: section.title,
           priority: "high",
@@ -613,13 +616,6 @@ const getAutoTasksFromAlerts = () => {
         });
         break;
 
-      case "hydration_critical":
-        tasks.push({
-          title: "Urgent hydration intervention",
-          reason: "No fluid intake recorded",
-        });
-        break;
-
       case "medication_refused":
         tasks.push({
           title: "Review medication compliance",
@@ -686,10 +682,10 @@ const getAutoTasksFromObservations = () => {
     });
   }
 
-  if (data.pain === "moderate" || data.pain === "high") {
+  if (data.pain === "high") {
   autoTasks.push({
     title: "Manage pain and report if needed",
-    reason: "Pain observed",
+    reason: "Severe pain observed",
   });
 }
 
@@ -765,11 +761,11 @@ const getAutoTasksFromObservations = () => {
 
   // 😖 PAIN
   if (data.pain === "moderate" || data.pain === "high") {
-    autoTasks.push({
-      title: "Assess pain level",
-      reason: "Pain reported",
-    });
-  }
+  autoTasks.push({
+    title: "Assess pain level",
+    reason: "Pain reported",
+  });
+}
 
   // 🫁 BREATHING
   if (data.breathing !== "normal") {
@@ -1362,11 +1358,14 @@ const resolveAlert = async (alertId: string) => {
 
   // refresh
   const { data } = await supabase
-    .from("alerts")
-    .select("*")
-    .eq("client_id", id)
-    .gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
-.eq("status", "active");
+  .from("alerts")
+  .select("*")
+  .eq("client_id", id)
+  .eq("status", "active")
+  .gte(
+    "created_at",
+    new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+  );
 
   if (data) setAlerts(data);
 };
