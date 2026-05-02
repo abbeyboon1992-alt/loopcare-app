@@ -94,6 +94,7 @@ const [tasks, setTasks] = useState<any[]>([]);
 const access = useAccess();
 const isTrialActive = access?.isTrialActive || false;
 const plan = access?.plan || "free";
+const isPro = plan === "pro" || isTrialActive;
 const [assessments, setAssessments] = useState<any>(null);
 const safeAlerts = alerts || [];
 
@@ -264,48 +265,26 @@ const getRiskLevel = (score: number) => {
 };
 
 const getRealTrend = () => {
-  const recentAlerts = alerts;
+  if (!alerts.length) {
+    return { label: "No data", color: "bg-gray-500" };
+  }
 
-  const hasCritical = recentAlerts.some(a => a.severity === "critical");
-  const hasHigh = recentAlerts.some(a => a.severity === "high");
+  const score = alerts.reduce((total, alert) => {
+    let val = 1;
 
-  if (hasCritical) return { label: "Critical escalation", color: "bg-red-800" };
-  if (hasHigh) return { label: "Escalating", color: "bg-red-600" };
+    if (alert.severity === "critical") val = 5;
+    else if (alert.severity === "high") val = 3;
+    else if (alert.severity === "medium") val = 2;
+
+    if (alert.source === "flags") val += 2;
+
+    return total + val;
+  }, 0);
+
+  if (score > 10) return { label: "Escalating", color: "bg-red-600" };
+  if (score > 5) return { label: "Monitor closely", color: "bg-yellow-500" };
 
   return { label: "Stable", color: "bg-green-600" };
-
-  const midpoint = Math.floor(alerts.length / 2);
-
-  const recent = alerts.slice(0, midpoint);
-  const older = alerts.slice(midpoint);
-
-  const scoreSet = (set: any[]) =>
-    set.reduce((total, alert) => {
-      let score = 1;
-
-if (alert.severity === "critical") score = 5;
-else if (alert.severity === "high") score = 3;
-else if (alert.severity === "medium") score = 2;
-
-if (alert.source === "flags") {
-  score += 2;
-}
-
-return total + score;
-    }, 0);
-
-  const recentScore = scoreSet(recent);
-  const olderScore = scoreSet(older);
-
-  if (recentScore > olderScore) {
-    return { label: "Worsening", color: "bg-red-600" };
-  }
-
-  if (recentScore < olderScore) {
-    return { label: "Improving", color: "bg-green-600" };
-  }
-
-  return { label: "Stable", color: "bg-yellow-500" };
 };
 
 
@@ -844,8 +823,14 @@ if (!client) {
 )}
       {hasEvidenceToUpload() && (
   <div className="bg-yellow-500 p-3 rounded mb-4">
-    📎 Evidence recorded — upload documents required
-  </div>
+  📎 Evidence recorded — documents required
+  <button
+    onClick={() => router.push(`/assessments?client=${id}`)}
+    className="ml-2 underline text-black text-xs"
+  >
+    Upload now
+  </button>
+</div>
 )}
 
 {/* 🔴 LIVE CLINICAL PRIORITY (NEW) */}
@@ -880,13 +865,13 @@ if (!client) {
         ← Back to Clients
       </button>
 {assessmentProgress === 0 && (
-  <p className="text-xl text-yellow-00 mt-1">
+  <p className="text-xl text-yellow-400 mt-1">
     ⚠ assessments needs completing
   </p>
 )}
       <div className="grid md:grid-cols-3 gap-4 mb-6">
 
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg flex flex-col gap-3 md:col-span-2">
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg flex flex-col gap-3 md:col-span-2">
 
   {/* 🔹 NAME + ACTIONS */}
   <div className="flex justify-between items-start">
@@ -903,6 +888,31 @@ if (!client) {
       ) : (
         <h1 className="text-xl font-bold">{client.name}</h1>
       )}
+      <p className="text-[10px] text-gray-500 mt-1">
+  Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleDateString() : "—"}
+</p>
+
+      <button
+  onClick={() => {
+    if (!id) {
+      console.log("NO ID — BLOCKING NAV");
+      return;
+    }
+
+    console.log("NAVIGATING TO:", `/clients/${id}/visit/start`);
+
+    router.push(`/clients/${id}/visit/start`);
+  }}
+  className="w-full bg-green-600 py-3 rounded-lg text-lg mb-4 relative z-50"
+>
+  ▶ Start Visit
+</button>
+
+{latestSummary?.needs_follow_up && (
+  <div className="bg-yellow-500 text-black px-3 py-2 rounded mb-3 text-sm">
+    ⚠ Follow-up required from last visit
+  </div>
+)}
 
       {editing ? (
   <input
@@ -1022,10 +1032,17 @@ if (!client) {
       />
     </div>
 
-    <p className="text-xs text-[var(--muted)] mt-1">
-      {assessmentProgress}% complete
-    </p>
+    <p className="text-xs mt-1">
+  {assessmentProgress < 50 && "⚠ Incomplete"}
+  {assessmentProgress >= 50 && assessmentProgress < 100 && "⏳ In progress"}
+  {assessmentProgress === 100 && "✅ Complete"}
+</p>
   </div>
+  {assessmentProgress < 100 && (
+  <p className="text-xs text-yellow-400">
+    Some required sections missing
+  </p>
+)}
   <div className="flex gap-2 mt-2">
 
   <button
@@ -1040,16 +1057,12 @@ if (!client) {
   <button
     onClick={async () => {
       await supabase
-        .from("assessments")
-        .update({
-          last_reviewed: new Date().toISOString(),
-        })
+  .from("assessments")
+  .update({
+    last_reviewed: new Date().toISOString(),
+  })
+  .eq("client_id", id);
         if (!id) return;
-
-const { data } = await supabase
-  .from("visit_notes")
-  .select("*")
-  .eq("client_id", id as string);;
 
       loadAssessmentProgress();
     }}
@@ -1069,7 +1082,7 @@ const { data } = await supabase
     router.push("/upgrade");
   }
 }}
-     className={`bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg cursor-pointer relative z-0 ${
+     className={`bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg cursor-pointer relative z-0 ${
       plan === "free" ? "opacity-60 blur-[1px]" : ""
     }`}
   >
@@ -1089,7 +1102,7 @@ const { data } = await supabase
   </div>
 
   {/* 🧠 CLINICAL SUMMARY */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
     <h2 className="text-sm text-[var(--muted)] mb-2">
       Clinical Overview
     </h2>
@@ -1146,9 +1159,22 @@ const { data } = await supabase
       Review assessments
     </button>
   </div>
+<div className="bg-[var(--card)] p-4 rounded-lg mb-4">
+  <h2 className="text-sm text-[var(--muted)] mb-2">
+    Risk Breakdown
+  </h2>
 
+  <div className="grid grid-cols-2 gap-2 text-xs">
+    <div>🧠 Assessments: {groupedAlerts.assessments.length}</div>
+    <div>📊 Visits: {groupedAlerts.visit.length}</div>
+    <div>🧠 Diagnosis: {groupedAlerts.diagnosis.length}</div>
+    <div className="text-red-400 font-semibold">
+  🚩 Flags: {groupedAlerts.flags.length}
+</div>
+  </div>
+</div>
   {/* 🚨 ACTIVE RISKS */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
 
     <div className="flex justify-between items-center mb-3">
       <h2 className="text-lg font-semibold">Active Risks</h2>
@@ -1168,51 +1194,44 @@ const { data } = await supabase
 
     {alerts.slice(0, plan === "free" ? 2 : 10).map((alert) => (
       <div
-        key={alert.id}
-        className="flex justify-between items-center border-b border-[var(--border)]-700 py-2"
-      >
-        <p className="text-sm">{alert.message}</p>
+  key={alert.id}
+  className="flex justify-between items-center border-b border-[var(--border)]-700 py-2"
+>
+  <div>
+  <p className="text-sm">{alert.message}</p>
 
-        <span className={`text-xs px-2 py-1 rounded ${
-          alert.severity === "critical"
-            ? "bg-red-700"
-            : alert.severity === "high"
-            ? "bg-red-500"
-            : alert.severity === "medium"
-            ? "bg-yellow-500"
-            : "bg-blue-500"
-        }`}>
-          {alert.severity}
-        </span>
-      </div>
+  <p className="text-[10px] text-gray-500">
+    {alert.source}
+  </p>
+
+  {tasks.some(t => t.title === alert.message) && (
+    <p className="text-[10px] text-blue-400">
+      → Task created
+    </p>
+  )}
+</div>
+
+  <span className={`text-xs px-2 py-1 rounded ${
+    alert.severity === "critical"
+      ? "bg-red-700"
+      : alert.severity === "high"
+      ? "bg-red-500"
+      : alert.severity === "medium"
+      ? "bg-yellow-500"
+      : "bg-blue-500"
+  }`}>
+    {alert.severity}
+  </span>
+</div>
     ))}
     {plan === "free" && alerts.length > 2 && (
   <p className="text-xs text-yellow-400 mt-2">
     Showing 2 of {alerts.length} risks — upgrade to view all
   </p>
 )}
-{/* 🔥 GROUPED ALERTS */}
-<div className="grid md:grid-cols-4 gap-4 mt-6">
-
-  {/* 🚨 assessments */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
-    <h2 className="text-sm font-semibold mb-2">
-      🚨 assessments Risks
-    </h2>
-
-    {groupedAlerts.assessments.length === 0 ? (
-      <p className="text-xs text-gray-500">None</p>
-    ) : (
-      limitAlerts(groupedAlerts.assessments).map((alert) => (
-        <div key={alert.id} className="text-xs mb-1">
-          • {alert.message}
-        </div>
-      ))
-    )}
-  </div>
-
+</div>
   {/* 📊 VISIT */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
     <h2 className="text-sm font-semibold mb-2">
       📊 Visit Risks
     </h2>
@@ -1227,9 +1246,8 @@ const { data } = await supabase
       ))
     )}
   </div>
-
   {/* 🧠 DIAGNOSIS */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
     <h2 className="text-sm font-semibold mb-2">
       🧠 Diagnosis Risks
     </h2>
@@ -1245,11 +1263,10 @@ const { data } = await supabase
     )}
   </div>
   {/* 🚩 FLAGS */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
+<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
   <h2 className="text-sm font-semibold mb-2">
     🚩 Flag Risks
   </h2>
-
   {groupedAlerts.flags.length === 0 ? (
     <p className="text-xs text-gray-500">None</p>
   ) : (
@@ -1272,31 +1289,13 @@ const { data } = await supabase
 ))
   )}
 </div>
-
 </div>
-  </div>
- </div>
+
   {/* 🔷 MAIN CONTENT GRID */}
 <div className="grid md:grid-cols-3 gap-4 mb-6">
 
   {/* 🧠 CARE PLAN (WIDE) */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg md:col-span-2">
-
-    <button
-  onClick={() => {
-    if (!id) {
-      console.log("NO ID — BLOCKING NAV");
-      return;
-    }
-
-    console.log("NAVIGATING TO:", `/clients/${id}/visit/start`);
-
-    router.push(`/clients/${id}/visit/start`);
-  }}
-  className="w-full bg-green-600 py-3 rounded-lg text-lg mb-4 relative z-50"
->
-  ▶ Start Visit
-</button>
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg md:col-span-2">
 
     <h2 className="text-lg font-semibold mb-3">
       Care Plan Summary
@@ -1328,7 +1327,7 @@ const { data } = await supabase
   </div>
 
   {/* 📋 TASKS (NORMAL WIDTH) */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
     <h2 className="text-lg font-semibold mb-3">
       Pending Tasks
     </h2>
@@ -1339,9 +1338,15 @@ const { data } = await supabase
       </p>
     ) : (
       tasks.slice(0, 5).map((task) => (
-        <div key={task.id} className="text-sm mb-1">
-          • {task.title}
-        </div>
+  <div key={task.id} className="flex justify-between text-sm mb-1">
+  <span>• {task.title}</span>
+
+  {task.linked_alert_type && (
+    <span className="text-[10px] text-red-400">
+  {task.linked_alert_type}
+</span>
+  )}
+</div>
       ))
     )}
   </div>
@@ -1349,15 +1354,13 @@ const { data } = await supabase
 </div>
 
 {/* 🧠 LAST VISIT SUMMARY + RISKS */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg mb-6">
+<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6">
 
   <h2 className="text-lg font-semibold mb-3">
     Last Visit Overview
   </h2>
 
   {/* 📈 VISIT TREND (LAST 3) */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg mb-6">
-
   <h2 className="text-lg font-semibold mb-3">
     Visit Trend (Last 3)
   </h2>
@@ -1417,11 +1420,10 @@ const { data } = await supabase
       })}
     </div>
   )}
-</div>
 
 {/* ✅ NOW SEPARATE BLOCK (OUTSIDE CONDITIONAL) */}
 {/* 📊 CLINICAL TRENDS */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg mb-6">
+<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6">
 
   <h2 className="text-lg font-semibold mb-4">
     Clinical Trends
@@ -1504,96 +1506,82 @@ const { data } = await supabase
 </div>
 
   {!latestSummary ? (
-    <p className="text-gray-500 text-sm">
-      No visit summary available
+  <p className="text-gray-500 text-sm">
+    No visit summary available
+  </p>
+) : (
+  <>
+    {/* 📝 SUMMARY */}
+    <p className="text-sm text-gray-300 mb-3">
+      {latestSummary.summary}
     </p>
-  ) : (
-    <>
-      {/* 📝 SUMMARY */}
-      <p className="text-sm text-gray-300 mb-3">
-        {latestSummary.summary}
-      </p>
 
-      {latestSummary.needs_follow_up && (
-  <div className="bg-red-700 text-white px-2 py-1 rounded text-xs mt-2">
-    ⚠ Follow-up required (auto-detected)
-  </div>
-)}
+    {/* ⚠️ RISKS */}
+    <div className="mb-3">
+      <p className="text-xs text-[var(--muted)] mb-1">Risks</p>
 
-      {/* ⚠️ RISKS */}
-      <div className="mb-3">
-        <p className="text-xs text-[var(--muted)] mb-1">Risks</p>
-
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(latestSummary.risks || {})
-            .filter(([_, val]) => val === true)
-            .map(([key]) => (
-              <span
-                key={key}
-                className="text-xs bg-red-600 px-2 py-1 rounded"
-              >
-                {key.replace("_", " ").toUpperCase()}
-              </span>
-            ))}
-
-          {Object.values(latestSummary.risks || {}).every(v => !v) && (
-            <span className="text-xs bg-green-600 px-2 py-1 rounded">
-              No active risks
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* 📋 TASKS COMPLETED */}
-      <div className="mb-3">
-        <p className="text-xs text-[var(--muted)] mb-1">Tasks Completed</p>
-
-        {latestSummary.tasks_completed?.length ? (
-          <div className="text-xs text-gray-300">
-            {latestSummary.tasks_completed.join(", ")}
-          </div>
-        ) : (
-          <p className="text-xs text-gray-500">
-            No tasks recorded
-          </p>
-        )}
-      </div>
-
-      {/* 🚨 ALERTS */}
-      <div className="mb-2">
-        <p className="text-xs text-[var(--muted)] mb-1">Alerts</p>
-
-        {latestSummary.alerts?.length ? (
-          latestSummary.alerts.map((a: any, i: number) => (
-            <div
-              key={i}
-              className="text-xs bg-red-700 px-2 py-1 rounded mb-1"
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(latestSummary.risks || {})
+          .filter(([_, val]) => val === true)
+          .map(([key]) => (
+            <span
+              key={key}
+              className="text-xs bg-red-600 px-2 py-1 rounded"
             >
-              {a.message}
-            </div>
-          ))
-        ) : (
-          <p className="text-xs text-gray-500">
-            No alerts
-          </p>
+              {key.replace("_", " ").toUpperCase()}
+            </span>
+          ))}
+
+        {Object.values(latestSummary.risks || {}).every(v => !v) && (
+          <span className="text-xs bg-green-600 px-2 py-1 rounded">
+            No active risks
+          </span>
         )}
       </div>
+    </div>
 
-      {/* 🔥 FOLLOW UP FLAG */}
-      {latestSummary.needs_follow_up && (
-        <div className="mt-3 text-xs bg-yellow-500 text-black px-2 py-1 rounded inline-block">
-          ⚠️ Follow-up required
+    {/* 📋 TASKS COMPLETED */}
+    <div className="mb-3">
+      <p className="text-xs text-[var(--muted)] mb-1">Tasks Completed</p>
+
+      {latestSummary.tasks_completed?.length ? (
+        <div className="text-xs text-gray-300">
+          {latestSummary.tasks_completed.join(", ")}
         </div>
+      ) : (
+        <p className="text-xs text-gray-500">
+          No tasks recorded
+        </p>
       )}
-    </>
-  )}
-</div>
+    </div>
 
+    {/* 🚨 ALERTS */}
+    <div className="mb-2">
+      <p className="text-xs text-[var(--muted)] mb-1">Alerts</p>
+
+      {latestSummary.alerts?.length ? (
+        latestSummary.alerts.map((a: any, i: number) => (
+          <div
+            key={i}
+            className="text-xs bg-red-700 px-2 py-1 rounded mb-1"
+          >
+            {a.message}
+          </div>
+        ))
+      ) : (
+        <p className="text-xs text-gray-500">
+          No alerts
+        </p>
+      )}
+    </div>
+  </>
+)}
+</div>
 {/* 🔷 LOWER GRID */}
 <div className="grid md:grid-cols-3 gap-4">
 
   {/* 📝 NOTES */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg">
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
 
     <div className="flex gap-2 mb-3">
       <button
@@ -1619,7 +1607,7 @@ const { data } = await supabase
   </div>
 
   {/* 🕒 RECENT VISITS (WIDE) */}
-  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg md:col-span-2">
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg md:col-span-2">
 
     <div className="flex justify-between items-center mb-3">
   <h2 className="text-lg font-semibold">
@@ -1635,7 +1623,7 @@ const { data } = await supabase
 </div>
 
       {/* 👨‍👩‍👧 FAMILY FEEDBACK */}
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg mt-6">
+<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mt-6">
 
   <h2 className="text-lg font-semibold mb-3">
     Family Feedback
@@ -1663,36 +1651,22 @@ const { data } = await supabase
 </div>
 
       <button
-        onClick={() => router.push(`/clients/${id}/invoice`)}
-        className="text-xs bg-purple-600 px-2 py-1 rounded"
-      >
-        Invoice
-      </button>
+  onClick={() => {
+    if (!isPro) {
+      router.push("/upgrade");
+    }
+  }}
+  className={`text-xs px-3 py-1 rounded mt-4 relative ${
+    isPro ? "bg-purple-600 opacity-60 cursor-not-allowed" : "bg-purple-600"
+  }`}
+>
+  Invoice
+
+  <span className="absolute inset-0 flex items-center justify-center text-[10px] bg-black/60 rounded">
+    {isPro ? "Coming soon" : "Upgrade required"}
+  </span>
+</button>
     </div>
-
-    {visits.length === 0 ? (
-      <p className="text-gray-500 text-sm">
-        No visits yet
-      </p>
-    ) : (
-      visits.map((v) => (
-        <div
-          key={v.id}
-          onClick={() => router.push(`/clients/${id}/visit/${v.id}`)}
-          className="border-b border-[var(--border)]-700 py-2 cursor-pointer hover:bg-[#334155]"
-        >
-          <p className="text-xs">
-            {new Date(v.created_at).toLocaleString()}
-          </p>
-
-          <p className="text-xs text-[var(--muted)]">
-            {v.mood} • {v.hydration}
-          </p>
-        </div>
-      ))
-    )}
   </div>
-
-</div>
-  );
-}
+  </div>
+)};
