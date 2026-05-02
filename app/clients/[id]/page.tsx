@@ -23,7 +23,9 @@ import {
 
 export default function ClientProfilePage() {
   const params = useParams<{ id: string }>();
-const id = params?.id;
+const id = params?.id as string;
+
+if (!id) return null; 
   const router = useRouter();
   const [client, setClient] = useState<any>(null);
 const [visits, setVisits] = useState<any[]>([]);
@@ -115,6 +117,10 @@ const access = useAccess();
 const isTrialActive = access?.isTrialActive || false;
 const plan = access?.plan || "free";
 const isPro = plan === "pro" || isTrialActive;
+const isTeam = access?.accountType === "team";
+
+const canUseEscalation =
+  isTeam && (plan === "pro" || isTrialActive);
 const [assessments, setAssessments] = useState<any>(null);
 const safeAlerts = alerts || [];
 
@@ -359,7 +365,7 @@ const createEscalationTasks = async () => {
   // 🔍 get existing tasks
   const { data: existing } = await supabase
     .from("tasks")
-    .select("title")
+    .select("section_title")
     .eq("client_id", id);
 
   const existingTitles =
@@ -400,14 +406,14 @@ const enforceCarePlanFromEscalation = async () => {
       .from("care_plan_section")
       .delete()
       .eq("client_id", id)
-      .eq("title", "⚠ Safeguarding & Risk Management");
+      .eq("section_title", "⚠ Safeguarding & Risk Management");
 
     return;
   }
 
   const section = {
     client_id: id,
-    title: "⚠ Safeguarding & Risk Management",
+    section_title: "⚠ Safeguarding & Risk Management",
     care_need: "Risks are not being consistently addressed",
     outcome: "Ensure all identified risks are actively managed and reviewed",
     actions: [
@@ -693,8 +699,13 @@ const updateClient = async () => {
 
 const deleteClient = async () => {
   const confirmDelete = confirm("Delete this client?");
-
   if (!confirmDelete) return;
+
+  // 🔥 delete dependent data first
+  await supabase.from("alert_audit_log").delete().eq("client_id", id);
+  await supabase.from("alerts").delete().eq("client_id", id);
+  await supabase.from("care_plan_section").delete().eq("client_id", id);
+  await supabase.from("tasks").delete().eq("client_id", id);
 
   const { error } = await supabase
     .from("clients")
@@ -702,10 +713,10 @@ const deleteClient = async () => {
     .eq("id", id);
 
   if (error) {
-  console.log(error);
-  alert("Error deleting client");
-  return;
-}
+    console.log(error);
+    alert("Error deleting client");
+    return;
+  }
 
   router.push("/clients");
 };
@@ -840,7 +851,7 @@ await supabase
   .from("tasks")
   .delete()
   .eq("client_id", id)
-  .eq("title", alert.message);
+  .eq("section_title", alert.message);
 
           await logAlertAudit({
             alert,
@@ -1025,12 +1036,15 @@ useEffect(() => {
 
     // 🔥 STEP 2: ignored risk escalation (NEW)
     // 🔥 STEP 2: ignored risk escalation
-await checkIgnoredRiskEscalation();
+if (canUseEscalation) {
+  await checkIgnoredRiskEscalation();
+}
 
 // 🔥 STEP 3: create tasks from escalation
-await createEscalationTasks();
-
-await enforceCarePlanFromEscalation();
+if (canUseEscalation) {
+  await createEscalationTasks();
+  await enforceCarePlanFromEscalation();
+}
 
     // 🔄 refresh once
     setTimeout(() => {
@@ -1056,7 +1070,8 @@ const hasCriticalAlert = alerts.some(
   (a) => a.severity === "critical"
 );
 
-const isEnforced = hasNeglectRisk || hasCriticalAlert;
+const isEnforced =
+  canUseEscalation && (hasNeglectRisk || hasCriticalAlert);
   const explainAlert = (type: string) => {
   const map: Record<string, string> = {
     hydration: "Low hydration increases risk of UTIs, confusion, and falls.",
@@ -1068,10 +1083,11 @@ const isEnforced = hasNeglectRisk || hasCriticalAlert;
 
   return map[type] || "Monitor closely to prevent deterioration.";
 };
+
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6">
       {/* 🚨 SYSTEM ENFORCEMENT BANNER */}
-{isEnforced && (
+{canUseEscalation && isEnforced && (
   <div className="bg-red-700 text-white p-4 rounded mb-4 animate-pulse">
     <div className="flex justify-between items-center">
 

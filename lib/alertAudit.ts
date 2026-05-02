@@ -8,13 +8,17 @@ export const logAlertAudit = async ({
   userId,
   source = "user",
 }: any) => {
-  await supabase.from("alert_audit_log").insert({
-    alert_id: alert.id,
-    client_id: alert.client_id,
-    action,
-    previous_value: previous,
-    new_value: next,
-    performed_by: userId,
-    source,
-  });
+  try {
+    await supabase.from("alert_audit_log").insert({
+      alert_id: alert.id,
+      client_id: alert.client_id,
+      action,
+      previous_value: previous,
+      new_value: next,
+      performed_by: userId,
+      source,
+    });
+  } catch (e) {
+    console.log("⚠ Audit log failed", e);
+  }
 };
