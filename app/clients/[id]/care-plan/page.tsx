@@ -783,6 +783,48 @@ const base = matrix[section.section_title] || {
           `⚠️ ${a.message}${a.action ? " — " + a.action : ""} [AUTO]`
       ) || [];
 
+      // 🚨 ENFORCEMENT: HIGH RISK OVERRIDE
+
+const criticalAlerts = (alerts || []).filter(
+  (a) =>
+    a.severity === "critical" &&
+    a.section_title === section.section_title
+);
+
+if (criticalAlerts.length > 0) {
+  console.log("🚨 ENFORCEMENT TRIGGERED:", section.section_title);
+
+  const enforcedActions = [
+    "🚨 IMMEDIATE ACTION REQUIRED",
+    "Senior staff must review this care plan",
+    "Increase monitoring frequency immediately",
+    "Document all interventions clearly",
+  ];
+
+  // 🔥 override actions (keep manual still)
+  const finalActions = [
+    ...manualLines,
+    ...enforcedActions.map((a) => `${a} [ENFORCED]`),
+  ].join("\n");
+
+  await supabase
+    .from("care_plan_section") // ✅ YOUR CORRECT TABLE
+    .update({
+      actions: finalActions,
+      priority: "critical",
+      system_locked: true,
+    })
+    .eq("id", section.id);
+
+  // 🔁 sync tasks from enforced actions
+  await createTasksFromActions(
+    finalActions,
+    section.section_title
+  );
+
+  continue; // 🚫 STOP normal logic (this is key)
+}
+
     // 🔥 MERGE
     const finalActions = [
       ...manualLines,

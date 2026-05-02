@@ -244,7 +244,7 @@ if (canUseAI) {
 
     // 🧠 CARE PLAN ENGINE
     const { data: existingCarePlan } = await supabase
-      .from("care_plan_sections")
+      .from("care_plan_section")
       .select("*")
       .eq("client_id", client_id);
 

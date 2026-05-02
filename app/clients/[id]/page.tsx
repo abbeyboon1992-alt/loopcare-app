@@ -382,6 +382,52 @@ const createEscalationTasks = async () => {
 
   console.log("🚨 Escalation tasks created");
 };
+const enforceCarePlanFromEscalation = async () => {
+  if (!id || !alerts.length) return;
+
+  // 🔐 ACCESS CONTROL
+  if (access?.accountType !== "team") return;
+  if (!(plan === "pro" || isTrialActive)) return;
+
+  // 🔍 check if neglect risk exists
+  const hasNeglect = alerts.some(
+    (a) => a.type === "neglect_risk" && a.status === "active"
+  );
+
+  if (!hasNeglect) {
+    // 🧹 REMOVE safeguarding section if no longer needed
+    await supabase
+      .from("care_plan_section")
+      .delete()
+      .eq("client_id", id)
+      .eq("title", "⚠ Safeguarding & Risk Management");
+
+    return;
+  }
+
+  const section = {
+    client_id: id,
+    title: "⚠ Safeguarding & Risk Management",
+    care_need: "Risks are not being consistently addressed",
+    outcome: "Ensure all identified risks are actively managed and reviewed",
+    actions: [
+      "Immediate senior staff review required",
+      "Update care plan to reflect current risks",
+      "Increase monitoring frequency",
+      "Document all interventions clearly",
+    ],
+    priority: "critical",
+    system_generated: true,
+    updated_at: new Date().toISOString(),
+  };
+
+  // 🔁 UPSERT (prevent duplicates)
+  await supabase
+    .from("care_plan_section")
+    .upsert(section, { onConflict: "client_id,title" });
+
+  console.log("🚨 Care plan safeguarding enforced");
+};
 const getRiskLevel = (score: number) => {
   const hasCriticalFlag = alerts.some(
     (a) => a.source === "flags" && a.severity === "critical"
@@ -984,6 +1030,8 @@ await checkIgnoredRiskEscalation();
 // 🔥 STEP 3: create tasks from escalation
 await createEscalationTasks();
 
+await enforceCarePlanFromEscalation();
+
     // 🔄 refresh once
     setTimeout(() => {
       loadAlerts();
@@ -999,6 +1047,16 @@ if (!client) {
   const riskScore = calculateRiskScore();
   const risk = getRiskLevel(riskScore);
   const trend = getRealTrend();
+  // 🚨 ENFORCEMENT STATE
+const hasNeglectRisk = alerts.some(
+  (a) => a.type === "neglect_risk" && a.status === "active"
+);
+
+const hasCriticalAlert = alerts.some(
+  (a) => a.severity === "critical"
+);
+
+const isEnforced = hasNeglectRisk || hasCriticalAlert;
   const explainAlert = (type: string) => {
   const map: Record<string, string> = {
     hydration: "Low hydration increases risk of UTIs, confusion, and falls.",
@@ -1012,6 +1070,33 @@ if (!client) {
 };
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6">
+      {/* 🚨 SYSTEM ENFORCEMENT BANNER */}
+{isEnforced && (
+  <div className="bg-red-700 text-white p-4 rounded mb-4 animate-pulse">
+    <div className="flex justify-between items-center">
+
+      <div>
+        <p className="text-sm font-semibold">
+          🚨 Immediate Action Required
+        </p>
+
+        <p className="text-xs mt-1">
+          {hasNeglectRisk
+            ? "Care has not been followed — senior review required"
+            : "Critical risks present — review care plan before proceeding"}
+        </p>
+      </div>
+
+      <button
+        onClick={() => router.push(`/clients/${id}/care-plan`)}
+        className="bg-white text-red-700 px-3 py-1 rounded text-xs"
+      >
+        Review Care Plan
+      </button>
+
+    </div>
+  </div>
+)}
       {feedbackNotification && (
   <div className="fixed top-4 right-4 bg-indigo-600 text-white p-4 rounded shadow-lg z-50 animate-pulse max-w-sm">
 
@@ -1170,6 +1255,25 @@ if (!client) {
         ? new Date(lastUpdated).toLocaleDateString()
         : "—"}
     </p>
+
+    <button
+  onClick={() => {
+    if (isEnforced) {
+      alert("⚠ You must review the care plan before starting a visit");
+      router.push(`/clients/${id}/care-plan`);
+      return;
+    }
+
+    router.push(`/clients/${id}/visit/start`);
+  }}
+  className={`w-full py-3 rounded mb-6 ${
+    isEnforced
+      ? "bg-red-800 cursor-not-allowed"
+      : "bg-blue-600"
+  }`}
+>
+  {isEnforced ? "🔒 Review Care Plan First" : "Start Visit"}
+</button>
 
     {/* 🧠 TIMELINE */}
     <button

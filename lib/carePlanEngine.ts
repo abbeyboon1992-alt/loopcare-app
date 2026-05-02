@@ -121,7 +121,7 @@ export async function applyAlertsToCarePlan({
   alerts: AlertItem[];
 }) {
   const { data: sections } = await supabase
-    .from("care_plan_sections") // ✅ FIXED TABLE NAME
+    .from("care_plan_section") // ✅ FIXED TABLE NAME
     .select("*")
     .eq("client_id", clientId);
 
@@ -158,7 +158,7 @@ matchingAlerts.forEach((a) => {
 });
 
     await supabase
-      .from("care_plan_sections")
+      .from("care_plan_section")
       .update({ actions: actions.join("\n") })
       .eq("id", section.id);
   }
@@ -176,7 +176,7 @@ export async function removeResolvedActionsFromCarePlan({
   if (!clientId) return;
 
   const { data: sections } = await supabase
-    .from("care_plan_sections") // ✅ FIXED TABLE NAME
+    .from("care_plan_section") // ✅ FIXED TABLE NAME
     .select("*")
     .eq("client_id", clientId);
 
@@ -199,7 +199,7 @@ export async function removeResolvedActionsFromCarePlan({
 );
 
     await supabase
-      .from("care_plan_sections")
+      .from("care_plan_section")
       .update({ actions: filtered.join("\n") })
       .eq("id", section.id);
   }
