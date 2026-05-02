@@ -1029,7 +1029,7 @@ export async function saveAlerts({
   visit_id?: string | null;
 }) {
   if (!alerts?.length) return;
-// 🔥 GET EXISTING ACTIVE ALERTS
+  // 🔥 GET EXISTING ACTIVE ALERTS (PREVENT DUPES)
 const { data: existing } = await supabase
   .from("alerts")
   .select("type, message, source")
@@ -1083,12 +1083,9 @@ const existingSet = new Set(
     let error = null;
 
     if (isEvent) {
-  const exists = existingSet.has(
-    `${alert.type}-${alert.message}-${alert.source}`
-  );
+  if (existingSet.has(key)) continue;
 
-  if (exists) continue;
-      const res = await supabase.from("alerts").insert({
+  const res = await supabase.from("alerts").insert({
         client_id: clientId,
         organisation_id: organisation_id || null,
         visit_id,
@@ -1129,6 +1126,7 @@ const existingSet = new Set(
     }
 
     console.log("✅ ALERT SAVED:", alert.type);
+    existingSet.add(key);
   }
 
   // ✅ NOW THIS WORKS

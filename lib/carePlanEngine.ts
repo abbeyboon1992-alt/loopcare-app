@@ -131,17 +131,31 @@ export async function applyAlertsToCarePlan({
     const matchingAlerts = alerts.filter(
       (a) => a.section_title === section.title
     );
+// 🔥 REMOVE ALL EXISTING ALERT LINES FIRST
+const existingLines = (section.actions || "")
+  .split("\n")
+  .map((l: string) => l.trim())
+  .filter(Boolean);
 
-    let actions = (section.actions || "")
-      .split("\n")
-      .filter(Boolean);
+// keep only NON-alert lines
+let actions = existingLines.filter(
+  (l: string) => !l.startsWith("[")
+);
 
-    matchingAlerts.forEach((a) => {
-      const line = `[${a.type}] ${a.message}`;
-      if (!actions.includes(line)) {
-        actions.push(line);
-      }
-    });
+// 🔥 CREATE NORMALISED SET
+const actionSet = new Set(
+  actions.map((l: string) => l.toLowerCase())
+);
+
+matchingAlerts.forEach((a) => {
+  const line = `[${a.type}] ${a.message}`;
+  const key = line.toLowerCase();
+
+  if (!actionSet.has(key)) {
+    actions.push(line);
+    actionSet.add(key);
+  }
+});
 
     await supabase
       .from("care_plan_sections")
@@ -168,9 +182,9 @@ export async function removeResolvedActionsFromCarePlan({
 
   if (!sections) return;
 
-  const activeMessages = activeAlerts.map(
-    (a) => a.message || a.action
-  );
+  const activeKeys = activeAlerts.map(
+  (a) => `[${a.type}] ${a.message}`.toLowerCase()
+);
 
   for (const section of sections) {
     if (!section.actions) continue;
@@ -181,8 +195,8 @@ export async function removeResolvedActionsFromCarePlan({
       .filter(Boolean);
 
     const filtered = lines.filter((line: string) =>
-      activeMessages.some((msg) => line.includes(msg || ""))
-    );
+  activeKeys.includes(line.toLowerCase())
+);
 
     await supabase
       .from("care_plan_sections")

@@ -30,6 +30,7 @@ export function generateTasks(
   alerts: AlertItem[] = []
 ): TaskItem[] {
   const tasks: TaskItem[] = [];
+  const taskSet = new Set<string>();
 
   // 🔹 CARE PLAN → TASKS
   carePlan.forEach((item: CarePlanItem) => {
@@ -44,56 +45,74 @@ export function generateTasks(
     });
 
     matches.forEach((match: any) => {
-      const prompts = carePrompts
-        .filter((p: any) => p["Task Name"] === match.name)
-        .map((p: any) => p["Prompt Text"]);
+  const key = match.name.toLowerCase();
 
-      tasks.push({
-        title: match.name,
-        category: match.category,
-        description: match.description,
-        prompts,
-        due: new Date().toISOString(),
-        status: "pending",
-      });
-    });
+  if (taskSet.has(key)) return;
+
+  const prompts = carePrompts
+    .filter((p: any) => p["Task Name"] === match.name)
+    .map((p: any) => p["Prompt Text"]);
+
+  tasks.push({
+    title: match.name,
+    category: match.category,
+    description: match.description,
+    prompts,
+    due: new Date().toISOString(),
+    status: "pending",
+  });
+
+  taskSet.add(key);
+});
 
     // 🔹 FALLBACK TASK
     if (matches.length === 0) {
-      tasks.push({
-        title: item.title,
-        category: "General",
-        description: Array.isArray(item.actions)
-          ? item.actions.join(", ")
-          : item.actions || "",
-        prompts: [`Record care for: ${item.title}`],
-        due: new Date().toISOString(),
-        status: "pending",
-      });
-    }
-  });
+  const key = item.title.toLowerCase();
 
-  // 🔥 ALERTS → TASKS
-  alerts.forEach((alert: AlertItem) => {
+  if (!taskSet.has(key)) {
     tasks.push({
-      title: alert.type,
-      category: alert.section_title || "Alerts",
-      description: alert.message,
-      prompts: [
-  alert.action
-    ? alert.action
-    : `Respond to alert: ${alert.message}`,
-],
+      title: item.title,
+      category: "General",
+      description: Array.isArray(item.actions)
+        ? item.actions.join(", ")
+        : item.actions || "",
+      prompts: [`Record care for: ${item.title}`],
       due: new Date().toISOString(),
       status: "pending",
-      linked_alert_type: alert.type,
-      priority:
-        alert.severity === "critical"
-          ? "high"
-          : alert.severity === "high"
-          ? "medium"
-          : "low",
     });
+
+    taskSet.add(key);
+  }
+}
+
+  // 🔥 ALERTS → TASKS
+ alerts.forEach((alert: AlertItem) => {
+  const key = `alert-${alert.type}`;
+
+  if (taskSet.has(key)) return;
+
+  tasks.push({
+    title: alert.type,
+    category: alert.section_title || "Alerts",
+    description: alert.message,
+    prompts: [
+      alert.action
+        ? alert.action
+        : `Respond to alert: ${alert.message}`,
+    ],
+    due: new Date().toISOString(),
+    status: "pending",
+    linked_alert_type: alert.type,
+    priority:
+      alert.severity === "critical"
+        ? "high"
+        : alert.severity === "high"
+        ? "medium"
+        : "low",
+  });
+
+  taskSet.add(key);
+});
   });
 
   return tasks;
