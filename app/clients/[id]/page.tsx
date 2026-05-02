@@ -1622,9 +1622,17 @@ const { data } = await supabase
   <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg md:col-span-2">
 
     <div className="flex justify-between items-center mb-3">
-      <h2 className="text-lg font-semibold">
-        Recent Visits
-      </h2>
+  <h2 className="text-lg font-semibold">
+    Recent Visits
+  </h2>
+
+  <button
+    onClick={() => router.push(`/clients/${id}/visit`)}
+    className="text-xs text-blue-400"
+  >
+    View All →
+  </button>
+</div>
 
       {/* 👨‍👩‍👧 FAMILY FEEDBACK */}
 <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg-lg mt-6">
@@ -1685,7 +1693,6 @@ const { data } = await supabase
     )}
   </div>
 
-</div>
 </div>
   );
 }

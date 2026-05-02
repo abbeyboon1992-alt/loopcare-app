@@ -15,19 +15,21 @@ export default function VisitHistoryPage() {
   }, [id]);
 
   const loadVisits = async () => {
-    const { data } = await supabase
-      .from("visit_notes")
-      .select("*")
-      if (!id) return;
+  if (!id) return;
 
-const { data } = await supabase
-  .from("visit_notes")
-  .select("*")
-  .eq("client_id", id as string);
-      .order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("visit_notes")
+    .select("*")
+    .eq("client_id", id as string)
+    .order("created_at", { ascending: false });
 
-    if (data) setVisits(data);
-  };
+  if (error) {
+    console.error("❌ Error loading visits:", error);
+    return;
+  }
+
+  if (data) setVisits(data);
+};
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6">
