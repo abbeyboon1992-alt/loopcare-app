@@ -353,7 +353,7 @@ if (userData?.user) {
       try {
         return {
           ...item,
-          parsed: JSON.parse(item.note),
+          parsed: JSON.parse(item.summary || "{}")
         };
       } catch {
         return null;
@@ -377,11 +377,9 @@ if (userData?.user) {
     .maybeSingle();
 
   if (data?.note) {
-    try {
-      setLatestSummary(JSON.parse(data.note));
-    } catch {
-      setLatestSummary(null);
-    }
+    if (data?.summary) {
+  setLatestSummary(JSON.parse(data.summary));
+}
   }
 };
 
@@ -866,7 +864,7 @@ if (!client) {
       </button>
 {assessmentProgress === 0 && (
   <p className="text-xl text-yellow-400 mt-1">
-    ⚠ assessments needs completing
+    ⚠ assessment needs completing
   </p>
 )}
       <div className="grid md:grid-cols-3 gap-4 mb-6">
@@ -876,230 +874,107 @@ if (!client) {
   {/* 🔹 NAME + ACTIONS */}
   <div className="flex justify-between items-start">
 
-    <div>
-      {editing ? (
-        <input
-          value={form.name}
-          onChange={(e) =>
-            setForm({ ...form, name: e.target.value })
-          }
-          className="text-xl font-bold bg-transparent border-b border-[var(--border)]-600 focus:outline-none"
-        />
-      ) : (
-        <h1 className="text-xl font-bold">{client.name}</h1>
-      )}
-      <p className="text-[10px] text-gray-500 mt-1">
-  Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleDateString() : "—"}
-</p>
+  {/* LEFT SIDE */}
+  <div className="flex-1">
 
-      <button
-  onClick={() => {
-    if (!id) {
-      console.log("NO ID — BLOCKING NAV");
-      return;
-    }
+    {/* 🔹 NAME + ACTION ICONS */}
+    <div className="flex items-center justify-between">
 
-    console.log("NAVIGATING TO:", `/clients/${id}/visit/start`);
+      <h1 className="text-xl font-bold">{client.name}</h1>
 
-    router.push(`/clients/${id}/visit/start`);
-  }}
-  className="w-full bg-green-600 py-3 rounded-lg text-lg mb-4 relative z-50"
->
-  ▶ Start Visit
-</button>
+      {/* ✏️ EDIT + ❌ DELETE */}
+      <div className="flex gap-2 ml-3">
 
-{latestSummary?.needs_follow_up && (
-  <div className="bg-yellow-500 text-black px-3 py-2 rounded mb-3 text-sm">
-    ⚠ Follow-up required from last visit
-  </div>
-)}
+        {/* EDIT */}
+        <button
+          onClick={() => setEditing(true)}
+          className="text-blue-400 hover:text-blue-300 text-sm"
+          title="Edit client"
+        >
+          ✏️
+        </button>
 
-      {editing ? (
-  <input
-    type="date"
-    value={form.date_of_birth}
-    onChange={(e) =>
-      setForm({ ...form, date_of_birth: e.target.value })
-    }
-    className="text-sm mt-1 bg-[var(--card)] border border-[var(--border)]-600 rounded px-2 py-1"
-  />
-) : (
-  <p className="text-xs text-[var(--muted)]">
-    🎂 {client.date_of_birth || "No DOB recorded"}
-  </p>
-)}
+        {/* DELETE */}
+        <button
+          onClick={deleteClient}
+          className="text-red-500 hover:text-red-400 text-sm"
+          title="Delete client"
+        >
+          ✕
+        </button>
 
-      {editing ? (
-        <select
-  value={form.care_type}
-  onChange={(e) =>
-    setForm({ ...form, care_type: e.target.value })
-  }
-  className="text-sm bg-[var(--card)] text-white border border-[var(--border)]-600 rounded px-2 py-1 mt-1 focus:outline-none"
->
-  <option value="">Select care type</option>
+      </div>
 
-  {Object.keys(careTypes).map((type) => (
-    <option
-      key={type}
-      value={type}
-      className="bg-[var(--card)] text-white"
-    >
-      {type.replace("_", " ").toUpperCase()}
-    </option>
-  ))}
-</select>
-      ) : (
-        <p className="text-[var(--muted)] text-sm">
-          {client.care_type}
-        </p>
-      )}
     </div>
 
-    {/* ACTIONS */}
-    <div className="flex gap-2">
-      {editing ? (
-        <>
-          <button
-            onClick={updateClient}
-            className="bg-green-600 px-2 py-1 text-xs rounded"
-          >
-            Save
-          </button>
-          <button
-            onClick={() => setEditing(false)}
-            className="bg-gray-600 px-2 py-1 text-xs rounded"
-          >
-            Cancel
-          </button>
-        </>
-      ) : (
-        <>
-          <button
-            onClick={() => setEditing(true)}
-            className="bg-blue-600 px-2 py-1 text-xs rounded"
-          >
-            Edit
-          </button>
-          <button
-            onClick={deleteClient}
-            className="bg-red-600 px-2 py-1 text-xs rounded"
-          >
-            Delete
-          </button>
-        </>
-      )}
-    </div>
-  </div>
-
-  {/* 📍 ADDRESS */}
-  <div className="text-sm text-gray-300">
-  {editing ? (
-    <input
-      value={form.address}
-      onChange={(e) =>
-        setForm({ ...form, address: e.target.value })
-      }
-      placeholder="Enter address"
-      className="w-full bg-[var(--card)] border border-[var(--border)]-600 rounded px-2 py-1"
-    />
-  ) : (
-    <>📍 {client.address || "No address recorded"}</>
-  )}
-</div>
-
-  {/* 🔥 PRIORITY */}
-  <span className={`w-fit px-2 py-1 text-xs rounded ${
-    client.priority === "high"
-      ? "bg-red-700"
-      : client.priority === "medium"
-      ? "bg-yellow-600"
-      : "bg-green-600"
-  }`}>
-    {client.priority?.toUpperCase() || "NORMAL"}
-  </span>
-
-  {/* 📊 assessments STATUS (NEW LOCATION) */}
-  <div>
-    <p className="text-xs text-[var(--muted)] mb-1">
-      assessments Status
+    {/* 📍 ADDRESS */}
+    <p className="text-sm text-gray-400 mt-1">
+      📍 {client.address || "No address"}
     </p>
 
-    <div className="w-full bg-[var(--card)] rounded-full h-2">
-      <div
-        className="bg-gradient-to-r from-blue-500 to-green-400 h-2 rounded-full"
-        style={{ width: `${assessmentProgress}%` }}
-      />
-    </div>
+    {/* 🎂 DOB */}
+    <p className="text-xs text-[var(--muted)] mt-1">
+      🎂 {client.date_of_birth || "No DOB"}
+    </p>
 
-    <p className="text-xs mt-1">
-  {assessmentProgress < 50 && "⚠ Incomplete"}
-  {assessmentProgress >= 50 && assessmentProgress < 100 && "⏳ In progress"}
-  {assessmentProgress === 100 && "✅ Complete"}
-</p>
+    {/* 🏥 CARE TYPE */}
+    <p className="text-sm text-[var(--muted)] mt-1">
+      {client.care_type}
+    </p>
+
+    {/* ▶ START / CONTINUE ASSESSMENT */}
+    <button
+      onClick={() => router.push(`/assessments?client=${id}`)}
+      className="w-full bg-blue-600 py-2 rounded mt-3 text-sm"
+    >
+      {assessmentProgress === 0
+        ? "Start Assessment"
+        : "Continue Assessment"}
+    </button>
+
+    {/* 🕒 LAST REVIEWED */}
+    <p className="text-[10px] text-gray-500 mt-1">
+      Last reviewed: {lastUpdated
+        ? new Date(lastUpdated).toLocaleDateString()
+        : "—"}
+    </p>
+
+    {/* 🧠 TIMELINE */}
+    <button
+      onClick={() => router.push(`/clients/${id}/timeline`)}
+      className="bg-gray-700 px-2 py-1 text-xs rounded mt-2"
+    >
+      View Timeline
+    </button>
+
   </div>
-  {assessmentProgress < 100 && (
-  <p className="text-xs text-yellow-400">
-    Some required sections missing
-  </p>
-)}
-  <div className="flex gap-2 mt-2">
 
-  <button
-  onClick={() => router.push(`/assessments?client=${id}`)}
-  className="bg-blue-600 px-2 py-1 text-xs rounded"
->
-  {assessmentProgress === 0
-  ? "Start assessments"
-  : "Update assessments"}
-</button>
+  {/* RIGHT SIDE — RISK BOX */}
+  <div className="ml-4 border border-[var(--border)] rounded p-3 min-w-[120px] text-center">
 
-  <button
-    onClick={async () => {
-      await supabase
-  .from("assessments")
-  .update({
-    last_reviewed: new Date().toISOString(),
-  })
-  .eq("client_id", id);
-        if (!id) return;
+    <p className="text-xs text-[var(--muted)] mb-1">
+      Risk
+    </p>
 
-      loadAssessmentProgress();
-    }}
-    className="bg-green-600 px-2 py-1 text-xs rounded"
-  >
-    Reviewed
-  </button>
-
-</div>
-
-</div>
-
-  {/* 🚨 RISK (PRO LOCKED) */}
-  <div
-    onClick={() => {
-  if (plan === "free") {
-    router.push("/upgrade");
-  }
-}}
-     className={`bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg cursor-pointer relative z-0 ${
-      plan === "free" ? "opacity-60 blur-[1px]" : ""
-    }`}
-  >
-    <h2 className="text-sm text-[var(--muted)] mb-1">Risk Level</h2>
-
-    <p className="text-lg font-bold">
+    <p className="text-sm font-bold">
       {plan === "free" ? "🔒 Locked" : risk.label}
     </p>
 
-    <p className="text-sm text-[var(--muted)]">
-      {plan === "free" ? "Upgrade to view score" : `Score: ${riskScore}`}
+    <p className="text-[10px] text-gray-500">
+      {plan === "free"
+        ? ""
+        : `Score: ${riskScore}`}
     </p>
 
-    <div className="mt-2 text-xs text-gray-500">
-      {plan === "free" ? "Trend locked" : `Trend: ${trend.label}`}
-    </div>
+    {/* 🔻 TREND (optional but useful) */}
+    <p className="text-[10px] mt-1 text-gray-400">
+      {plan === "free" ? "" : trend.label}
+    </p>
+
   </div>
+
+</div>
+
 
   {/* 🧠 CLINICAL SUMMARY */}
   <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg">
@@ -1669,4 +1544,6 @@ if (!client) {
     </div>
   </div>
   </div>
-)};
+
+</div>
+)}

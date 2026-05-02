@@ -38,9 +38,10 @@ export default function NotesPage() {
     if (!newNote.trim()) return;
 
     const { error } = await supabase.from("visit_notes").insert({
-      client_id: id,
-      notes: newNote,
-    });
+  client_id: id,
+  notes: newNote,
+  type: "note", // 👈 ADD THIS
+});
 
     if (error) {
       alert("Error saving note");
