@@ -917,20 +917,14 @@ if (!user) {
 
   {/* LEFT SIDE → EXPAND */}
   <div
-    onClick={(e) => {
-  e.stopPropagation();
-
-  if (isLocked) {
-    router.push("/upgrade");
-    return;
-  }
-
-  setExpandedClient(
-    expandedClient === client.id ? null : client.id
-  );
-}}
-    className="flex-1 cursor-pointer"
-  >
+  onClick={(e) => {
+    e.stopPropagation();
+    setExpandedClient(
+      expandedClient === client.id ? null : client.id
+    );
+  }}
+  className="flex-1 cursor-pointer"
+>
     <p className="font-semibold">
       {client.first_name} {client.last_name}
     </p>
@@ -958,6 +952,7 @@ if (!user) {
     <button
   type="button"
   onClick={(e) => {
+    e.preventDefault();      // ✅ REQUIRED FOR MOBILE
     e.stopPropagation();
 
     if (isLocked) {
@@ -967,7 +962,7 @@ if (!user) {
 
     router.push(`/clients/${client.id}`);
   }}
-  className="text-sm sm:text-xs bg-gray-700 px-3 py-2 sm:px-2 sm:py-1 rounded min-w-[44px] flex items-center justify-center"
+  className="relative z-10 text-sm sm:text-xs bg-gray-700 px-3 py-2 sm:px-2 sm:py-1 rounded min-w-[44px] flex items-center justify-center"
 >
   ➡️
 </button>
