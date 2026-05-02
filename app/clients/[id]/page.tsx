@@ -615,7 +615,16 @@ const loadTasks = async () => {
 };
 
 const generateTasksFromCareType = async () => {
-  if (!client) return;
+  if (!client || !client.id) return;
+
+  // 🔒 VERIFY CLIENT STILL EXISTS
+  const { data: exists } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("id", client.id)
+    .maybeSingle();
+
+  if (!exists) return;
 
   const careConfig =
     careTypes[client.care_type as keyof typeof careTypes];
@@ -701,12 +710,15 @@ const deleteClient = async () => {
   const confirmDelete = confirm("Delete this client?");
   if (!confirmDelete) return;
 
-  // 🔥 delete dependent data first
+  // 🔥 DELETE ALL DEPENDENCIES FIRST
   await supabase.from("alert_audit_log").delete().eq("client_id", id);
+  await supabase.from("visit_cancellations").delete().eq("client_id", id);
+  await supabase.from("visit_notes").delete().eq("client_id", id);
   await supabase.from("alerts").delete().eq("client_id", id);
-  await supabase.from("care_plan_section").delete().eq("client_id", id);
   await supabase.from("tasks").delete().eq("client_id", id);
+  await supabase.from("care_plan_section").delete().eq("client_id", id);
 
+  // 🔥 THEN DELETE CLIENT
   const { error } = await supabase
     .from("clients")
     .delete()
@@ -718,7 +730,8 @@ const deleteClient = async () => {
     return;
   }
 
-  router.push("/clients");
+  setClient(null); // 🔥 kills all effects immediately
+router.push("/clients");
 };
 
 const loadAssessmentProgress = async () => {
@@ -902,7 +915,9 @@ useEffect(() => {
   if (!client || !id) return;
 
 const runDiagnosisAlerts = async () => {
-  if (!client) return;
+  if (!client || !client.id) {
+  return <div className="p-6">Loading...</div>;
+}
 
   const diagnosisAlerts = generateDiagnosisAlerts(client);
 
