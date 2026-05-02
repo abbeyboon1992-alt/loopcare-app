@@ -16,19 +16,22 @@ export default function CreateInvoicePage() {
   }, [id]);
 
   const loadVisits = async () => {
-    const { data } = await supabase
-      .from("visit_notes")
-      .select("*")
-      if (!id) return;
+  if (!id) return;
 
-const { data } = await supabase
+  const { data, error } = await supabase
   .from("visit_notes")
   .select("*")
-  .eq("client_id", id as string);
-      .order("created_at", { ascending: false });
+  .eq("client_id", id as string)
+  .eq("type", "visit")
+  .order("created_at", { ascending: false });
 
-    if (data) setVisits(data);
-  };
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  if (data) setVisits(data);
+};
 
   const toggleVisit = (visitId: string) => {
     setSelectedVisits((prev) =>
@@ -44,8 +47,14 @@ const { data } = await supabase
     );
 
     const visit_count = selected.length;
-    const total_hours = visit_count; // simple version
-    const subtotal = visit_count * 20; // flat rate
+    const total_hours = selected.reduce(
+  (sum, v) => sum + (v.duration || 1),
+  0
+);
+
+const rate = 20;
+
+const subtotal = total_hours * rate;
 
     const { error } = await supabase.from("invoices").insert({
       client_id: id,

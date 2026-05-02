@@ -17,20 +17,22 @@ export default function NotesPage() {
   }, [id]);
 
   const loadNotes = async () => {
-    const { data } = await supabase
-      .from("visit_notes")
-      .select("*")
-      if (!id) return;
+  if (!id) return;
 
-const { data } = await supabase
-  .from("visit_notes")
-  .select("*")
-  .eq("client_id", id as string);
-      .order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("visit_notes")
+    .select("*")
+    .eq("client_id", id as string)
+    .order("created_at", { ascending: false });
 
-    if (data) setNotes(data);
-    setLoading(false);
-  };
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  if (data) setNotes(data);
+  setLoading(false);
+};
 
   const addNote = async () => {
     if (!newNote.trim()) return;
