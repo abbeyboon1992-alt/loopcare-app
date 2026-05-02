@@ -99,7 +99,7 @@ const [form, setForm] = useState({
   diagnosis: [] as string[],
   address: "",
   contact_number: "",
-  keysafe: "",
+  keysafe_access: "",
 });
 const hasEvidenceToUpload = () => {
   return [
@@ -530,7 +530,7 @@ setLastUpdated(data.updated_at || null); // ✅ correct place
     : [data.diagnosis].filter(Boolean),
   address: data.address,
   contact_number: data.contact_number || "",
-  keysafe: data.keysafe || "",
+  keysafe_access: data.keysafe_access || "",
 });
   const { data: userData } = await supabase.auth.getUser();
 
@@ -711,6 +711,7 @@ const generateTasksFromCareType = async () => {
 };
 
 const updateClient = async () => {
+  console.log("🟢 UPDATE CLIENT TRIGGERED", form);
   const { data: updatedClient, error } = await supabase
   .from("clients")
   .update({
@@ -720,7 +721,7 @@ const updateClient = async () => {
     diagnosis: form.diagnosis,
     address: form.address,
     contact_number: form.contact_number,
-    keysafe: form.keysafe,
+    keysafe_access: form.keysafe_access,
   })
   .eq("id", id)
   .select();
@@ -1253,7 +1254,13 @@ const isEnforced =
 
          {/* EDIT */}
   <button
-    onClick={() => setEditing(true)}
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("🟢 EDIT CLICKED");
+    setEditing(true);
+  }}
     className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition"
     title="Edit client"
   >
