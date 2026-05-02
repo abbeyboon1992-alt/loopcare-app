@@ -435,7 +435,7 @@ const blockIfView = (fn: () => void) => {
       .from("user_profiles")
       .select("organisation_id")
       .eq("user_id", data.user.id)
-      .single();
+      .maybeSingle()
 
     if (profile?.organisation_id) {
       setOrganisationId(profile.organisation_id);

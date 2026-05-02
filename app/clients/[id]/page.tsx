@@ -22,8 +22,8 @@ import {
 } from "recharts";
 
 export default function ClientProfilePage() {
-  const params = useParams();
-const id = Array.isArray(params?.id) ? params.id[0] : params?.id || "";
+  const params = useParams<{ id: string }>();
+const id = params?.id;
   const router = useRouter();
   const [client, setClient] = useState<any>(null);
 const [visits, setVisits] = useState<any[]>([]);
@@ -40,9 +40,6 @@ const [latestSummary, setLatestSummary] = useState<any>(null);
 const getLiveClinicalPreview = () => {
   const aiAlerts = latestSummary?.alerts || [];
   const dbAlerts = alerts || [];
-useEffect(() => {
-  console.log("AI SUMMARY:", latestSummary);
-}, [latestSummary]);
   // 🔥 STEP 1 — NORMALISE (AI alerts don’t always have same shape)
   const normalisedAI = aiAlerts.map((a: any) => ({
     ...a,
@@ -98,11 +95,13 @@ const access = useAccess();
 const isTrialActive = access?.isTrialActive || false;
 const plan = access?.plan || "free";
 const [assessments, setAssessments] = useState<any>(null);
+const safeAlerts = alerts || [];
+
 const groupedAlerts = {
-  assessments: alerts.filter((a) => a.source === "assessments"),
-  visit: alerts.filter((a) => a.source === "visit"),
-  diagnosis: alerts.filter((a) => a.source === "diagnosis"),
-  flags: alerts.filter((a) => a.source === "flags"), // ✅ ADD THIS
+  assessments: safeAlerts.filter((a) => a.source === "assessments"),
+  visit: safeAlerts.filter((a) => a.source === "visit"),
+  diagnosis: safeAlerts.filter((a) => a.source === "diagnosis"),
+  flags: safeAlerts.filter((a) => a.source === "flags"),
 };
 
 const triggerFeedbackNotification = (feedback: any) => {
@@ -154,7 +153,8 @@ mood: moodMap[v.mood as keyof typeof moodMap] ?? 0,
 };
 
 const loadAlerts = async () => {
-  // 🔹 DB alerts
+  if (!id) return;
+
   const { data } = await supabase
     .from("alerts")
     .select("*")
@@ -167,65 +167,62 @@ const loadAlerts = async () => {
 };
 
 useEffect(() => {
-  if (!id) return;
-if (!client) return;
+  if (!id || !client) return;
 
   const loadAssessment = async () => {
-  const { data } = await supabase
-    .from("assessments")
-    .select("*")
-    .eq("client_id", id)
-    .maybeSingle();
+    const { data } = await supabase
+      .from("assessments")
+      .select("*")
+      .eq("client_id", id)
+      .maybeSingle();
 
-  if (!data) return;
+    if (!data) return;
 
-  setAssessments(data);
+    setAssessments(data);
 
-  // 🧠 STEP 1 — AUTO FLAGS (FROM DATA)
-  const autoFlags = generateAutoFlags(data);
+    const autoFlags = generateAutoFlags(data);
+    const allFlags = [...new Set([...(data.flags || []), ...autoFlags])];
 
-  // 🧠 STEP 2 — MERGE WITH SAVED FLAGS
-  const allFlags = [...new Set([...(data.flags || []), ...autoFlags])];
+    const flagAlerts = generateFlagAlerts(allFlags);
+    const assessmentAlerts = generateAssessmentAlerts(data);
 
-  // 🧠 STEP 3 — FLAG ALERTS
-  const flagAlerts = generateFlagAlerts(allFlags);
+    const combined = [...assessmentAlerts, ...flagAlerts];
 
-  // 🧠 STEP 4 — NORMAL ALERTS
-  const assessmentAlerts = generateAssessmentAlerts(data);
+const uniqueAlerts = combined.filter(
+  (a, i, self) =>
+    i === self.findIndex(
+      (b) =>
+        b.type === a.type &&
+        b.message === a.message
+    )
+);
 
-  // 🧠 STEP 5 — COMBINE EVERYTHING
-  const allAlerts = [...assessmentAlerts, ...flagAlerts];
+    await saveAlerts({
+  alerts: uniqueAlerts,
+  clientId: id,
+});
 
-  // 💾 SAVE ALL ALERTS
-  await saveAlerts({
-    alerts: allAlerts,
-    clientId: id as string,
-  });
+    const { data: freshAlerts } = await supabase
+      .from("alerts")
+      .select("*")
+      .eq("client_id", id)
+      .eq("status", "active");
 
-  // 🔄 REFRESH ALERTS
-  const { data: freshAlerts } = await supabase
-    .from("alerts")
-    .select("*")
-    .eq("client_id", id)
-    .eq("status", "active");
+    await removeResolvedActionsFromCarePlan({
+      clientId: id,
+      activeAlerts: freshAlerts || [],
+    });
 
-  // 🔗 CLEAN CARE PLAN
-  await removeResolvedActionsFromCarePlan({
-    clientId: id as string,
-    activeAlerts: freshAlerts || [],
-  });
+    await syncTasksWithAlerts({
+      clientId: id,
+      activeAlerts: freshAlerts || [],
+    });
 
-  // 🔗 SYNC TASKS
-  await syncTasksWithAlerts({
-    clientId: id as string,
-    activeAlerts: freshAlerts || [],
-  });
-
-  loadAlerts();
-};
+    loadAlerts();
+  };
 
   loadAssessment();
-}, [id, client]);
+}, [id]);
 
 const calculateRiskScore = () => {
   if (!alerts.length) return 0;
@@ -360,6 +357,8 @@ if (userData?.user) {
   };
 
   const loadSummaryHistory = async () => {
+  if (!id) return;
+
   const { data } = await supabase
     .from("visit_notes")
     .select("*")
@@ -370,21 +369,25 @@ if (userData?.user) {
 
   if (!data) return;
 
-  const parsed = data.map((item) => {
-    try {
-      return {
-        ...item,
-        parsed: JSON.parse(item.note),
-      };
-    } catch {
-      return null;
-    }
-  }).filter((a): a is any => a !== null);
+  const parsed = data
+    .map((item) => {
+      try {
+        return {
+          ...item,
+          parsed: JSON.parse(item.note),
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter((a): a is any => a !== null);
 
   setSummaryHistory(parsed);
 };
 
   const loadLatestSummary = async () => {
+  if (!id) return;
+
   const { data } = await supabase
     .from("visit_notes")
     .select("*")
@@ -396,8 +399,7 @@ if (userData?.user) {
 
   if (data?.note) {
     try {
-      const parsed = JSON.parse(data.note);
-      setLatestSummary(parsed);
+      setLatestSummary(JSON.parse(data.note));
     } catch {
       setLatestSummary(null);
     }
@@ -406,19 +408,23 @@ if (userData?.user) {
 
   // LOAD VISITS
   const loadVisits = async () => {
-    const { data } = await supabase
-      .from("visit_notes")
-      .select("*")
-      .eq("client_id", id)
-      .order("created_at", { ascending: false })
-      .limit(5);
+  if (!id) return;
 
-    if (data) setVisits(data);
-  };
+  const { data } = await supabase
+    .from("visit_notes")
+    .select("*")
+    .eq("client_id", id)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (data) setVisits(data);
+};
 
   const loadFamilyFeedback = async () => {
+  if (!id) return;
+
   const { data } = await supabase
-    .from("family_feedback") // ✅ YOUR TABLE
+    .from("family_feedback")
     .select("*")
     .eq("client_id", id)
     .order("created_at", { ascending: false });
@@ -428,6 +434,8 @@ if (userData?.user) {
 
 
 const loadTasks = async () => {
+  if (!id) return;
+
   const { data } = await supabase
     .from("tasks")
     .select("*")
@@ -472,9 +480,9 @@ const generateTasksFromCareType = async () => {
 
   // ❌ prevent DB duplicates
   const { data: existing } = await supabase
-    .from("tasks")
-    .select("title")
-    .eq("client_id", id);
+  .from("tasks")
+  .select("title")
+  .eq("client_id", id);
 
   const existingTitles =
     existing?.map((t: any) => t.title) || [];
@@ -538,11 +546,13 @@ const deleteClient = async () => {
 };
 
 const loadAssessmentProgress = async () => {
-  const { data } = await supabase
-    .from("assessments")
-    .select("*")
-    .eq("client_id", id)
-    .single();
+  if (!id) return;
+
+const { data } = await supabase
+  .from("assessments")
+  .select("*")
+  .eq("client_id", id)
+  .maybeSingle();
 
   if (!data) return;
 
@@ -616,11 +626,11 @@ useEffect(() => {
 
     for (const update of updates) {
       const { data: existingAlerts } = await supabase
-        .from("alerts")
-        .select("*")
-        .eq("client_id", id)
-        .eq("type", update.type)
-        .eq("status", "active");
+  .from("alerts")
+  .select("*")
+  .eq("client_id", id)
+  .eq("type", update.type)
+  .eq("status", "active");
 
       if (!existingAlerts) continue;
 
@@ -781,38 +791,39 @@ useEffect(() => {
 }, [id]);
 
 useEffect(() => {
-  if (id) {
-    loadClient();
-    loadVisits();
-    loadTasks();
-    loadAssessmentProgress();
-    loadLatestSummary();
-    loadSummaryHistory();
-    loadFamilyFeedback();
+  if (!id) return;
 
-    if (window.location.hash === "#alerts") {
-      setTimeout(() => {
-        const el = document.getElementById("alerts");
-
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth" });
-
-          // ✨ highlight effect
-          el.classList.add("ring-2", "ring-red-500");
-          el.classList.add("animate-pulse");
-
-          setTimeout(() => {
-            el.classList.remove("ring-2", "ring-red-500");
-          }, 1500);
-        }
-      }, 300);
-    }
-  }
+  loadClient();
+  loadVisits();
+  loadTasks();
+  loadAssessmentProgress();
+  loadLatestSummary();
+  loadSummaryHistory();
+  loadFamilyFeedback();
 }, [id]);
 
-  if (!client) {
-    return <div className="p-6 text-[var(--text)]">Loading client...</div>;
+    useEffect(() => {
+  if (window.location.hash === "#alerts") {
+    setTimeout(() => {
+      const el = document.getElementById("alerts");
+
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        el.classList.add("ring-2", "ring-red-500", "animate-pulse");
+
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-red-500");
+        }, 1500);
+      }
+    }, 300);
   }
+}, []);
+
+  if (!id) return null;
+
+if (!client) {
+  return <div className="p-6 text-[var(--text)]">Loading client...</div>;
+}
   const riskScore = calculateRiskScore();
   const risk = getRiskLevel(riskScore);
   const trend = getRealTrend();
@@ -1033,7 +1044,12 @@ useEffect(() => {
         .update({
           last_reviewed: new Date().toISOString(),
         })
-        .eq("client_id", id);
+        if (!id) return;
+
+const { data } = await supabase
+  .from("visit_notes")
+  .select("*")
+  .eq("client_id", id as string);;
 
       loadAssessmentProgress();
     }}

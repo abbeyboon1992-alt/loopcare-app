@@ -12,8 +12,8 @@ import carePlanPrompts from "@/data/carePlanPrompts.json";
 
 export default function VisitSessionPage() {
   const router = useRouter();
-  const params = useParams();
-const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const params = useParams<{ id: string }>();
+const id = Array.isArray(params.id) ? params.id[0] : params.id;
 const [visitSlot, setVisitSlot] = useState<"morning" | "lunch" | "tea" | "bed">("morning");
 const [tasksFromDB, setTasksFromDB] = useState<any[]>([]);
 const access = useAccess();
@@ -327,60 +327,46 @@ const [autoAddedTasks, setAutoAddedTasks] = useState<
 });
 
 useEffect(() => {
-  
+  if (!id) return;
+
   const loadClient = async () => {
-    const { data } = await supabase
+    const { data: clientData } = await supabase
       .from("clients")
       .select("*")
-      .eq("id", id as string)
-      .maybeSingle()
-    
-    const { data: assessments } = await supabase
-  .from("assessments")
-  .select("*")
-  .eq("client_id", id)
-  .maybeSingle();
+      .eq("id", id)
+      .maybeSingle();
 
-setAssessments(assessments);
+    const { data: assessmentData } = await supabase
+      .from("assessments")
+      .select("*")
+      .eq("client_id", id)
+      .maybeSingle();
 
-    if (data) {
-      setClient(data);
-    }
-
-    // ✅ LOAD TASKS FROM DATABASE
-const { data: tasks } = await supabase
-  .from("visit_tasks")
-  .select("*")
-  .eq("client_id", id)
-  .eq("status", "pending");
-
-if (tasks) {
-}
+    if (clientData) setClient(clientData);
+    if (assessmentData) setAssessments(assessmentData);
   };
 
   const loadCarePlan = async () => {
-  const { data: carePlan } = await supabase
-    .from("care_plan_sections")
-    .select("*")
-    .eq("client_id", id);
+    const { data: carePlan } = await supabase
+      .from("care_plan_sections")
+      .select("*")
+      .eq("client_id", id);
 
-  const carePlanTasks =
-    carePlan?.flatMap((section: any) =>
-      (section.actions || []).map((action: string) => ({
-        title: action,
-        category: section.title,
-        priority: "high",
-        source: "care_plan_required",
-      }))
-    ) || [];
+    const carePlanTasks =
+      carePlan?.flatMap((section: any) =>
+        (section.actions || []).map((action: string) => ({
+          title: action,
+          category: section.title,
+          priority: "high",
+          source: "care_plan_required",
+        }))
+      ) || [];
 
-  setTasksFromDB(carePlanTasks);
-};
+    setTasksFromDB(carePlanTasks);
+  };
 
-    if (id) {
-    loadClient();
-    loadCarePlan();
-  }
+  loadClient();
+  loadCarePlan();
 
 }, [id]);
 
@@ -392,8 +378,8 @@ useEffect(() => {
       .from("alerts")
       .select("*")
       .eq("client_id", id)
-      .gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
-.eq("status", "active");
+.eq("status", "active")
+.gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString());
 
     if (data) setAlerts(data);
   };
@@ -1164,8 +1150,8 @@ if (resolvedTypes.length > 0) {
     })
     .in("type", resolvedTypes)
     .eq("client_id", id)
-    .gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
-.eq("status", "active");
+    .eq("status", "active")
+  .gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString());
 }
 
 const trendAlerts = getTrendAlerts();

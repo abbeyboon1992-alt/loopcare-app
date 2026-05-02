@@ -20,7 +20,12 @@ export default function NotesPage() {
     const { data } = await supabase
       .from("visit_notes")
       .select("*")
-      .eq("client_id", id)
+      if (!id) return;
+
+const { data } = await supabase
+  .from("visit_notes")
+  .select("*")
+  .eq("client_id", id as string);
       .order("created_at", { ascending: false });
 
     if (data) setNotes(data);

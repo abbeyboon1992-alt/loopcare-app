@@ -477,16 +477,17 @@ export function generateVisitAlerts({
  assessments,
 }: any) {
 
-  const addAlert = (alert: AlertItem) => {
+  const alerts: AlertItem[] = [];
+
+const addAlert = (alert: AlertItem) => {
   const exists = alerts.some(
     (a: any) =>
       a.type === alert.type &&
-      a.source === alert.source // 🔥 prevents duplicates across engines
+      a.source === alert.source
   );
 
   if (!exists) alerts.push(alert);
 };
-  const alerts: AlertItem[] = [];
   // 🔗 ASSESSMENT → VISIT ENFORCEMENT
 
 if (assessments) {
@@ -601,7 +602,7 @@ addAlert(
     type: "hydration_good",
     severity: "low",
     message: "Hydration adequate",
-    source: "visit",
+    source: "improvement",
     section_title:
       ALERT_SECTION_MAP["hydration"] || ALERT_SECTION_MAP.default,
   });
@@ -632,7 +633,7 @@ if (nutrition === "good") {
     type: "nutrition_good",
     severity: "low",
     message: "Nutrition adequate",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["nutrition"],
   });
 }
@@ -641,7 +642,7 @@ if (visitData.medication === "taken") {
     type: "medication_taken",
     severity: "low",
     message: "Medication taken",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["medication"],
   });
 }
@@ -650,7 +651,7 @@ if (mobility === "stable") {
     type: "mobility_stable",
     severity: "low",
     message: "Mobility stable",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["mobility"],
   });
 }
@@ -659,7 +660,7 @@ if (visitData.fall === false) {
     type: "no_falls",
     severity: "low",
     message: "No falls reported",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["falls"],
   });
 }
@@ -668,7 +669,7 @@ if (cognition === "clear") {
     type: "cognition_stable",
     severity: "low",
     message: "Cognition stable",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["cognition"],
   });
 }
@@ -677,7 +678,7 @@ if (mood === "good") {
     type: "mood_stable",
     severity: "low",
     message: "Mood stable",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["mood"],
   });
 }
@@ -686,7 +687,7 @@ if (visitData.pain === "none") {
     type: "pain_controlled",
     severity: "low",
     message: "Pain controlled",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["pain"],
   });
 }
@@ -695,7 +696,7 @@ if (visitData.breathing === "normal") {
     type: "breathing_normal",
     severity: "low",
     message: "Breathing normal",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["respiratory"],
   });
 }
@@ -704,7 +705,7 @@ if (visitData.safeguarding === "none") {
     type: "no_safeguarding",
     severity: "low",
     message: "No safeguarding concerns",
-    source: "visit",
+    source: "improvement",
     section_title: ALERT_SECTION_MAP["safeguarding"],
   });
 }
@@ -986,7 +987,7 @@ if (visitData.skin) {
     message: "Skin intact",
     severity: "low",
     type,
-    source: "visit",
+    source: "improvement",
     section_title:
       ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
@@ -994,18 +995,6 @@ if (visitData.skin) {
 }
 
   console.log("GENERATED ALERTS:", alerts);
-// 🔥 ADD DIAGNOSIS-BASED ALERTS INTO VISITS
-const diagnosisAlerts = generateDiagnosisAlerts(client);
-
-diagnosisAlerts.forEach((a: any) => {
-  if (
-    !alerts.some(
-      (x) => x.type === a.type && x.source === a.source
-    )
-  ) {
-    alerts.push(a);
-  }
-});
 
 return alerts;
 }
@@ -1040,7 +1029,18 @@ export async function saveAlerts({
   visit_id?: string | null;
 }) {
   if (!alerts?.length) return;
+// 🔥 GET EXISTING ACTIVE ALERTS
+const { data: existing } = await supabase
+  .from("alerts")
+  .select("type, message, source")
+  .eq("client_id", clientId)
+  .eq("status", "active");
 
+const existingSet = new Set(
+  (existing || []).map(
+    (a: any) => `${a.type}-${a.message}-${a.source}`
+  )
+);
   // ✅ ADD THIS LINE
   const improvements = await generateImprovementAlerts({ clientId });
 
@@ -1063,6 +1063,14 @@ export async function saveAlerts({
 
   // 💾 SAVE ALERTS LOOP
   for (const alert of alerts) {
+  if (Object.keys(RESOLVE_RULES).includes(alert.type)) continue;
+
+  const key = `${alert.type}-${alert.message}-${alert.source}`;
+
+  if (existingSet.has(key)) {
+    console.log("⛔ DUPLICATE BLOCKED:", key);
+    continue;
+  }
     if (Object.keys(RESOLVE_RULES).includes(alert.type)) continue;
 
     const section =
@@ -1075,6 +1083,11 @@ export async function saveAlerts({
     let error = null;
 
     if (isEvent) {
+  const exists = existingSet.has(
+    `${alert.type}-${alert.message}-${alert.source}`
+  );
+
+  if (exists) continue;
       const res = await supabase.from("alerts").insert({
         client_id: clientId,
         organisation_id: organisation_id || null,
