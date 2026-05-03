@@ -2027,39 +2027,65 @@ const isEnforced =
 
     </div>
 
-    {/* 📍 ADDRESS */}
-    <p className="text-sm text-gray-400 mt-1">
-      📍 {client.address || "No address"}
+    {/* 🧾 CLIENT DETAILS */}
+<div className="mt-2 space-y-1 text-sm">
+
+  {/* 📍 ADDRESS */}
+  <p className="text-gray-400">
+    📍 {client.address || "No address"}
+  </p>
+
+  {/* 🎂 DOB */}
+  <p className="text-[var(--muted)] text-xs">
+    🎂 {client.date_of_birth || "No DOB"}
+  </p>
+
+  {/* 📞 CONTACT */}
+  {client.contact_number && (
+    <p className="text-green-400 text-xs">
+      📞 {client.contact_number}
     </p>
+  )}
 
-    {/* 🎂 DOB */}
-    <p className="text-xs text-[var(--muted)] mt-1">
-      🎂 {client.date_of_birth || "No DOB"}
+  {/* 🔑 KEYSAFE */}
+  {client.keysafe_access && (
+    <p className="text-yellow-400 text-xs">
+      🔑 {client.keysafe_access}
     </p>
+  )}
 
-    {/* 🏥 CARE TYPE */}
-    <p className="text-sm text-[var(--muted)] mt-1">
-      {client.care_type}
-    </p>
+  {/* 🏥 CARE TYPE */}
+  <p className="text-[var(--muted)] text-xs">
+    🏥 {client.care_type || "Not set"}
+  </p>
 
-    {/* ▶ START / CONTINUE ASSESSMENT */}
-    <button
-      onClick={() => router.push(`/assessments?client=${id}`)}
-      className="w-full bg-blue-600 py-2 rounded mt-3 text-sm"
-    >
-      {assessmentProgress === 0
-        ? "Start Assessment"
-        : "Continue Assessment"}
-    </button>
+  {/* 🧠 DIAGNOSIS */}
+{client.diagnosis && (
+  <p className="text-blue-300 text-xs">
+    🧠 {Array.isArray(client.diagnosis)
+      ? client.diagnosis.join(", ")
+      : client.diagnosis}
+  </p>
+)}
+</div>
+{/* ▶ START / CONTINUE ASSESSMENT */}
+<button
+  onClick={() => router.push(`/assessments?client=${id}`)}
+  className="w-full bg-blue-600 py-2 rounded mt-3 text-sm"
+>
+  {assessmentProgress === 0
+    ? "Start Assessment"
+    : "Continue Assessment"}
+</button>
 
-    {/* 🕒 LAST REVIEWED */}
-    <p className="text-[10px] text-gray-500 mt-1">
-      Last reviewed: {lastUpdated
-        ? new Date(lastUpdated).toLocaleDateString()
-        : "—"}
-    </p>
+{/* 🕒 LAST REVIEWED */}
+<p className="text-[10px] text-gray-500 mt-1">
+  Last reviewed: {lastUpdated
+    ? new Date(lastUpdated).toLocaleDateString()
+    : "—"}
+</p>
 
-    <button
+<button
   onClick={() => {
     if (isEnforced) {
       alert("⚠ You must review the care plan before starting a visit");
@@ -2078,13 +2104,13 @@ const isEnforced =
   {isEnforced ? "🔒 Review Care Plan First" : "Start Visit"}
 </button>
 
-    {/* 🧠 TIMELINE */}
-    <button
-      onClick={() => router.push(`/clients/${id}/timeline`)}
-      className="bg-gray-700 px-2 py-1 text-xs rounded mt-2"
-    >
-      View Timeline (coming soon)
-    </button>
+{/* 🧠 TIMELINE */}
+<button
+  onClick={() => router.push(`/clients/${id}/timeline`)}
+  className="bg-gray-700 px-2 py-1 text-xs rounded mt-2"
+>
+  View Timeline (coming soon)
+</button>
 
   </div>
 
@@ -2125,13 +2151,6 @@ const isEnforced =
     <h2 className="text-sm text-[var(--muted)] mb-2">
       Clinical Overview
     </h2>
-    {client.diagnosis && (
-  <p className="text-xs text-blue-300 mb-2">
-    🧠 Diagnosis: {Array.isArray(client.diagnosis)
-      ? client.diagnosis.join(", ")
-      : client.diagnosis}
-  </p>
-)}
 
     <div className="text-sm space-y-1">
 
