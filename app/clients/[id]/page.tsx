@@ -877,6 +877,152 @@ const lookupPostcode = async () => {
 
   setLoadingAddresses(false);
 };
+const rebuildDiagnosisAlerts = async (updatedClient: any) => {
+  if (!id) return;
+
+  console.log("♻️ Rebuilding diagnosis alerts");
+
+  // ❌ REMOVE OLD DIAGNOSIS ALERTS
+  await supabase
+    .from("alerts")
+    .delete()
+    .eq("client_id", id)
+    .eq("source", "diagnosis");
+
+  // ✅ GENERATE NEW ONES
+  const diagnosisAlerts = generateDiagnosisAlerts(updatedClient);
+
+  // ❌ safety check
+  if (!diagnosisAlerts || diagnosisAlerts.length === 0) {
+    console.log("⚠️ No diagnosis alerts generated");
+  }
+
+  // ✅ SAVE
+  await saveAlerts({
+    alerts: diagnosisAlerts,
+    clientId: id,
+  });
+
+  // 🔄 reload UI
+  await loadAlerts();
+};
+const syncEverythingAfterDiagnosisChange = async (updatedClient: any) => {
+  if (!id) return;
+
+  console.log("🧠 FULL SYNC AFTER DIAGNOSIS CHANGE");
+
+  const { data: existingDiagnosisAlerts } = await supabase
+    .from("alerts")
+    .select("*")
+    .eq("client_id", id)
+    .eq("source", "diagnosis")
+    .eq("status", "active");
+
+  const newAlerts = generateDiagnosisAlerts(updatedClient);
+  const newTypes = newAlerts.map(a => a.type);
+
+  // 🔻 RESOLVE OLD
+  for (const alert of existingDiagnosisAlerts || []) {
+    if (!newTypes.includes(alert.type)) {
+      await supabase
+        .from("alerts")
+        .update({
+          status: "resolved",
+          invalidated: true,
+          resolved_by: "diagnosis_change",
+          closed_at: new Date().toISOString(),
+        })
+        .eq("id", alert.id);
+    }
+  }
+
+  // 🔺 INSERT NEW
+  const existingTypes =
+    existingDiagnosisAlerts?.map(a => a.type) || [];
+
+  const alertsToInsert = newAlerts.filter(
+    a => !existingTypes.includes(a.type)
+  );
+
+  if (alertsToInsert.length > 0) {
+    await saveAlerts({
+      alerts: alertsToInsert,
+      clientId: id,
+    });
+  }
+
+  // 🔁 GET ASSESSMENT
+  const { data: assessment } = await supabase
+    .from("assessments")
+    .select("*")
+    .eq("client_id", id)
+    .maybeSingle();
+
+  // 🔁 CARE PLAN
+  const sections = generateCarePlan({
+    client: updatedClient,
+    assessments: assessment,
+  });
+
+  const { data: existingSections } = await supabase
+    .from("care_plan_section")
+    .select("*")
+    .eq("client_id", id);
+
+  for (const section of sections) {
+    const existing = existingSections?.find(
+      (s: any) => s.section_title === section.section_title
+    );
+
+    if (!existing) {
+      await supabase.from("care_plan_section").insert({
+        client_id: id,
+        section_title: section.section_title,
+        care_need: section.care_need,
+        outcome: section.outcome,
+        actions: section.actions,
+        system_generated: true,
+        manually_edited: false,
+        updated_at: new Date().toISOString(),
+      });
+      continue;
+    }
+
+    if (existing.manually_edited) continue;
+
+    await supabase
+      .from("care_plan_section")
+      .update({
+        care_need: section.care_need,
+        outcome: section.outcome,
+        actions: section.actions,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+  }
+
+  // 🔁 FINAL SYNC
+  const { data: freshAlerts } = await supabase
+    .from("alerts")
+    .select("*")
+    .eq("client_id", id)
+    .eq("status", "active");
+
+  await removeResolvedActionsFromCarePlan({
+    clientId: id,
+    activeAlerts: freshAlerts || [],
+  });
+
+  await syncTasksWithAlerts({
+    clientId: id,
+    activeAlerts: freshAlerts || [],
+  });
+
+  await loadAlerts();
+  await loadTasks();
+
+  console.log("✅ FULL SYNC COMPLETE");
+};
 const updateClient = async () => {
   console.log("🟢 UPDATE CLIENT TRIGGERED", form);
 let lat = form.lat;
@@ -978,7 +1124,15 @@ if (oldAddress !== form.address) {
 
   setEditing(false);
 
+// 🔁 reload updated client
 await loadClient();
+
+// ✅ rebuild diagnosis alerts with NEW data
+await syncEverythingAfterDiagnosisChange({
+  ...client,
+  diagnosis: form.diagnosis,
+  care_type: form.care_type,
+});
 
 // ✅ FORCE ALERT REBUILD AFTER CLIENT CHANGE
 hasLoadedAssessmentRef.current = false;
