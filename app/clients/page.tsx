@@ -11,57 +11,10 @@ import { useState, useEffect } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import dynamicImport from "next/dynamic";
-import { useMap } from "react-leaflet";
 import { careTypes } from "@/lib/careTypes";
 import diagnoses from "@/data/diagnoses.json";
 import { useAccess } from "@/app/context/AccessContext";
 
-const MapContainer = dynamicImport(
-  () => import("react-leaflet").then((mod) => mod.MapContainer),
-  { ssr: false }
-);
-
-const TileLayer = dynamicImport(
-  () => import("react-leaflet").then((mod) => mod.TileLayer),
-  { ssr: false }
-);
-
-const Marker = dynamicImport(
-  () => import("react-leaflet").then((mod) => mod.Marker),
-  { ssr: false }
-);
-
-const Popup = dynamicImport(
-  () => import("react-leaflet").then((mod) => mod.Popup),
-  { ssr: false }
-);
-
-const Polyline = dynamicImport(
-  () => import("react-leaflet").then((mod) => mod.Polyline),
-  { ssr: false }
-);
-function FitBounds({ clients, enabled }: any) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    const valid = clients.filter(
-  (c: any) =>
-    c.status !== "inactive" &&
-    typeof c.lat === "number" &&
-    typeof c.lng === "number"
-);
-    if (valid.length === 0) return;
-
-    const bounds = valid.map((c: any) => [c.lat, c.lng]);
-
-    map.fitBounds(bounds, { padding: [50, 50] });
-  }, [clients, map, enabled]);
-
-  return null;
-}
 export default function Clients() {
   const [authLoading, setAuthLoading] = useState(true);
   
@@ -599,8 +552,37 @@ if (!user && !authLoading) {
   {showForm ? "Close" : "+ Add New"}
 </button>
 
-  </div>
+{/* 🗺️ NEW MAP BUTTON */}
+<button
+  type="button"
+  onClick={() => {
+    if (isFreeUser) {
+      router.push("/upgrade");
+    } else {
+      router.push("/clients/map");
+    }
+  }}
+  className={`px-4 py-2 rounded text-sm flex items-center gap-2 ${
+    isFreeUser
+      ? "bg-gray-700 text-gray-300"
+      : "bg-purple-600 text-white"
+  }`}
+>
+  {isFreeUser ? "🔒 Route Planning" : "🗺️ Map"}
+</button>
+{!isFreeUser && access?.plan !== "pro" && (
+  <span className="text-[10px] text-green-400 ml-1">
+    (Trial unlocked)
+  </span>
+)}
+{isFreeUser && (
+  <p className="text-[10px] text-gray-400 mt-1">
+    Save hours on travel time
+  </p>
+)}
 </div>
+</div>
+
 
       {/* ADD CLIENT FORM */}
       {showForm && (
@@ -770,134 +752,6 @@ if (!user && !authLoading) {
           </button>
         </div>
       )}
-
-  {/* 🗺️ CLIENT MAP */}
-<div
-  className={`mb-8 rounded-xl relative h-[300px] ${
-    !hasProAccess ? "brightness-75" : ""
-  }`}
-  style={{
-    zIndex: 0,
-    pointerEvents: hasProAccess ? "auto" : "none"
-  }}
->
-
-  {/* 🔒 LOCK OVERLAY */}
-  {!hasProAccess && (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10 pointer-events-none">
-      <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg pointer-events-auto">
-
-        <p className="font-semibold text-sm mb-2">
-          🔒 You're Missing Route Planning
-        </p>
-
-        <p className="text-xs text-gray-300 mb-3">
-          See all clients on a map, plan efficient visits, and cut travel time.
-        </p>
-
-        <p className="text-xs text-red-400 mb-4">
-          Without this, you're working blind.
-        </p>
-
-        <button
-  type="button"
-  onClick={() => router.push("/upgrade")}
-  className="bg-blue-600 px-3 py-1 rounded text-xs"
->
-  Unlock Map & Routes
-</button>
-
-      </div>
-    </div>
-  )}
-
-  {hasProAccess && (
-    <div className="mb-2 text-xs text-gray-400">
-      Optimised route enabled
-    </div>
-  )}
-
-  {/* ✅ MAP */}
-  {mapReady && (
-    <MapContainer
-  key="clients-map"
-  center={[53.258, -2.125]}
-  zoom={11}
-  scrollWheelZoom={false}
-  dragging={false}
-  touchZoom={false}
-  doubleClickZoom={false}
-  zoomControl={false}
-  style={{ pointerEvents: hasProAccess ? "auto" : "none" }}
-  attributionControl={false}
-  className="h-72 sm:h-80 w-full rounded-lg"
->
-      <FitBounds clients={clients} enabled={clients.length > 0} />
-
-      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-        {clients.length} clients
-      </div>
-
-      <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-
-      {hasProAccess && clients.length > 1 && (
-        <Polyline positions={getRouteLines()} />
-      )}
-
-      {clients.filter(isActiveMappedClient).map((client) => (
-        <Marker
-          key={client.id}
-          position={[client.lat, client.lng]}
-          icon={
-            new (require("leaflet")).Icon({
-              iconUrl:
-                calculateRiskScore(client) >= 6
-                  ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
-                  : calculateRiskScore(client) >= 3
-                  ? "https://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
-                  : "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
-              iconSize: [32, 32],
-            })
-          }
-        >
-          <Popup>
-            <div className="text-sm space-y-1">
-              <p className="font-semibold">
-                {client.first_name} {client.last_name}
-              </p>
-
-              {client.address && (
-                <p className="text-xs text-gray-400">
-                  📍 {client.address}
-                </p>
-              )}
-
-              {client.keysafe_access && (
-                <p className="text-xs text-yellow-400">
-                  🔑 {client.keysafe_access}
-                </p>
-              )}
-
-              {client.phone && (
-                <p className="text-xs text-green-400">
-                  📞 {client.phone}
-                </p>
-              )}
-
-              <p className="text-xs mt-1">
-                Risk: {getRiskBadge(calculateRiskScore(client)).label}
-              </p>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-    </MapContainer>
-  )}
-
-</div>
 
 {/* CLIENT LIST */}
 <div className="space-y-5 mt-6 relative z-20">
