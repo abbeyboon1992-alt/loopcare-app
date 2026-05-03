@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
+import EvidenceBlock from "@/components/assessment/evidenceBlock";
 import { mergeAlerts } from "@/lib/mergeAlerts";
 import { generateDiagnosisAlerts } from "@/lib/diagnosisAlertMap";
 import { useRouter } from "next/navigation";
@@ -15,8 +16,6 @@ import { syncTasksWithCarePlan } from "@/lib/carePlanTaskEngine";
 import { assessmentVisibility } from "@/lib/assessmentVisibility";
 import { useParams } from "next/navigation";
 
-const params = useParams();
-const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
 import { useAccess } from "@/app/context/AccessContext";
 import {
   generateCarePlan,
@@ -152,46 +151,8 @@ const TextAreaField = ({
   );
 };
 function AssessmentPageContent() {
-
-// 🔥 ORG
-const [organisationId, setOrganisationId] = useState<string | null>(null);
-
-// 🔥 EVIDENCE
-const [evidenceList, setEvidenceList] = useState<any[]>([]);
-
-// 🔥 MEDICATIONS
-const [medications, setMedications] = useState<any[]>([]);
-
-// 🔥 UI STATE
-const [viewMode, setViewMode] = useState(false);
-const [pdfMode, setPdfMode] = useState<"standard" | "family">("standard");
-const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
-const [loading, setLoading] = useState(false);
-  const isUserTypingRef = useRef(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
 const clientId = searchParams.get("client") || "";
-const [referral, setReferral] = useState({
-  type: "",
-  details: "",
-});
-const generatePDF = async () => {
-  const element =
-    pdfMode === "family"
-      ? document.getElementById("family-pdf")
-      : document.getElementById("pdf-content");
-  if (!element) return;
-  const html2pdf = (await import("html2pdf.js")).default;
-  html2pdf()
-    .set({
-      margin: 0.5,
-      filename: `assessments-${pdfMode}-${form.client_id}.pdf`,
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
-    })
-    .from(element)
-    .save();
-};
   const [form, setForm] = useState<any>({
   client_id: clientId || "",
   hydration: "",
@@ -307,6 +268,47 @@ news2_score: 0,
 bmi_category: "",
 waterlow_medication_risk: "",
 });
+  
+const params = useParams();
+const id = Array.isArray(params?.id) ? params.id[0] : params?.id; 
+// 🔥 ORG
+const [organisationId, setOrganisationId] = useState<string | null>(null);
+
+// 🔥 EVIDENCE
+const [evidenceList, setEvidenceList] = useState<any[]>([]);
+
+// 🔥 MEDICATIONS
+const [medications, setMedications] = useState<any[]>([]);
+
+// 🔥 UI STATE
+const [viewMode, setViewMode] = useState(false);
+const [pdfMode, setPdfMode] = useState<"standard" | "family">("standard");
+const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
+const [loading, setLoading] = useState(false);
+  const isUserTypingRef = useRef(false);
+  const router = useRouter();
+const [referral, setReferral] = useState({
+  type: "",
+  details: "",
+});
+const generatePDF = async () => {
+  const element =
+    pdfMode === "family"
+      ? document.getElementById("family-pdf")
+      : document.getElementById("pdf-content");
+  if (!element) return;
+  const html2pdf = (await import("html2pdf.js")).default;
+  html2pdf()
+    .set({
+      margin: 0.5,
+      filename: `assessments-${pdfMode}-${form.client_id}.pdf`,
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+    })
+    .from(element)
+    .save();
+};
+  
 const hasEvidenceToUpload = () => {
   return [
     form.cognition_evidence,
@@ -436,7 +438,7 @@ const blockIfView = (fn: () => void) => {
       .from("user_profiles")
       .select("organisation_id")
       .eq("user_id", data.user.id)
-      .maybeSingle()
+      .maybeSingle();
 
     if (profile?.organisation_id) {
       setOrganisationId(profile.organisation_id);
@@ -584,11 +586,18 @@ const hasInitialised = useRef(false);
 const hasSyncedRef = useRef(false);
 const isUpdatingRef = useRef(false);
 const [hasSavedAssessment, setHasSavedAssessment] = useState(false);
-const access = useAccess();
+let access;
+
+try {
+  access = useAccess();
+} catch (e) {
+  console.error("Access context failed:", e);
+  access = null;
+}
 // ✅ SAFE DEFAULTS (fixes TS error properly)
-const plan = access?.plan ?? "free";
-const accountType = access?.accountType ?? "solo";
-const isTrialActive = access?.isTrialActive ?? false;
+const plan = access && typeof access === "object" && "plan" in access ? access.plan : "free";
+const accountType = access && typeof access === "object" && "accountType" in access ? access.accountType : "solo";
+const isTrialActive = access && typeof access === "object" && "isTrialActive" in access ? access.isTrialActive : false;
 const visibility =
   assessmentVisibility[accountType as keyof typeof assessmentVisibility] ||
   assessmentVisibility.solo;
@@ -664,19 +673,27 @@ const handleInput = (field: string, value: any) => {
     isUserTypingRef.current = false;
   }, 300);
 };
-if (isUserTypingRef.current) return;
+useEffect(() => {
+  if (isUserTypingRef.current) return;
+
   if (saveTimeout.current) clearTimeout(saveTimeout.current);
+
   saveTimeout.current = setTimeout(async () => {
     if (isSavingRef.current) return;
+
     const payload = formRef.current;
     const current = JSON.stringify(payload);
+
     if (current === lastSavedRef.current) return;
+
     try {
       isSavingRef.current = true;
       setSaving("saving");
+
       await supabase
         .from("assessments")
         .upsert(payload, { onConflict: "client_id" });
+
       lastSavedRef.current = current;
       setSaving("saved");
     } catch (err) {
@@ -685,7 +702,12 @@ if (isUserTypingRef.current) return;
     } finally {
       isSavingRef.current = false;
     }
-  }, 800);
+  }, 1200);
+
+  return () => {
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+  };
+}, [form]);
 const handleEquipmentServiced = (item: string, value: "yes" | "no") => {
   setForm((prev: any) => ({
     ...prev,
@@ -767,10 +789,14 @@ const updateMedication = (index: number, field: string, value: string) => {
 };
 useEffect(() => {
   if (clientId) {
-    setForm((prev: any) => ({
-  ...prev,
-  client_id: clientId,
-}));
+    setForm((prev: any) => {
+      if (prev.client_id === clientId) return prev;
+
+      return {
+        ...prev,
+        client_id: clientId,
+      };
+    });
   }
 }, [clientId]);
 const hasLoadedRef = useRef(false);
@@ -1829,8 +1855,6 @@ const allAlerts = [
   })),
 ];
 
-const alerts = await generateAssessmentAlerts(form);
-
 const carePlan = generateCarePlan(form, alerts);
 
 // ✅ APPLY ALERTS TO CARE PLAN (CORRECT)
@@ -2212,7 +2236,19 @@ const friendlyText = {
     concern: "There is a safeguarding concern being managed",
   },
 };
-
+const createReferral = async (payload: {
+  client_id: string;
+  referral_type: string;
+  details: string;
+  organisation_id?: string;
+  status: string;
+}) => {
+  try {
+    await supabase.from("referrals").insert(payload);
+  } catch (e) {
+    console.log("Referral failed", e);
+  }
+};
 const getFriendly = (field: string, value: any) => {
   if (!value) return "Not recorded";
 
@@ -2291,7 +2327,7 @@ const FamilyPDFView = () => (
 
 return (
   <>
-    {!access ? (
+    {!access || typeof access !== "object" ? (
       <div className="p-6 text-center">Loading...</div>
     ) : !hasAssessmentAccess ? (
       <div className="p-6 text-center">
@@ -2325,92 +2361,94 @@ return (
 </div>
       <div className="flex items-center justify-between mb-6">
 
-  {/* LEFT SIDE */}
-  <h1 className="text-2xl font-bold">
-    assessments (v{form.version_number || 1})
-  </h1>
-{hasSavedAssessment && form.locked && (
-  <>
-    <div className="bg-yellow-600 p-3 rounded mt-3">
-      <p className="mb-2 text-sm">🔒 assessments locked</p>
+  {/* LEFT */}
+  <div>
+    <h1 className="text-2xl font-bold">
+      Assessment (v{form.version_number || 1})
+    </h1>
 
-      <button
+    {hasSavedAssessment && form.locked && (
+      <div className="bg-yellow-600 p-3 rounded mt-3">
+        <p className="mb-2 text-sm">🔒 assessments locked</p>
+
+        <button
+          type="button"
+          onClick={async () => {
+            await supabase
+              .from("assessments")
+              .update({ locked: false })
+              .eq("client_id", form.client_id);
+
+            setViewMode(false);
+
+            setForm((prev: any) => ({
+              ...prev,
+              locked: false,
+            }));
+          }}
+          className="bg-black px-3 py-1 rounded"
+        >
+          Start Review
+        </button>
+      </div>
+    )}
+  </div>
+
+  {/* RIGHT */}
+  <div className="flex items-center gap-2">
+    {hasSavedAssessment && form.locked && viewMode && (
+      <>
+        <button
+          type="button"
+          onClick={() => setPdfMode("standard")}
+          className={`px-3 py-1 rounded text-sm ${
+            pdfMode === "standard"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-600"
+          }`}
+        >
+          Professional
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPdfMode("family")}
+          className={`px-3 py-1 rounded text-sm ${
+            pdfMode === "family"
+              ? "bg-green-600 text-white"
+              : "bg-gray-600"
+          }`}
+        >
+          Family View
+        </button>
+
+        <button
+          type="button"
+          onClick={generatePDF}
+          className="bg-purple-600 px-3 py-1 rounded text-sm"
+        >
+          Download PDF
+        </button>
+      </>
+    )}
+
+    <button
       type="button"
-        onClick={async () => {
-          await supabase
-            .from("assessments")
-            .update({ locked: false })
-            .eq("client_id", form.client_id);
+      onClick={() => setViewMode((prev) => !prev)}
+      className={`px-3 py-1 rounded text-sm transition ${
+        viewMode
+          ? "bg-blue-600 text-white"
+          : "bg-[var(--card)] text-gray-200"
+      }`}
+    >
+      {viewMode ? "Edit Mode" : "View Mode"}
+    </button>
 
-          setViewMode(false);
-
-          setForm((prev: any) => ({
-  ...prev,
-  locked: false,
-}));
-        }}
-        className="bg-black px-3 py-1 rounded"
-      >
-        Start Review
-      </button>
+    <div className="text-xs px-3 py-1 rounded bg-[var(--card)]">
+      {saving === "saving" && "Saving..."}
+      {saving === "saved" && "Saved"}
+      {saving === "error" && "Error"}
     </div>
-
-    {/* RIGHT SIDE */}
-    <div className="flex items-center gap-2">
-      {viewMode && (
-        <>
-          <button
-          type="button"
-            onClick={() => setPdfMode("standard")}
-            className={`px-3 py-1 rounded text-sm ${
-              pdfMode === "standard"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-600"
-            }`}
-          >
-            Professional
-          </button>
-
-          <button
-          type="button"
-            onClick={() => setPdfMode("family")}
-            className={`px-3 py-1 rounded text-sm ${
-              pdfMode === "family"
-                ? "bg-green-600 text-white"
-                : "bg-gray-600"
-            }`}
-          >
-            Family View
-          </button>
-
-          <button
-          type="button"
-            onClick={generatePDF}
-            className="bg-purple-600 px-3 py-1 rounded text-sm"
-          >
-            Download PDF
-          </button>
-        </>
-      )}
-
-      <button
-      type="button"
-        onClick={() => setViewMode((prev) => !prev)}
-        className={`px-3 py-1 rounded text-sm transition ${
-          viewMode
-            ? "bg-blue-600 text-white"
-            : "bg-[var(--card)] text-gray-200"
-        }`}
-      >
-        {viewMode ? "Edit Mode" : "View Mode"}
-      </button>
-    </div>
-  </>
-)}
-  <div className="text-xs px-3 py-1 rounded bg-[var(--card)]">
-    {saving === "saving" && "Saving..."}
-    {saving === "saved" && "Saved"}
-    {saving === "error" && "Error"}
   </div>
 </div>
       <p className="text-sm text-[var(--muted)] mb-4">
@@ -2832,7 +2870,8 @@ return (
   disabled={viewMode}
 />
 
-{["needs support", "non-verbal"].includes(form.communication) && (
+{form.communication &&
+  ["needs support", "non-verbal"].includes(form.communication) && (
   <>
     <CommunicationBox
       value={form.communication_support}
@@ -2900,49 +2939,15 @@ return (
 </div>
   </>
 )}
-<div className="bg-[var(--card)] p-3 rounded mt-4">
-  <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
-
-  <MultiSelectDropdown
-  value={form.cognition_source || []}
-  onChange={(v) => handleInput("cognition_source", v)}
+<EvidenceBlock
+  section="cognition"
+  form={form}
+  handleInput={handleInput}
+  handleFileUpload={handleFileUpload}
+  evidenceList={evidenceList}
+  viewMode={viewMode}
   options={SOURCE_OPTIONS}
-  disabled={viewMode}
 />
-
-  <label className="flex items-center gap-2 text-sm mt-3">
-  <input
-  type="file"
-  onChange={(e) => {
-    if (!e.target.files?.[0]) return;
-    handleFileUpload(
-      e.target.files[0],
-      "cognition",
-      "cognition"
-    );
-  }}
-  className="mt-3"
-/>
-
-<div className="mt-2 space-y-1">
-  {evidenceList
-    .filter((e) => e.section === "cognition")
-    .map((doc) => (
-      <div key={doc.file_url} className="text-xs text-blue-400">
-        📎 {doc.file_name}
-      </div>
-    ))}
-</div>
-    <input
-      type="checkbox"
-      checked={Boolean(form.cognition_evidence)}
-      onChange={(e) =>
-        handleInput("cognition_evidence", e.target.checked)
-      }
-    />
-    Evidence provided
-  </label>
-</div>
 </SectionWrapper>
 
 <SectionWrapper
@@ -3073,49 +3078,15 @@ return (
     />
   </div>
 )}
-<div className="bg-[var(--card)] p-3 rounded mt-4">
-  <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
-
-  <MultiSelectDropdown
-  value={form.nutrition_source || []}
-  onChange={(v) => handleInput("nutrition_source", v)}
+<EvidenceBlock
+  section="nutrition"
+  form={form}
+  handleInput={handleInput}
+  handleFileUpload={handleFileUpload}
+  evidenceList={evidenceList}
+  viewMode={viewMode}
   options={SOURCE_OPTIONS}
-  disabled={viewMode}
 />
-
-  <label className="flex items-center gap-2 text-sm mt-3">
-  <input
-  type="file"
-  onChange={(e) => {
-    if (!e.target.files?.[0]) return;
-    handleFileUpload(
-      e.target.files[0],
-      "nutrition",
-      "nutrition"
-    );
-  }}
-  className="mt-3"
-/>
-
-<div className="mt-2 space-y-1">
-  {evidenceList
-    .filter((e) => e.section === "nutrition")
-    .map((doc) => (
-      <div key={doc.file_url} className="text-xs text-blue-400">
-        📎 {doc.file_name}
-      </div>
-    ))}
-</div>
-    <input
-      type="checkbox"
-      checked={Boolean(form.nutrition_evidence)}
-      onChange={(e) =>
-        handleInput("nutrition_evidence", e.target.checked)
-      }
-    />
-    Evidence provided
-  </label>
-</div>
 </SectionWrapper>
 
       {/* MOBILITY */}
@@ -3185,12 +3156,14 @@ return (
   )}
 
   {Array.isArray(form.equipment) && form.equipment.length > 0 && (
-    <>
-      {Array.isArray(form.equipment) &&
-  form.equipment
-    .filter((item: string) => item && item !== "")
-    .map((item: string) => (
-        <div key={item} className="mb-4 p-3 rounded bg-[var(--card)]">
+  <>
+    {form.equipment
+      .filter((item: string) => item && item !== "")
+      .map((item: string, index: number) => (
+        <div
+          key={`${item}-${index}`}
+          className="mb-4 p-3 rounded bg-[var(--card)]"
+        >
 
           <p className="mb-2 text-sm font-semibold">
             {item} — Serviced?
@@ -3236,20 +3209,15 @@ disabled={viewMode}
 
               <button
               type="button"
-  onClick={async () => {
-    await supabase.from("referrals").insert({
-      client_id: form.client_id,
-      organisation_id: organisationId || undefined,
-      referral_type: "Equipment Service",
-      details: `${item} requires servicing`,
-      status: "pending",
-    });
-
-    setReferral({
-      type: "Equipment Service",
-      details: `${item} requires servicing`,
-    });
-  }}
+  onClick={() =>
+  createReferral({
+    client_id: form.client_id,
+    referral_type: "Equipment Service",
+    details: `${item} requires servicing`,
+    organisation_id: organisationId || undefined,
+    status: "pending",
+  })
+}
   disabled={viewMode}
   className="bg-black px-3 py-1 rounded text-sm disabled:opacity-50"
 >
@@ -3270,49 +3238,15 @@ disabled={viewMode}
     onChange={(v) => handleInput("falls", v)}
     disabled={viewMode}
   />
-  <div className="bg-[var(--card)] p-3 rounded mt-4">
-  <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
-
-  <MultiSelectDropdown
-  value={form.mobility_source || []}
-  onChange={(v) => handleInput("mobility_source", v)}
+  <EvidenceBlock
+  section="mobility"
+  form={form}
+  handleInput={handleInput}
+  handleFileUpload={handleFileUpload}
+  evidenceList={evidenceList}
+  viewMode={viewMode}
   options={SOURCE_OPTIONS}
-  disabled={viewMode}
 />
-
-  <label className="flex items-center gap-2 text-sm mt-3">
-  <input
-  type="file"
-  onChange={(e) => {
-    if (!e.target.files?.[0]) return;
-    handleFileUpload(
-      e.target.files[0],
-      "mobility",
-      "mobility"
-    );
-  }}
-  className="mt-3"
-/>
-
-<div className="mt-2 space-y-1">
-  {evidenceList
-    .filter((e) => e.section === "mobility")
-    .map((doc) => (
-      <div key={doc.file_url} className="text-xs text-blue-400">
-        📎 {doc.file_name}
-      </div>
-    ))}
-</div>
-    <input
-      type="checkbox"
-      checked={Boolean(form.mobility_evidence)}
-      onChange={(e) =>
-        handleInput("mobility_evidence", e.target.checked)
-      }
-    />
-    Evidence provided
-  </label>
-</div>
 </SectionWrapper>
 
 <SectionWrapper
@@ -3422,49 +3356,15 @@ onChange={(e) => handleInput("pad_delivery", e.target.value)}
   onChange={(v) => handleInput("repositioning_required", v)}
   disabled={viewMode}
 />
-<div className="bg-[var(--card)] p-3 rounded mt-4">
-  <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
-
-  <MultiSelectDropdown
-  value={form.skin_source || []}
-  onChange={(v) => handleInput("skin_source", v)}
+<EvidenceBlock
+  section="skin"
+  form={form}
+  handleInput={handleInput}
+  handleFileUpload={handleFileUpload}
+  evidenceList={evidenceList}
+  viewMode={viewMode}
   options={SOURCE_OPTIONS}
-  disabled={viewMode}
 />
-
-  <label className="flex items-center gap-2 text-sm mt-3">
-  <input
-  type="file"
-  onChange={(e) => {
-    if (!e.target.files?.[0]) return;
-    handleFileUpload(
-      e.target.files[0],
-      "skin",
-      "skin"
-    );
-  }}
-  className="mt-3"
-/>
-
-<div className="mt-2 space-y-1">
-  {evidenceList
-    .filter((e) => e.section === "skin")
-    .map((doc) => (
-      <div key={doc.file_url} className="text-xs text-blue-400">
-        📎 {doc.file_name}
-      </div>
-    ))}
-</div>
-    <input
-      type="checkbox"
-      checked={Boolean(form.skin_evidence)}
-      onChange={(e) =>
-        handleInput("skin_evidence", e.target.checked)
-      }
-    />
-    Evidence provided
-  </label>
-</div>
 </SectionWrapper>
 
 <SectionWrapper
@@ -3643,49 +3543,15 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
   onChange={(v) => handleInput("respiratory_support", v)}
   disabled={viewMode}
 />
-<div className="bg-[var(--card)] p-3 rounded mt-4">
-  <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
-
-  <MultiSelectDropdown
-  value={form.medication_source || []}
-  onChange={(v) => handleInput("medication_source", v)}
+<EvidenceBlock
+  section="medication"
+  form={form}
+  handleInput={handleInput}
+  handleFileUpload={handleFileUpload}
+  evidenceList={evidenceList}
+  viewMode={viewMode}
   options={SOURCE_OPTIONS}
-  disabled={viewMode}
 />
-
-  <label className="flex items-center gap-2 text-sm mt-3">
-  <input
-  type="file"
-  onChange={(e) => {
-    if (!e.target.files?.[0]) return;
-    handleFileUpload(
-      e.target.files[0],
-      "medication",
-      "medication"
-    );
-  }}
-  className="mt-3"
-/>
-
-<div className="mt-2 space-y-1">
-  {evidenceList
-    .filter((e) => e.section === "medication")
-    .map((doc) => (
-      <div key={doc.file_url} className="text-xs text-blue-400">
-        📎 {doc.file_name}
-      </div>
-    ))}
-</div>
-    <input
-      type="checkbox"
-      checked={Boolean(form.medication_evidence)}
-      onChange={(e) =>
-        handleInput("medication_evidence", e.target.checked)
-      }
-    />
-    Evidence provided
-  </label>
-</div>
 </SectionWrapper>
 
       <SectionWrapper
@@ -4200,49 +4066,15 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
     disabled={viewMode}
   />
 </div>
-<div className="bg-[var(--card)] p-3 rounded mt-4">
-  <p className="text-xs text-[var(--muted)] mb-2">Evidence & Source</p>
-
-  <MultiSelectDropdown
-  value={form.safeguarding_source || []}
-  onChange={(v) => handleInput("safeguarding_source", v)}
+<EvidenceBlock
+  section="safeguarding"
+  form={form}
+  handleInput={handleInput}
+  handleFileUpload={handleFileUpload}
+  evidenceList={evidenceList}
+  viewMode={viewMode}
   options={SOURCE_OPTIONS}
-  disabled={viewMode}
 />
-
-  <label className="flex items-center gap-2 text-sm mt-3">
-  <input
-  type="file"
-  onChange={(e) => {
-    if (!e.target.files?.[0]) return;
-    handleFileUpload(
-      e.target.files[0],
-      "safeguarding",
-      "safeguarding"
-    );
-  }}
-  className="mt-3"
-/>
-
-<div className="mt-2 space-y-1">
-  {evidenceList
-    .filter((e) => e.section === "safeguarding")
-    .map((doc) => (
-      <div key={doc.file_url} className="text-xs text-blue-400">
-        📎 {doc.file_name}
-      </div>
-    ))}
-</div>
-    <input
-      type="checkbox"
-      checked={Boolean(form.safeguarding_evidence)}
-      onChange={(e) =>
-        handleInput("safeguarding_evidence", e.target.checked)
-      }
-    />
-    Evidence provided
-  </label>
-</div>
 </SectionWrapper>
 <SectionWrapper
   id="daily"
@@ -4397,71 +4229,38 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
   <h2 className="font-semibold mb-2">Log Referral</h2>
 
   {hasSmartAlertsAccess && getImmediateAlerts().length > 0 && (
-    <div className="bg-red-600 p-4 rounded mb-4">
-      <h2 className="font-semibold mb-2">
-        Immediate Actions Required
-      </h2>
+  <div className="bg-red-600 p-4 rounded mb-4">
+    <h2 className="font-semibold mb-2">
+      Immediate Actions Required
+    </h2>
 
-      {getImmediateAlerts().map((a, i) => (
-  <p key={`alert-${i}`}>• {a}</p>
-))}
+    {getImmediateAlerts().map((a, i) => (
+      <p key={`alert-${i}`}>• {a}</p>
+    ))}
 
-      <select
-  value={referral.type || ""}
-  onChange={(e) =>
-    setReferral({ ...referral, type: e.target.value })
-  }
->
-        <option value="">Select referral</option>
-        <option value="DN">District Nurse</option>
-        <option value="OT">Occupational Therapy</option>
-        <option value="SALT">Speech & Language</option>
-        <option value="GP">GP</option>
-      </select>
+    <select
+      value={referral.type || ""}
+      onChange={(e) =>
+        setReferral({ ...referral, type: e.target.value })
+      }
+    >
+      <option value="">Select referral</option>
+      <option value="DN">District Nurse</option>
+      <option value="OT">Occupational Therapy</option>
+      <option value="SALT">Speech & Language</option>
+      <option value="GP">GP</option>
+    </select>
 
-      <TextAreaField
-  value={referral.details}
-  onChange={(val) =>
-    setReferral({ ...referral, details: val })
-  }
-  placeholder="Referral notes"
-  disabled={viewMode}
-/>
-
-      {!viewMode && (
-  <button
-  type="button"
-  disabled={isSubmittingReferral}
-  onClick={async () => {
-    if (!referral.type) {
-      alert("Please select a referral type");
-      return;
-    }
-
-    setIsSubmittingReferral(true);
-
-    await supabase.from("referrals").insert({
-      client_id: form.client_id,
-      referral_type: referral.type,
-      details: referral.details,
-      organisation_id: organisationId || undefined,
-      status: "pending",
-    });
-
-    setReferral({ type: "", details: "" });
-
-    setIsSubmittingReferral(false);
-
-    alert("Referral added — you can add another");
-  }}
-  className="bg-blue-600 px-4 py-2 rounded disabled:opacity-50"
->
-  {isSubmittingReferral ? "Saving..." : "Submit Referral"}
-</button>
+    <TextAreaField
+      value={referral.details}
+      onChange={(val) =>
+        setReferral({ ...referral, details: val })
+      }
+      placeholder="Referral notes"
+      disabled={viewMode}
+    />
+  </div>
 )}
-    </div>
-  )}
-</div>
 
 {!form.locked && form.status === "completed" && (
   <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4">
@@ -4527,10 +4326,10 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
   </div>
 )}
 </div>
-    )}
-  </>
-);
-
+      </div>
+      )}
+    </>
+  );
 }
 export default function AssessmentPage() {
   return (
