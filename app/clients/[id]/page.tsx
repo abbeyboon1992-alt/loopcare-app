@@ -335,7 +335,7 @@ for (const section of sections) {
   const { error } = await supabase
     .from("care_plan_section")
     .upsert(payload, {
-      onConflict: "care_plan_section_unique",
+      onConflict: "client_id,section_title",
     });
 
   if (error) {
@@ -553,7 +553,7 @@ if (!exists) return;
   // 🔁 UPSERT (prevent duplicates)
   await supabase
     .from("care_plan_section")
-    .upsert(section, { onConflict: "care_plan_section_unique"});
+    .upsert(section, { onConflict: "client_id,section_title"});
 
   console.log("🚨 Care plan safeguarding enforced");
 };
@@ -1507,7 +1507,7 @@ useEffect(() => {
             updated_at: new Date().toISOString(),
           },
           {
-            onConflict: "care_plan_section_unique"
+            onConflict: "client_id,section_title"
           }
         );
     }
