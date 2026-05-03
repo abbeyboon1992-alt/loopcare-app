@@ -926,67 +926,87 @@ if (!user) {
   }}
 >
     {/* HEADER */}
-<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+<div className="flex justify-between items-start gap-4">
 
-  {/* LEFT SIDE → EXPAND */}
+  {/* LEFT SIDE → CLIENT DETAILS */}
   <div
-  onClick={(e) => {
-    e.stopPropagation();
-    setExpandedClient(
-      expandedClient === client.id ? null : client.id
-    );
-  }}
-  className="flex-1 cursor-pointer"
->
-    <p className="font-semibold">
+    onClick={(e) => {
+      e.stopPropagation();
+      setExpandedClient(
+        expandedClient === client.id ? null : client.id
+      );
+    }}
+    className="flex-1 space-y-1 cursor-pointer"
+  >
+    {/* NAME */}
+    <p className="font-semibold text-base">
       {client.first_name} {client.last_name}
     </p>
 
+    {/* PHONE */}
     {client.phone && (
-      <button type="button" onClick={(e) => {
+      <button
+        type="button"
+        onClick={(e) => {
           e.stopPropagation();
           if (isLocked) {
-    router.push("/upgrade");
-    return;
-  }
+            router.push("/upgrade");
+            return;
+          }
           window.location.href = `tel:${client.phone}`;
         }}
-        className="text-xs text-green-400 mt-1 px-2 py-1 bg-green-900/30 rounded"
+        className="text-xs text-green-400"
       >
-        📞 Call
+        📞 {client.phone}
       </button>
+    )}
+
+    {/* ADDRESS */}
+    {client.address && (
+      <p className="text-xs text-gray-400">
+        📍 {client.address}
+      </p>
+    )}
+
+    {/* KEYSAFE */}
+    {client.keysafe_access && (
+      <p className="text-xs text-gray-400">
+        🔑 {client.keysafe_access}
+      </p>
     )}
   </div>
 
-  {/* RIGHT SIDE → ACTIONS */}
-  <div className="flex flex-wrap items-center gap-2">
+  {/* RIGHT SIDE → STACKED ACTIONS */}
+  <div className="flex flex-col items-end gap-2">
 
-    {/* OPEN CLIENT (arrow) */}
+    {/* ➡️ OPEN */}
     <button
-  type="button"
-  onClick={(e) => {
-    e.preventDefault();      // ✅ REQUIRED FOR MOBILE
-    e.stopPropagation();
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
 
-    if (isLocked) {
-      router.push("/upgrade");
-      return;
-    }
+        if (isLocked) {
+          router.push("/upgrade");
+          return;
+        }
 
-    router.push(`/clients/${client.id}`);
-  }}
-  className="relative z-10 text-sm sm:text-xs bg-gray-700 px-3 py-2 sm:px-2 sm:py-1 rounded min-w-[44px] flex items-center justify-center"
->
-  ➡️
-</button>
+        router.push(`/clients/${client.id}`);
+      }}
+      className="text-sm bg-gray-700 px-3 py-1 rounded"
+    >
+      ➡️
+    </button>
 
     {/* STATUS */}
-    <button type="button" onClick={(e) => {
+    <button
+      type="button"
+      onClick={(e) => {
         e.stopPropagation();
         if (isLocked) {
-    router.push("/upgrade");
-    return;
-  }
+          router.push("/upgrade");
+          return;
+        }
         handleToggleClick(client.id, client.status);
       }}
       className={`text-xs px-2 py-1 rounded ${
@@ -998,7 +1018,7 @@ if (!user) {
       {client.status === "inactive" ? "Inactive" : "Active"}
     </button>
 
-    {/* RISK BADGE */}
+    {/* RISK */}
     <span className={`text-xs px-2 py-1 rounded ${badge.color}`}>
       {badge.label}
     </span>
