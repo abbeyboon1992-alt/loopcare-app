@@ -143,6 +143,9 @@ const groupedAlerts = {
 
 const timeoutRef = useRef<any>(null);
 
+const visitSyncRanRef = useRef(false);
+const escalationRanRef = useRef(false);
+
 const triggerFeedbackNotification = (feedback: any) => {
   setFeedbackNotification(feedback);
 
@@ -1266,8 +1269,11 @@ useEffect(() => {
   loadAlerts();
 }, [id]);
 
+
 useEffect(() => {
-  if (!visits.length || !client?.id) return;
+  if (!visits.length || !client?.id || visitSyncRanRef.current) return;
+
+  visitSyncRanRef.current = true;
 
   const autoUpdateAlerts = async () => {
     const last2 =
@@ -1405,8 +1411,10 @@ await syncAlertsWithCarePlan();
   autoUpdateAlerts();
 }, [visits]);
 
+const alertsChannelRef = useRef<any>(null);
+
 useEffect(() => {
-  if (!id) return;
+  if (!id || alertsChannelRef.current) return;
 
   const channel = supabase
     .channel("alerts-live")
@@ -1601,7 +1609,9 @@ if (isRisk && !existing) {
 const alertsTimeoutRef = useRef<any>(null);
 
 useEffect(() => {
-  if (!alerts.length) return;
+  if (!alerts.length || escalationRanRef.current) return;
+
+  escalationRanRef.current = true;
 
   const runEscalation = async () => {
     // 🔥 STEP 1: standard escalation (your existing logic)
@@ -1631,15 +1641,15 @@ if (canUseEscalation) {
   await createEscalationTasks();
   await enforceCarePlanFromEscalation();
 }
-
-    // 🔄 refresh once
-    setTimeout(() => {
-      loadAlerts();
-    }, 300);
   };
 
   runEscalation();
 }, [alerts]);
+
+useEffect(() => {
+  escalationRanRef.current = false;
+}, [id]);
+
 if (!id) {
   return <div className="p-6">Invalid client</div>;
 }
