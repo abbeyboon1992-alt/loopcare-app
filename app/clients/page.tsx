@@ -762,14 +762,14 @@ if (!user) {
 
   {/* 🗺️ CLIENT MAP */}
 <div
-  className={`mb-8 rounded-xl overflow-hidden relative ${
+  className={`mb-8 rounded-xl overflow-hidden relative h-[300px] ${
     !hasProAccess ? "brightness-75" : ""
   }`}
 >
 
   {/* 🔒 LOCK OVERLAY */}
   {!hasProAccess && (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-40">
+    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-40 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
         <p className="font-semibold text-sm mb-2">
@@ -977,7 +977,7 @@ if (!user) {
   </div>
 
   {/* RIGHT SIDE → STACKED ACTIONS */}
-  <div className="flex flex-col items-end gap-2 relative z-30">
+  <div className="mt-3 flex gap-2 flex-wrap relative z-50">
 
     {/* ➡️ OPEN */}
     <button type="button" onClick={(e) => {
@@ -991,7 +991,6 @@ if (!user) {
     }
 
     router.push(`/clients/${client.id}`);
-router.refresh();
   }}
   className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95"
 >
@@ -1040,7 +1039,7 @@ router.refresh();
 )}
 
     {/* ACTIONS */}
-    <div className="mt-3 flex gap-2 flex-wrap relative z-20">
+    <div className="mt-3 flex gap-2 flex-wrap relative z-50">
 
       {!hasAssessment && (
         <button type="button" onClick={(e) => {
@@ -1051,7 +1050,6 @@ router.refresh();
     return;
   }
             router.push(`/assessments?client=${client.id}`);
-router.refresh();
           }}
           className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
         >
