@@ -1041,9 +1041,6 @@ if (!user) {
       </button>
     )}
 
-    {/* PROGRESS */}
-    <p>Assessment: {progress}%</p>
-
   </div>
 )}
 
