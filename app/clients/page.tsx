@@ -1019,14 +1019,34 @@ if (!user) {
     {expandedClient === client.id && (
   <div className="mt-3 space-y-2 text-sm text-gray-300">
 
+    {/* DOB */}
+    {client.date_of_birth && (
+      <p>
+        🎂{" "}
+        {new Date(client.date_of_birth).toLocaleDateString()}
+      </p>
+    )}
+
+    {/* KEYSAFE */}
     {client.keysafe_access && (
       <p>🔑 Keysafe: {client.keysafe_access}</p>
     )}
 
+    {/* PHONE (CLICK TO CALL) */}
     {client.phone && (
-      <p>📞 {client.phone}</p>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          window.location.href = `tel:${client.phone}`;
+        }}
+        className="text-green-400 underline"
+      >
+        📞 {client.phone}
+      </button>
     )}
 
+    {/* PROGRESS */}
     <p>Assessment: {progress}%</p>
 
   </div>
