@@ -493,9 +493,9 @@ if (!user) {
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
 
     {/* 🔒 STICKY UPGRADE BAR */}
-    <div className="sticky top-0 z-30 px-6 pt-4">
+    <div className="sticky top-0 z-10 px-6 pt-4 pointer-events-none">
       {access && (
-        <div className="px-4 py-2 rounded-lg flex justify-between items-center text-sm bg-[var(--card)] border border-[var(--border)] shadow-md">
+        <div className="px-4 py-2 rounded-lg flex justify-between items-center text-sm bg-[var(--card)] border border-[var(--border)] shadow-md pointer-events-auto">
           
           <span className="font-medium">
             {isTrialActive
@@ -512,7 +512,7 @@ if (!user) {
   e.stopPropagation();
   router.push("/upgrade");
 }}
-  className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition relative z-50"
+  className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition"
 >
   Upgrade Now
 </button>
@@ -760,7 +760,7 @@ if (!user) {
       )}
 
 {/* CLIENT LIST */}
-<div className="space-y-5 mt-6 relative z-20">
+<div className="space-y-5 mt-6">
 {(clients || [])
   .filter((client: any) =>
     `${client.first_name} ${client.last_name}`
@@ -870,7 +870,7 @@ if (!user) {
   }
   router.push(`/clients/${client.id}`);
 }}
-  className="w-10 h-10 bg-red-600"
+  className="w-12 h-12 flex items-center justify-center bg-red-600 rounded"
 >
   ➡️
 </button>
@@ -907,12 +907,12 @@ if (!user) {
     </p>
 
     <button
-      type="button"
-      onClick={() => router.push("/upgrade")}
-      className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition relative z-50"
-    >
-      Upgrade Now
-    </button>
+  type="button"
+  onClick={() => router.push("/upgrade")}
+  className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition"
+>
+  Upgrade Now
+</button>
   </div>
 )}
 
