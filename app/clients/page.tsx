@@ -174,16 +174,24 @@ useEffect(() => {
 }, [access]);
 
 useEffect(() => {
-  const loadUser = async () => {
-    const {
-  data: { session },
-} = await supabase.auth.getSession();
+  let mounted = true;
 
-setUser(session?.user);
-setAuthLoading(false);
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!mounted) return;
+    setUser(session?.user ?? null);
+    setAuthLoading(false);
+  });
+
+  const { data: listener } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+      setUser(session?.user ?? null);
+    }
+  );
+
+  return () => {
+    mounted = false;
+    listener.subscription.unsubscribe();
   };
-
-  loadUser();
 }, []);
 
 
@@ -522,7 +530,7 @@ if (!access) {
   return <div className="p-6 text-white">Loading access...</div>;
 }
 
-if (!user) {
+if (!user && !authLoading) {
   return <div className="p-6 text-white">No user</div>;
 }
  return (
