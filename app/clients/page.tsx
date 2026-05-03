@@ -987,18 +987,14 @@ zoomControl={!!hasProAccess}
   <div className="mt-3 flex gap-2 flex-wrap relative z-50">
 
     {/* ➡️ OPEN */}
-    <button type="button" onClick={(e) => {
-      console.log("CLICK WORKING");
-    e.preventDefault();
-    e.stopPropagation();
+    <button type="button" onClick={() => {
+  if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
 
-    if (isLocked) {
-      router.push("/upgrade");
-      return;
-    }
-
-    router.push(`/clients/${client.id}`);
-  }}
+  router.push(`/clients/${client.id}`);
+}}
   className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95"
 >
   ➡️
