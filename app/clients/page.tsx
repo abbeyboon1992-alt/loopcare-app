@@ -1034,7 +1034,6 @@ if (!user) {
     {/* EXPANDABLE */}
     {expandedClient === client.id && (
       <div className="mt-3 space-y-1 text-sm text-gray-300">
-        {client.address && <p>📍 {client.address}</p>}
 
         {assessments.dnacpr && (
           <p className="text-red-400">🚫 DNACPR in place</p>
@@ -1093,18 +1092,6 @@ if (!user) {
         </span>
       )}
     </div>
-
-    {/* PROGRESS */}
-    <div className="text-xs text-gray-400 mt-2">
-      Assessment: {progress}%
-    </div>
-
-    {/* ADDRESS */}
-    {client.address && (
-      <p className="text-sm text-gray-400">
-        {client.address}
-      </p>
-    )}
 
     {/* BADGES */}
     <div className="flex flex-wrap gap-2 mt-3">
