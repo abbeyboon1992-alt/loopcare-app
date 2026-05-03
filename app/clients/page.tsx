@@ -72,10 +72,11 @@ const handleLogout = async () => {
 const [alerts, setAlerts] = useState<any[]>([]);
 
 const access = useAccess();
-const hasProAccess =
+const hasProAccess = !!(
   access?.plan === "pro" ||
   (access?.trial_end &&
-    new Date(access.trial_end).getTime() > Date.now());
+    new Date(access.trial_end).getTime() > Date.now())
+);
 
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
@@ -541,7 +542,8 @@ if (!user) {
 
           {access?.plan !== "pro" && (
             <button
-              onClick={() => router.push("/upgrade")}
+  type="button"
+  onClick={() => router.push("/upgrade")}
               className="bg-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-700 transition"
             >
               Upgrade
@@ -761,16 +763,15 @@ if (!user) {
       )}
 
   {/* 🗺️ CLIENT MAP */}
-<div
-  className={`mb-8 rounded-xl overflow-hidden relative h-[300px] ${
-    !hasProAccess ? "brightness-75" : ""
-  }`}
+<div className={`... ${
+  !hasProAccess ? "brightness-75" : ""
+}`}
 >
 
   {/* 🔒 LOCK OVERLAY */}
   {!hasProAccess && (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-40 pointer-events-none">
-      <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
+    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-40">
+      <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg pointer-events-auto">
 
         <p className="font-semibold text-sm mb-2">
           🔒 You're Missing Route Planning
@@ -785,8 +786,8 @@ if (!user) {
         </p>
 
         <button
-          type="button"
-          onClick={() => router.push("/upgrade")}
+  type="button"
+  onClick={() => router.push("/upgrade")}
           className="bg-blue-600 px-4 py-2 rounded text-xs"
         >
           Unlock Map & Routes
@@ -805,11 +806,17 @@ if (!user) {
   {/* ✅ MAP */}
   {mapReady && (
     <MapContainer
-      key="clients-map"
-      center={[53.258, -2.125]}
-      zoom={11}
-      className="h-72 sm:h-80 w-full rounded-lg"
-    >
+  key="clients-map"
+  center={[53.258, -2.125]}
+  zoom={11}
+  scrollWheelZoom={false}
+  dragging={!!hasProAccess}
+touchZoom={!!hasProAccess}
+doubleClickZoom={!!hasProAccess}
+zoomControl={!!hasProAccess}
+  attributionControl={false}
+  className="h-72 sm:h-80 w-full rounded-lg"
+>
       <FitBounds clients={clients} enabled={clients.length > 0} />
 
       <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
