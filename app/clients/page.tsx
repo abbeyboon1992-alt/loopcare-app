@@ -683,7 +683,20 @@ if (!user) {
       ))}
     </div>
   )}
-
+{/* ✍️ MANUAL ADDRESS INPUT (FALLBACK) */}
+<input
+  placeholder="Or enter address manually"
+  value={form.address}
+  onChange={(e) =>
+    setForm({
+      ...form,
+      address: e.target.value,
+      lat: null,   // optional: clear coords if manual
+      lng: null,
+    })
+  }
+  className="w-full p-3 rounded bg-[var(--card)] mb-2"
+/>
   {/* SELECTED ADDRESS */}
   {form.address && (
     <div className="mt-2 p-3 bg-green-900/20 border border-green-700 rounded text-sm">

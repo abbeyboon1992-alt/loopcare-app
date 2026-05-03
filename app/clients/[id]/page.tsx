@@ -97,6 +97,8 @@ const [form, setForm] = useState({
   care_type: "",
   diagnosis: [] as string[],
   address: "",
+  lat: null as number | null,
+  lng: null as number | null,
   contact_number: "",
   keysafe_access: "",
 });
@@ -122,6 +124,9 @@ const canUseEscalation =
   isTeam && (plan === "pro" || isTrialActive);
 const [assessments, setAssessments] = useState<any>(null);
 const [showClinicalBox, setShowClinicalBox] = useState(true);
+const [postcode, setPostcode] = useState("");
+const [addressResults, setAddressResults] = useState<any[]>([]);
+const [loadingAddresses, setLoadingAddresses] = useState(false);
 const safeAlerts = alerts || [];
 
 const groupedAlerts = {
@@ -529,6 +534,8 @@ setLastUpdated(data.updated_at || null); // ✅ correct place
     ? data.diagnosis
     : [data.diagnosis].filter(Boolean),
   address: data.address || "",
+  lat: data.lat ?? null,
+  lng: data.lng ?? null,
   contact_number: data.contact_number || "",
   keysafe_access: data.keysafe_access || "",
 });
@@ -709,10 +716,90 @@ const generateTasksFromCareType = async () => {
 
   loadTasks();
 };
+const geocodeAddress = async (address: string) => {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=gb&q=${encodeURIComponent(address)}`
+    );
 
+    const data = await res.json();
+
+    if (!data || data.length === 0) return null;
+
+    return {
+      lat: parseFloat(data[0].lat),
+      lng: parseFloat(data[0].lon),
+    };
+  } catch (err) {
+    console.error("Geocode failed:", err);
+    return null;
+  }
+};
+const lookupPostcode = async () => {
+  if (!postcode.trim()) return alert("Enter postcode or address");
+
+  setLoadingAddresses(true);
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=gb&q=${encodeURIComponent(postcode)}`
+    );
+
+    const data = await res.json();
+
+    if (!data || data.length === 0) {
+      alert("No addresses found");
+      setAddressResults([]);
+      return;
+    }
+
+    const results = data.map((item: any) => {
+      const a = item.address || {};
+
+      const line1 = [a.house_number, a.road]
+        .filter(Boolean)
+        .join(" ");
+
+      const line2 = [
+        a.city || a.town || a.village,
+        a.postcode,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      return {
+        address: [line1, line2].filter(Boolean).join(", "),
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+      };
+    });
+
+    setAddressResults(results);
+  } catch (err) {
+    console.error(err);
+    alert("Lookup failed");
+  }
+
+  setLoadingAddresses(false);
+};
 const updateClient = async () => {
   console.log("🟢 UPDATE CLIENT TRIGGERED", form);
+let lat = form.lat;
+let lng = form.lng;
 
+// 🔥 if user typed manually OR changed address → geocode it
+if ((!lat || !lng) && form.address) {
+  const geo = await geocodeAddress(form.address);
+
+  if (geo) {
+    lat = geo.lat;
+    lng = geo.lng;
+  } else {
+    alert("Could not find location for this address");
+    return;
+  }
+}
+const oldAddress = client.address;
   // 🔐 GET USER
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
@@ -752,6 +839,8 @@ if (!form.address || form.address.length < 10) {
       care_type: form.care_type,
       diagnosis: form.diagnosis,
       address: form.address,
+lat,
+lng,
       contact_number: form.contact_number,
       keysafe_access: form.keysafe_access,
     })
@@ -761,6 +850,7 @@ if (!form.address || form.address.length < 10) {
 
   if (error) {
     console.error("🚨 UPDATE CLIENT ERROR:", error);
+    console.log("✅ CLIENT UPDATED:", data);
     alert("Error updating client");
     return;
   }
@@ -772,6 +862,24 @@ if (!form.address || form.address.length < 10) {
   }
 
   console.log("✅ CLIENT UPDATED:", data);
+  // 🚀 AUTO RECALCULATE ROUTES IF ADDRESS CHANGED
+if (oldAddress !== form.address) {
+  try {
+    await fetch("/api/recalculate-routes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: id,
+      }),
+    });
+
+    console.log("🗺️ Routes recalculated");
+  } catch (err) {
+    console.error("Route recalculation failed", err);
+  }
+}
 
   setEditing(false);
 
@@ -1124,8 +1232,6 @@ useEffect(() => {
         .eq("id", alert.id);
     }
 
-    // 🔥 STEP 2: ignored risk escalation (NEW)
-    // 🔥 STEP 2: ignored risk escalation
 if (canUseEscalation) {
   await checkIgnoredRiskEscalation();
 }
@@ -1337,14 +1443,72 @@ const isEnforced =
       />
 
       {/* ✅ ADDRESS (FORCE FULL ADDRESS) */}
-      <input
-        value={form.address}
-        onChange={(e) =>
-          setForm({ ...form, address: e.target.value })
-        }
-        className="w-full p-2 rounded bg-[var(--bg)] border"
-        placeholder="Full street address (e.g. 12 High Street, Macclesfield, SK10...)"
-      />
+      {/* 🔍 ADDRESS SEARCH */}
+<div className="space-y-2">
+
+  <div className="flex gap-2">
+    <input
+      placeholder="Search postcode or address"
+      value={postcode}
+      onChange={(e) => setPostcode(e.target.value)}
+      className="flex-1 p-2 rounded bg-[var(--bg)] border"
+    />
+
+    <button
+      type="button"
+      onClick={lookupPostcode}
+      className="bg-blue-600 px-3 rounded text-sm"
+    >
+      {loadingAddresses ? "..." : "Find"}
+    </button>
+  </div>
+
+  {/* RESULTS */}
+  {addressResults.length > 0 && (
+    <div className="border rounded max-h-40 overflow-y-auto">
+      {addressResults.map((item, i) => (
+        <div
+          key={i}
+          onClick={() => {
+            setForm({
+  ...form,
+  address: item.address,
+  lat: item.lat,
+  lng: item.lng,
+});
+            setAddressResults([]);
+          }}
+          className="p-2 cursor-pointer hover:bg-[var(--card)] text-sm"
+        >
+          {item.address}
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* MANUAL INPUT (fallback) */}
+  <input
+    placeholder="Or enter address manually"
+    value={form.address}
+    onChange={(e) =>
+  setForm({
+    ...form,
+    address: e.target.value,
+    lat: null,
+    lng: null,
+  })
+}
+    className="w-full p-2 rounded bg-[var(--bg)] border"
+  />
+
+  {/* SELECTED ADDRESS */}
+  {form.address && (
+    <div className="text-xs text-green-400">
+      📍 {form.address}
+    </div>
+  )}
+
+</div>
 
       {/* CARE TYPE */}
 <select
