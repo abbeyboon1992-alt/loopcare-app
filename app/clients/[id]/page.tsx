@@ -121,6 +121,7 @@ const isTeam = access?.accountType === "team";
 const canUseEscalation =
   isTeam && (plan === "pro" || isTrialActive);
 const [assessments, setAssessments] = useState<any>(null);
+const [showClinicalBox, setShowClinicalBox] = useState(true);
 const safeAlerts = alerts || [];
 
 const groupedAlerts = {
@@ -1239,27 +1240,38 @@ const isEnforced =
 
   return (
     <div className="bg-red-900 p-3 rounded mb-4">
-      <p className="text-xs text-red-200 mb-2">
-        🚨 Immediate Clinical Priorities
-      </p>
 
-      {preview.map((a: any, i: number) => (
+      <div className="flex justify-between items-center mb-2">
+        <p className="text-xs text-red-200">
+          🚨 Immediate Clinical Priorities
+        </p>
+
+        <button
+          onClick={() => setShowClinicalBox(!showClinicalBox)}
+          className="text-[10px] text-white/70"
+        >
+          {showClinicalBox ? "Hide" : "Show"}
+        </button>
+      </div>
+
+      {showClinicalBox && preview.map((a: any, i: number) => (
         <div
           key={i}
           className={`text-xs px-2 py-1 rounded mb-1 flex justify-between ${
-  a.severity === "critical"
-    ? "bg-red-800"
-    : a.severity === "high"
-    ? "bg-red-500"
-    : a.severity === "medium"
-    ? "bg-yellow-500"
-    : "bg-blue-500"
-}`}
+            a.severity === "critical"
+              ? "bg-red-800"
+              : a.severity === "high"
+              ? "bg-red-500"
+              : a.severity === "medium"
+              ? "bg-yellow-500"
+              : "bg-blue-500"
+          }`}
         >
           <span>⚠ {a.message}</span>
           <span className="opacity-70">{a.severity}</span>
         </div>
       ))}
+
     </div>
   );
 })()}
@@ -1287,7 +1299,7 @@ const isEnforced =
   <div className="flex-1">
 
     {/* 🔹 NAME + ACTION ICONS */}
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex justify-between items-start relative">
 
       <div className="flex-1">
 
@@ -1334,6 +1346,34 @@ const isEnforced =
         placeholder="Full street address (e.g. 12 High Street, Macclesfield, SK10...)"
       />
 
+      {/* CARE TYPE */}
+<select
+  value={form.care_type}
+  onChange={(e) =>
+    setForm({ ...form, care_type: e.target.value })
+  }
+  className="w-full p-2 rounded bg-[var(--bg)] border"
+>
+  {Object.keys(careTypes).map((type) => (
+    <option key={type} value={type}>
+      {type}
+    </option>
+  ))}
+</select>
+
+{/* DIAGNOSIS (multi) */}
+<input
+  value={form.diagnosis.join(", ")}
+  onChange={(e) =>
+    setForm({
+      ...form,
+      diagnosis: e.target.value.split(",").map(d => d.trim()),
+    })
+  }
+  className="w-full p-2 rounded bg-[var(--bg)] border"
+  placeholder="Diagnosis (comma separated)"
+/>
+
       {/* SAVE + CANCEL */}
       <div className="flex gap-2 mt-2">
 
@@ -1363,7 +1403,7 @@ const isEnforced =
 </div>
 
       {/* ✏️ EDIT + ❌ DELETE */}
-      <div className="flex gap-2 ml-3">
+      <div className="absolute top-3 right-3 flex gap-2">
 
          {/* EDIT */}
   <button
@@ -1488,9 +1528,11 @@ const isEnforced =
         ? ""
         : `Score: ${riskScore}`}
     </p>
-    <p className="text-[10px] text-red-400 mt-1">
-  Ignored Risk: {calculateIgnoredRiskScore()}
-</p>
+    {isPro && (
+  <p className="text-[10px] text-red-400 mt-1">
+    Ignored Risk: {calculateIgnoredRiskScore()}
+  </p>
+)}
 
     {/* 🔻 TREND (optional but useful) */}
     <p className="text-[10px] mt-1 text-gray-400">
@@ -1744,66 +1786,62 @@ ${alert.created_at && getAlertAgeDays(alert.created_at) >= 4
   </ul>
 )}
 
-        {alert.section_title && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(
-                `/clients/${id}/care-plan#${alert.section_title}`
-              );
-            }}
-            className="text-blue-400 underline text-[11px]"
-          >
-            View in care plan
-          </button>
-        )}
+        <div className="flex gap-2 mt-2">
+  {/* VIEW */}
+  {alert.section_title && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        router.push(`/clients/${id}/care-plan#${alert.section_title}`);
+      }}
+      className="flex-1 border border-blue-400 text-blue-400 py-1 rounded text-[11px] text-center"
+    >
+      View in care plan
+    </button>
+  )}
 
-        {alert.source !== "visit_auto" && isPro && (
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
+  {/* RESOLVE */}
+ {alert.source !== "visit_auto" && isPro && (
+  <button
+    onClick={async (e) => {
+      e.stopPropagation();
 
-              const { data: userData } =
-                await supabase.auth.getUser();
-              const userId = userData?.user?.id;
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
 
-              const { error: resolveError } = await supabase
-  .from("alerts")
-  .update({
-    status: "resolved",
-    closed_at: new Date().toISOString(),
-    resolution_source: "manual",
-    resolved_by: userId,
-  })
-  .eq("id", alert.id);
+      const { error } = await supabase
+        .from("alerts")
+        .update({
+          status: "resolved",
+          closed_at: new Date().toISOString(),
+          resolution_source: "manual",
+          resolved_by: userId,
+        })
+        .eq("id", alert.id);
 
-if (resolveError) {
-  console.error("🚨 RESOLVE ERROR:", resolveError, alert);
-} else {
-  console.log("✅ RESOLVED ALERT:", alert.id);
-}
+      if (error) {
+        console.error("🚨 RESOLVE ERROR:", error);
+        return;
+      }
 
-              try {
-  await logAlertAudit({
-    alert,
-    action: "resolved",
-    previous: { status: "active" },
-    next: { status: "resolved" },
-    userId,
-    source: "manual_ui",
-  });
-} catch (e) {
-  console.error("🚨 AUDIT LOG ERROR:", e);
-}
+      await logAlertAudit({
+        alert,
+        action: "resolved",
+        previous: { status: "active" },
+        next: { status: "resolved" },
+        userId,
+        source: "manual_ui",
+      });
 
-              loadAlerts();
-              loadResolvedAlerts();
-            }}
-            className="text-xs bg-green-600 px-2 py-1 rounded mt-1"
-          >
-            Mark as resolved
-          </button>
-        )}
+      loadAlerts();
+      loadResolvedAlerts();
+    }}
+      className="flex-1 border border-green-500 text-green-500 py-1 rounded text-[11px] text-center"
+    >
+      Mark resolved
+    </button>
+  )}
+</div>
       </div>
     ));
   })()
@@ -2238,4 +2276,5 @@ if (resolveError) {
   </div>
 
 </div>
-)}
+);
+}
