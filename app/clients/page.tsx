@@ -838,14 +838,26 @@ if (!user) {
   }
 >
           <Popup>
-  <div className="text-sm">
+  <div className="text-sm space-y-1">
     <p className="font-semibold">
       {client.first_name} {client.last_name}
     </p>
 
     {client.address && (
       <p className="text-xs text-gray-400">
-        {client.address}
+        📍 {client.address}
+      </p>
+    )}
+
+    {client.keysafe_access && (
+      <p className="text-xs text-yellow-400">
+        🔑 {client.keysafe_access}
+      </p>
+    )}
+
+    {client.phone && (
+      <p className="text-xs text-green-400">
+        📞 {client.phone}
       </p>
     )}
 
@@ -914,66 +926,38 @@ if (!user) {
   className={`bg-[var(--card)] p-4 sm:p-5 rounded-xl border shadow-sm cursor-pointer ${
     isLocked ? "opacity-50 border-blue-600" : borderColor
   }`}
-  onClick={() => {
-    if (isLocked) {
-      router.push("/upgrade");
-      return;
-    }
+  onClick={(e) => {
+  // ONLY toggle if clicking LEFT area
+  if ((e.target as HTMLElement).closest("button")) return;
 
-    setExpandedClient(
-      expandedClient === client.id ? null : client.id
-    );
-  }}
+  setExpandedClient(
+    expandedClient === client.id ? null : client.id
+  );
+}}
 >
     {/* HEADER */}
 <div className="flex justify-between items-start gap-4">
 
   {/* LEFT SIDE → CLIENT DETAILS */}
-  <div
-    onClick={(e) => {
-      e.stopPropagation();
-      setExpandedClient(
-        expandedClient === client.id ? null : client.id
-      );
-    }}
-    className="flex-1 space-y-1 cursor-pointer"
-  >
+  <div className="flex-1 space-y-1">
     {/* NAME */}
     <p className="font-semibold text-base">
       {client.first_name} {client.last_name}
     </p>
 
-    {/* PHONE */}
-    {client.phone && (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (isLocked) {
-            router.push("/upgrade");
-            return;
-          }
-          window.location.href = `tel:${client.phone}`;
-        }}
-        className="text-xs text-green-400"
-      >
-        📞 {client.phone}
-      </button>
-    )}
-
     {/* ADDRESS */}
-    {client.address && (
-      <p className="text-xs text-gray-400">
-        📍 {client.address}
-      </p>
-    )}
+{client.address && (
+  <p className="text-xs text-gray-400">
+    📍 {client.address}
+  </p>
+)}
 
-    {/* KEYSAFE */}
-    {client.keysafe_access && (
-      <p className="text-xs text-gray-400">
-        🔑 {client.keysafe_access}
-      </p>
-    )}
+{/* KEYSAFE */}
+{client.keysafe_access && (
+  <p className="text-xs text-yellow-400">
+    🔑 {client.keysafe_access}
+  </p>
+)}
   </div>
 
   {/* RIGHT SIDE → STACKED ACTIONS */}
@@ -981,22 +965,22 @@ if (!user) {
 
     {/* ➡️ OPEN */}
     <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-        if (isLocked) {
-          router.push("/upgrade");
-          return;
-        }
+    if (isLocked) {
+      router.push("/upgrade");
+      return;
+    }
 
-        router.push(`/clients/${client.id}`);
-      }}
-      className="text-sm bg-gray-700 px-3 py-1 rounded"
-    >
-      ➡️
-    </button>
+    router.push(`/clients/${client.id}`);
+  }}
+  className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95 z-10"
+>
+  ➡️
+</button>
 
     {/* STATUS */}
     <button
@@ -1033,25 +1017,20 @@ if (!user) {
 
     {/* EXPANDABLE */}
     {expandedClient === client.id && (
-      <div className="mt-3 space-y-1 text-sm text-gray-300">
+  <div className="mt-3 space-y-2 text-sm text-gray-300">
 
-        {assessments.dnacpr && (
-          <p className="text-red-400">🚫 DNACPR in place</p>
-        )}
-
-        {assessments.allergies && (
-          <p className="text-orange-400">
-            ⚠ Allergies recorded
-          </p>
-        )}
-
-        {client.keysafe_access && (
-          <p>🔑 Keysafe: {client.keysafe_access}</p>
-        )}
-
-        <p>Assessment: {progress}%</p>
-      </div>
+    {client.keysafe_access && (
+      <p>🔑 Keysafe: {client.keysafe_access}</p>
     )}
+
+    {client.phone && (
+      <p>📞 {client.phone}</p>
+    )}
+
+    <p>Assessment: {progress}%</p>
+
+  </div>
+)}
 
     {/* ACTIONS */}
     <div className="mt-3 flex gap-2 flex-wrap">
