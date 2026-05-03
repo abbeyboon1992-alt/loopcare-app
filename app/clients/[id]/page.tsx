@@ -712,31 +712,66 @@ const generateTasksFromCareType = async () => {
 
 const updateClient = async () => {
   console.log("🟢 UPDATE CLIENT TRIGGERED", form);
-  const { data: updatedClient, error } = await supabase
-  .from("clients")
-  .update({
-    name: form.name,
-    date_of_birth: form.date_of_birth,
-    care_type: form.care_type,
-    diagnosis: form.diagnosis,
-    address: form.address,
-    contact_number: form.contact_number,
-    keysafe_access: form.keysafe_access,
-  })
-  .eq("id", id)
-  .select();
 
-if (error) {
-  console.error("🚨 UPDATE CLIENT ERROR:", error);
-  alert("Error updating client");
-  return;
-}
+  // 🔐 GET USER
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData?.user;
 
-console.log("✅ CLIENT UPDATED:", updatedClient);
+  if (!user) {
+    console.log("❌ NO USER");
+    return;
+  }
+
+  // 🔐 GET ORG
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("organisation_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!profile?.organisation_id) {
+    console.log("❌ NO ORG ID");
+    return;
+  }
+
+  // 🧠 SPLIT NAME (important because you have both)
+  const first_name = form.name?.split(" ")[0] || "";
+  const last_name = form.name?.split(" ").slice(1).join(" ") || "";
+
+  // 🔥 UPDATE
+  const { data, error } = await supabase
+    .from("clients")
+    .update({
+      name: form.name,
+      first_name,
+      last_name,
+      date_of_birth: form.date_of_birth,
+      care_type: form.care_type,
+      diagnosis: form.diagnosis,
+      address: form.address,
+      contact_number: form.contact_number,
+      keysafe_access: form.keysafe_access,
+    })
+    .eq("id", id)
+    .eq("organisation_id", profile.organisation_id) // 🚨 CRITICAL FIX
+    .select();
+
+  if (error) {
+    console.error("🚨 UPDATE CLIENT ERROR:", error);
+    alert("Error updating client");
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    console.log("⚠️ UPDATE RETURNED NO ROWS");
+    alert("Client not updated (check permissions)");
+    return;
+  }
+
+  console.log("✅ CLIENT UPDATED:", data);
 
   setEditing(false);
 
-  // ✅ reload fresh data
   await loadClient();
 };
 
