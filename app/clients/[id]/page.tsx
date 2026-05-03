@@ -12,6 +12,7 @@ import { syncTasksWithAlerts } from "@/lib/alertEngine";
 import { generateAutoFlags } from "@/lib/flagEngine";
 import { clinicalGuidance } from "@/lib/clinicalGuidance";
 import { generateFlagAlerts } from "@/lib/flagAlerts";
+import diagnoses from "@/data/diagnoses.json";
 import { generateCarePlan } from "@/lib/carePlanGenerator";
 import {
   LineChart,
@@ -300,8 +301,14 @@ const uniqueAlerts = combined.filter(
         b.message === a.message
     )
 );
+// ❌ REMOVE OLD DIAGNOSIS ALERTS FIRST
+await supabase
+  .from("alerts")
+  .delete()
+  .eq("client_id", id)
+  .eq("source", "diagnosis");
 
-    await saveAlerts({
+await saveAlerts({
   alerts: uniqueAlerts,
   clientId: id,
 });
@@ -971,7 +978,10 @@ if (oldAddress !== form.address) {
 
   setEditing(false);
 
-  await loadClient();
+await loadClient();
+
+// ✅ FORCE ALERT REBUILD AFTER CLIENT CHANGE
+hasLoadedAssessmentRef.current = false;
 };
 
 const deleteClient = async () => {
@@ -1739,18 +1749,40 @@ const isEnforced =
   ))}
 </select>
 
-{/* DIAGNOSIS (multi) */}
-<input
-  value={form.diagnosis.join(", ")}
-  onChange={(e) =>
-    setForm({
-      ...form,
-      diagnosis: e.target.value.split(",").map(d => d.trim()),
-    })
-  }
-  className="w-full p-2 rounded bg-[var(--bg)] border"
-  placeholder="Diagnosis (comma separated)"
-/>
+{/* DIAGNOSIS (multi select) */}
+<div className="mb-3">
+  <p className="mb-2 text-sm text-[var(--muted)]">Diagnosis</p>
+
+  <div className="flex flex-wrap gap-2">
+    {diagnoses.map((d: string) => {
+      const selected = form.diagnosis.includes(d);
+
+      return (
+        <button
+          key={d}
+          type="button"
+          onClick={() => {
+            const exists = form.diagnosis.includes(d);
+
+            setForm({
+              ...form,
+              diagnosis: exists
+                ? form.diagnosis.filter((x) => x !== d)
+                : [...form.diagnosis, d],
+            });
+          }}
+          className={`px-3 py-2 rounded text-sm border ${
+            selected
+              ? "bg-blue-600 border-blue-400"
+              : "bg-[var(--bg)] border-[var(--border)]"
+          }`}
+        >
+          {d}
+        </button>
+      );
+    })}
+  </div>
+</div>
 
       {/* SAVE + CANCEL */}
       <div className="flex gap-2 mt-2">
