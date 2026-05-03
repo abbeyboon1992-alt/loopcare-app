@@ -38,6 +38,7 @@ export default function ClientMapPage() {
   const access = useAccess();
 
   const [clients, setClients] = useState<any[]>([]);
+  const [leaflet, setLeaflet] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
 
   const hasProAccess =
@@ -51,6 +52,13 @@ export default function ClientMapPage() {
       setUser(data.session?.user ?? null);
     });
   }, []);
+
+  useEffect(() => {
+  import("leaflet").then((L) => {
+    setLeaflet(L);
+  });
+}, []);
+
 
   // 📦 LOAD CLIENTS
   useEffect(() => {
@@ -152,6 +160,10 @@ const calculateRiskScore = (client: any) => {
   return score;
 };
 
+if (!access) {
+  return <div className="h-screen flex items-center justify-center text-white">Loading...</div>;
+}
+
   return (
     <div className="h-screen w-full bg-black">
 
@@ -180,7 +192,7 @@ const calculateRiskScore = (client: any) => {
           </div>
         </div>
       )}
-
+{leaflet && (
       <MapContainer
   center={[53.258, -2.125]}
   zoom={11}
@@ -198,62 +210,65 @@ const calculateRiskScore = (client: any) => {
 
   {/* ✅ MARKERS */}
   {clients.filter(isMappedClient).map((client) => {
-    const score = calculateRiskScore(client);
+  if (!leaflet) return null;
 
-    const icon = new (require("leaflet")).Icon({
-      iconUrl:
-        score >= 6
-          ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
-          : score >= 3
-          ? "https://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
-          : "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
-      iconSize: [32, 32],
-    });
+  const score = calculateRiskScore(client);
 
-    return (
-      <Marker key={client.id} position={[client.lat, client.lng]} icon={icon}>
-        <Popup>
-          <div className="text-sm space-y-1">
+  const icon = new leaflet.Icon({
+    iconUrl:
+      score >= 6
+        ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
+        : score >= 3
+        ? "https://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
+        : "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
+    iconSize: [32, 32],
+  });
 
-            <p className="font-semibold">
-              {client.first_name} {client.last_name}
+  return (
+    <Marker key={client.id} position={[client.lat, client.lng]} icon={icon}>
+      <Popup>
+        <div className="text-sm space-y-1">
+
+          <p className="font-semibold">
+            {client.first_name} {client.last_name}
+          </p>
+
+          {client.address && (
+            <p className="text-xs text-gray-400">
+              📍 {client.address}
             </p>
+          )}
 
-            {client.address && (
-              <p className="text-xs text-gray-400">
-                📍 {client.address}
-              </p>
-            )}
-
-            {client.keysafe_access && (
-              <p className="text-xs text-yellow-400">
-                🔑 {client.keysafe_access}
-              </p>
-            )}
-
-            {client.phone && (
-              <p className="text-xs text-green-400">
-                📞 {client.phone}
-              </p>
-            )}
-
-            <p className="text-xs mt-1">
-              Risk: {score >= 6 ? "CRITICAL" : score >= 3 ? "HIGH" : "LOW"}
+          {client.keysafe_access && (
+            <p className="text-xs text-yellow-400">
+              🔑 {client.keysafe_access}
             </p>
+          )}
 
-            <button
-              onClick={() => router.push(`/clients/${client.id}`)}
-              className="text-blue-400 text-xs mt-2"
-            >
-              Open profile →
-            </button>
+          {client.phone && (
+            <p className="text-xs text-green-400">
+              📞 {client.phone}
+            </p>
+          )}
 
-          </div>
-        </Popup>
-      </Marker>
-    );
-  })}
+          <p className="text-xs mt-1">
+            Risk: {score >= 6 ? "CRITICAL" : score >= 3 ? "HIGH" : "LOW"}
+          </p>
+
+          <button
+            onClick={() => router.push(`/clients/${client.id}`)}
+            className="text-blue-400 text-xs mt-2"
+          >
+            Open profile →
+          </button>
+
+        </div>
+      </Popup>
+    </Marker>
+  );
+})}
 </MapContainer>
+)}
     </div>
   );
 }
