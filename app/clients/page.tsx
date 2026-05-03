@@ -483,8 +483,8 @@ if (!access) {
   return <div className="p-6 text-white">Loading access...</div>;
 }
 
-if (!user && !authLoading) {
-  return <div className="p-6 text-white">No user</div>;
+if (!user) {
+  return null; // ⬅️ IMPORTANT: don't render anything yet
 }
  return (
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
@@ -505,10 +505,10 @@ if (!user && !authLoading) {
           {access?.plan !== "pro" && (
             <button
   type="button"
-  onClick={() => window.location.href = "/upgrade"}
-  className="bg-blue-600 px-3 py-1 rounded text-xs"
+  onClick={() => router.push("/upgrade")}
+  className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition relative z-50"
 >
-  Upgrade
+  Upgrade Now
 </button>
           )}
         </div>
@@ -859,9 +859,12 @@ if (!user && !authLoading) {
     <button
   type="button"
   onClick={() => {
-    console.log("CLICK WORKED");
-    router.push(`/clients/${client.id}`);
-  }}
+  if (isLocked) {
+    router.push("/upgrade");
+    return;
+  }
+  router.push(`/clients/${client.id}`);
+}}
   className="w-10 h-10 bg-red-600"
 >
   ➡️
@@ -901,7 +904,7 @@ if (!user && !authLoading) {
     <button
       type="button"
       onClick={() => router.push("/upgrade")}
-      className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition"
+      className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition relative z-50"
     >
       Upgrade Now
     </button>
@@ -912,34 +915,24 @@ if (!user && !authLoading) {
     <div className="mt-3 flex gap-2 flex-wrap relative z-[9999]">
 
       {!hasAssessment && (
-        <button
-  type="button"
-  onClick={() => {
-    if (isLocked) {
-      router.push("/upgrade");
-    } else {
-      router.push(`/assessments?client=${client.id}`);
-    }
-  }}
-  className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
->
-  Start Assessment
-</button>
-      )}
+  <button
+    type="button"
+    onClick={() => router.push(`/assessments?client=${client.id}`)}
+    className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
+  >
+    Start Assessment
+  </button>
+)}
 
       {isAssessmentStarted && (
-        <button type="button" onClick={() => {
-  if (isLocked) {
-    window.location.href = "/upgrade";
-  } else {
-    window.location.href = `/assessments?client=${client.id}`;
-  }
-}}
-          className="text-xs bg-yellow-600 px-2 py-1 rounded"
-        >
-          Continue Assessment
-        </button>
-      )}
+  <button
+    type="button"
+    onClick={() => router.push(`/assessments?client=${client.id}`)}
+    className="text-xs bg-yellow-600 px-2 py-1 rounded"
+  >
+    Continue Assessment
+  </button>
+)}
 
       {isAssessmentComplete && (
         <span className="text-xs bg-green-600 px-2 py-1 rounded">

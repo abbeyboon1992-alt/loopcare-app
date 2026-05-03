@@ -39,6 +39,8 @@ const [preferences, setPreferences] = useState("");
 const [goals, setGoals] = useState("");
 const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 const [latestSummary, setLatestSummary] = useState<any>(null);
+const [authLoading, setAuthLoading] = useState(true);
+const [user, setUser] = useState<any>(null);
 const isNewAlert = (created_at: string) => {
   const diff = Date.now() - new Date(created_at).getTime();
   return diff < 1000 * 60 * 60 * 24; // 24 hours
@@ -237,6 +239,27 @@ const loadResolvedAlerts = async () => {
 
   setResolvedAlerts(data || []);
 };
+
+useEffect(() => {
+  let mounted = true;
+
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!mounted) return;
+    setUser(session?.user ?? null);
+    setAuthLoading(false);
+  });
+
+  const { data: listener } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+      setUser(session?.user ?? null);
+    }
+  );
+
+  return () => {
+    mounted = false;
+    listener.subscription.unsubscribe();
+  };
+}, []);
 
 useEffect(() => {
   if (!id || !client || hasLoadedAssessmentRef.current) return;
@@ -1267,7 +1290,7 @@ const syncCarePlanWithVisits = async (visits: any[]) => {
 useEffect(() => {
   if (!id) return;
   loadAlerts();
-}, [id]);
+}, [id, user]);
 
 
 useEffect(() => {
@@ -1650,9 +1673,20 @@ useEffect(() => {
   escalationRanRef.current = false;
 }, [id]);
 
+// 🔐 AUTH GUARD (ADD THIS HERE)
+if (authLoading) {
+  return <div className="p-6 text-white">Loading...</div>;
+}
+
+if (!user) {
+  return null;
+}
+
+// ✅ EXISTING GUARDS (leave these)
 if (!id) {
   return <div className="p-6">Invalid client</div>;
 }
+
 if (!client) {
   return <div className="p-6 text-[var(--text)]">Loading client...</div>;
 }
