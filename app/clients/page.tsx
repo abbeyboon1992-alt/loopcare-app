@@ -1027,11 +1027,6 @@ if (!user) {
       </p>
     )}
 
-    {/* KEYSAFE */}
-    {client.keysafe_access && (
-      <p>🔑 Keysafe: {client.keysafe_access}</p>
-    )}
-
     {/* PHONE (CLICK TO CALL) */}
     {client.phone && (
       <button
