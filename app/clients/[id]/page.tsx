@@ -70,7 +70,10 @@ const getLiveClinicalPreview = () => {
     message: a.message || a,
   }));
 
-  const combined = [...dbAlerts, ...normalisedAI];
+  const combined = [
+  ...dbAlerts.filter(a => a.source !== "diagnosis"),
+  ...normalisedAI,
+];
 
   const unique = combined.filter(
     (a, i, self) =>
@@ -341,16 +344,17 @@ for (const section of sections) {
       .eq("status", "active");
 
     await removeResolvedActionsFromCarePlan({
-      clientId: id,
-      activeAlerts: freshAlerts || [],
-    });
+  clientId: id,
+  activeAlerts: freshAlerts || [],
+});
 
-    await syncTasksWithAlerts({
-      clientId: id,
-      activeAlerts: freshAlerts || [],
-    });
+await syncTasksWithAlerts({
+  clientId: id,
+  activeAlerts: freshAlerts || [],
+});
 
-    loadAlerts();
+await loadAlerts();
+await syncAlertsWithCarePlan(); 
   };
 
   loadAssessment();
@@ -911,45 +915,26 @@ const syncEverythingAfterDiagnosisChange = async (updatedClient: any) => {
 
   console.log("🧠 FULL SYNC AFTER DIAGNOSIS CHANGE");
 
-  const { data: existingDiagnosisAlerts } = await supabase
-    .from("alerts")
-    .select("*")
-    .eq("client_id", id)
-    .eq("source", "diagnosis")
-    .eq("status", "active");
+  await supabase
+  .from("alerts")
+  .delete()
+  .eq("client_id", id)
+  .eq("source", "diagnosis");
 
-  const newAlerts = generateDiagnosisAlerts(updatedClient);
-  const newTypes = newAlerts.map(a => a.type);
+  const hasDiagnosis =
+  Array.isArray(updatedClient.diagnosis) &&
+  updatedClient.diagnosis.length > 0;
 
-  // 🔻 RESOLVE OLD
-  for (const alert of existingDiagnosisAlerts || []) {
-    if (!newTypes.includes(alert.type)) {
-      await supabase
-        .from("alerts")
-        .update({
-          status: "resolved",
-          invalidated: true,
-          resolved_by: "diagnosis_change",
-          closed_at: new Date().toISOString(),
-        })
-        .eq("id", alert.id);
-    }
-  }
-
-  // 🔺 INSERT NEW
-  const existingTypes =
-    existingDiagnosisAlerts?.map(a => a.type) || [];
-
-  const alertsToInsert = newAlerts.filter(
-    a => !existingTypes.includes(a.type)
-  );
-
-  if (alertsToInsert.length > 0) {
-    await saveAlerts({
-      alerts: alertsToInsert,
-      clientId: id,
-    });
-  }
+const newAlerts = hasDiagnosis
+  ? generateDiagnosisAlerts(updatedClient)
+  : [];
+  
+if (newAlerts.length > 0) {
+  await saveAlerts({
+    alerts: newAlerts,
+    clientId: id,
+  });
+}
 
   // 🔁 GET ASSESSMENT
   const { data: assessment } = await supabase
@@ -958,6 +943,12 @@ const syncEverythingAfterDiagnosisChange = async (updatedClient: any) => {
     .eq("client_id", id)
     .maybeSingle();
 
+    // 🔥 REMOVE OLD SYSTEM-GENERATED CARE PLAN (prevents ghost alerts)
+await supabase
+  .from("care_plan_section")
+  .delete()
+  .eq("client_id", id)
+  .eq("system_generated", true);
   // 🔁 CARE PLAN
   const sections = generateCarePlan({
     client: updatedClient,
@@ -1130,7 +1121,9 @@ await loadClient();
 // ✅ rebuild diagnosis alerts with NEW data
 await syncEverythingAfterDiagnosisChange({
   ...client,
-  diagnosis: form.diagnosis,
+  diagnosis: Array.isArray(form.diagnosis)
+    ? form.diagnosis
+    : [],
   care_type: form.care_type,
 });
 
@@ -1399,6 +1392,7 @@ await syncTasksWithAlerts({
   activeAlerts: freshAlerts || [],
 });
 await syncCarePlanWithVisits(visits);
+await syncAlertsWithCarePlan(); 
   };
   
 
@@ -1549,17 +1543,29 @@ const syncAlertsWithCarePlan = async () => {
     .eq("status", "active");
 
   for (const section of sections) {
-    const isRisk =
-      section.outcome?.toLowerCase().includes("risk") ||
-      section.outcome?.toLowerCase().includes("declin") ||
-      section.outcome?.toLowerCase().includes("concern");
+    const outcome = section.outcome?.toLowerCase() || "";
 
-    const existing = existingAlerts?.find(
-      (a) => a.type === section.section_title
-    );
+const isRisk =
+  outcome.includes("risk") ||
+  outcome.includes("declin") ||
+  outcome.includes("concern");
 
-    // 🚨 CREATE ALERT
-    if (isRisk && !existing) {
+// 🔥 BLOCK DIAGNOSIS-DRIVEN ALERTS WHEN NONE EXISTS
+const hasDiagnosis =
+  client?.diagnosis &&
+  Array.isArray(client.diagnosis) &&
+  client.diagnosis.length > 0;
+
+if (!hasDiagnosis && section.source === "diagnosis") {
+  continue;
+}
+
+const existing = existingAlerts?.find(
+  (a) => a.type === section.section_title
+);
+
+// 🚨 CREATE ALERT
+if (isRisk && !existing) {
       await supabase.from("alerts").insert([
         {
           client_id: id,
@@ -2394,6 +2400,7 @@ const isEnforced =
 
       loadAlerts();
       loadResolvedAlerts();
+      await syncAlertsWithCarePlan(); 
     }}
       className="flex-1 border border-green-500 text-green-500 py-1 rounded text-[11px] text-center"
     >
