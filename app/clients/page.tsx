@@ -90,7 +90,6 @@ const [showInactiveModal, setShowInactiveModal] = useState(false);
 const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 const [inactiveReason, setInactiveReason] = useState("");
 const [loadingAddresses, setLoadingAddresses] = useState(false);
-const [expandedClient, setExpandedClient] = useState<string | null>(null);
 const [search, setSearch] = useState("");
 // ✅ helper: only active clients with valid coords
 const isActiveMappedClient = (c: any) =>
@@ -762,7 +761,7 @@ if (!user) {
 {/* 🗺️ CLIENT MAP */}
 <div
   className={`mb-8 rounded-xl overflow-hidden relative ${
-  !hasProAccess ? "blur-[2px] brightness-75" : ""
+  !hasProAccess ? "brightness-75" : ""
 }`}
 >
 
@@ -923,17 +922,10 @@ if (!user) {
   return (
   <div
   key={client.id}
-  className={`bg-[var(--card)] p-4 sm:p-5 rounded-xl border shadow-sm cursor-pointer ${
+  className={`bg-[var(--card)] p-4 sm:p-5 rounded-xl border shadow-sm ${
     isLocked ? "opacity-50 border-blue-600" : borderColor
   }`}
-  onClick={(e) => {
-  // ONLY toggle if clicking LEFT area
-  if ((e.target as HTMLElement).closest("button")) return;
-
-  setExpandedClient(
-    expandedClient === client.id ? null : client.id
-  );
-}}
+  onClick={() => {}}
 >
     {/* HEADER */}
 <div className="flex justify-between items-start gap-4">
@@ -961,7 +953,7 @@ if (!user) {
   </div>
 
   {/* RIGHT SIDE → STACKED ACTIONS */}
-  <div className="flex flex-col items-end gap-2">
+  <div className="flex flex-col items-end gap-2 relative z-20">
 
     {/* ➡️ OPEN */}
     <button
@@ -977,7 +969,7 @@ if (!user) {
 
     router.push(`/clients/${client.id}`);
   }}
-  className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95 z-10"
+  className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95"
 >
   ➡️
 </button>
@@ -1010,42 +1002,38 @@ if (!user) {
   </div>
 </div>
 {isLocked && (
-  <div className="mt-2 text-xs text-blue-400 font-medium">
-    🔒 Free trial only – upgrade to access
-  </div>
-)}
+  <div>
+    <div className="mt-2 text-xs text-blue-400 font-medium">
+      🔒 Free trial only – upgrade to access
+    </div>
 
-    {/* EXPANDABLE */}
-    {expandedClient === client.id && (
-  <div className="mt-3 space-y-2 text-sm text-gray-300">
+    <div className="mt-3 space-y-2 text-sm text-gray-300">
+      {/* DOB */}
+      {client.date_of_birth && (
+        <p>
+          🎂 {new Date(client.date_of_birth).toLocaleDateString()}
+        </p>
+      )}
 
-    {/* DOB */}
-    {client.date_of_birth && (
-      <p>
-        🎂{" "}
-        {new Date(client.date_of_birth).toLocaleDateString()}
-      </p>
-    )}
-
-    {/* PHONE (CLICK TO CALL) */}
-    {client.phone && (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          window.location.href = `tel:${client.phone}`;
-        }}
-        className="text-green-400 underline"
-      >
-        📞 {client.phone}
-      </button>
-    )}
-
+      {/* PHONE */}
+      {client.phone && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.location.href = `tel:${client.phone}`;
+          }}
+          className="text-green-400 underline"
+        >
+          📞 {client.phone}
+        </button>
+      )}
+    </div>
   </div>
 )}
 
     {/* ACTIONS */}
-    <div className="mt-3 flex gap-2 flex-wrap">
+    <div className="mt-3 flex gap-2 flex-wrap relative z-20">
 
       {!hasAssessment && (
         <button type="button" onClick={(e) => {
