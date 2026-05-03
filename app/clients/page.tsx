@@ -1005,7 +1005,7 @@ if (!user && !authLoading) {
     <button
   type="button"
   onClick={() => {
-    document.body.innerHTML = "<h1 style='color:white'>CLICK WORKED</h1>";
+    console.log("CLICK WORKED");
   }}
   className="w-10 h-10 bg-red-600"
 >
