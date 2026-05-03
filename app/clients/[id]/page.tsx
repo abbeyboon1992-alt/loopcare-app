@@ -332,7 +332,7 @@ for (const section of sections) {
         updated_at: new Date().toISOString(),
       },
       {
-        onConflict: "client_id,section_title",
+        onConflict: "care_plan_section_unique"
       }
     );
 }
@@ -547,7 +547,7 @@ if (!exists) return;
   // 🔁 UPSERT (prevent duplicates)
   await supabase
     .from("care_plan_section")
-    .upsert(section, { onConflict: "client_id,section_title" });
+    .upsert(section, { onConflict: "care_plan_section_unique"});
 
   console.log("🚨 Care plan safeguarding enforced");
 };
@@ -1501,7 +1501,7 @@ useEffect(() => {
             updated_at: new Date().toISOString(),
           },
           {
-            onConflict: "client_id,section_title",
+            onConflict: "care_plan_section_unique"
           }
         );
     }
