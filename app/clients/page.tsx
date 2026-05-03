@@ -523,34 +523,34 @@ if (!access) {
 if (!user) {
   return <div className="p-6 text-white">No user</div>;
 }
-  return (
-  <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6 pt-12">
-    {access?.trial_end && (
-  <div
-  className={`mb-4 px-4 py-2 rounded-lg flex justify-between items-center text-sm ${
-    isTrialActive
-      ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500"
-      : "bg-red-600/20 text-red-300 border border-red-600"
-  }`}
->
-  <span className="font-medium">
-    {isTrialActive
-      ? `⏳ Trial: ${timeLeft} left`
-      : "🚫 Trial ended — upgrade to unlock features"}
-  </span>
+ return (
+  <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
 
-  {!hasProAccess && (
-    <button type="button" onClick={(e) => {
-        e.stopPropagation();
-        router.push("/upgrade");
-      }}
-      className="bg-red-600 px-3 py-1 rounded text-xs"
-    >
-      Upgrade
-    </button>
-  )}
-</div>
-)}
+    {/* 🔒 STICKY UPGRADE BAR */}
+    <div className="sticky top-0 z-50 px-6 pt-4">
+      {access && (
+        <div className="px-4 py-2 rounded-lg flex justify-between items-center text-sm bg-[var(--card)] border border-[var(--border)] shadow-md">
+          
+          <span className="font-medium">
+            {isTrialActive
+              ? `⏳ Trial: ${timeLeft} left`
+              : access?.plan === "pro"
+              ? "✅ Pro Plan Active"
+              : "🔓 Free Plan"}
+          </span>
+
+          {access?.plan !== "pro" && (
+            <button
+              onClick={() => router.push("/upgrade")}
+              className="bg-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-700 transition"
+            >
+              Upgrade
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+    <div className="p-6 pt-4"></div>
       <div className="flex justify-between items-center mb-6">
   <div className="flex gap-2">
     <input
@@ -760,14 +760,17 @@ if (!user) {
       )}
 {/* 🗺️ CLIENT MAP */}
 <div
-  className={`mb-8 rounded-xl overflow-hidden relative ${
-  !hasProAccess ? "brightness-75" : ""
-}`}
+  onClick={() => {
+    if (!hasProAccess) router.push("/upgrade");
+  }}
+  className={`mb-8 rounded-xl overflow-hidden relative cursor-pointer ${
+    !hasProAccess ? "brightness-75" : ""
+  }`}
 >
 
   {/* 🔒 LOCK OVERLAY */}
   {!hasProAccess && (
-   <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none">
+   <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
 
   <p className="font-semibold text-sm mb-2">
@@ -782,11 +785,10 @@ if (!user) {
     Without this, you're working blind.
   </p>
 
-  <button type="button" onClick={(e) => {
-    e.stopPropagation();
-    router.push("/upgrade");
-  }}
-  className="bg-blue-600 px-4 py-2 rounded text-xs"
+  <button
+  type="button"
+  onClick={() => router.push("/upgrade")}
+  className="bg-blue-600 px-4 py-2 rounded text-xs hover:bg-blue-700 transition"
 >
     Unlock Map & Routes
   </button>
@@ -950,6 +952,27 @@ if (!user) {
     🔑 {client.keysafe_access}
   </p>
 )}
+
+{/* DOB */}
+{client.date_of_birth && (
+  <p className="text-xs text-gray-400">
+    🎂 {new Date(client.date_of_birth).toLocaleDateString()}
+  </p>
+)}
+
+{/* PHONE (click to call) */}
+{client.phone && (
+  <button
+    type="button"
+    onClick={(e) => {
+      e.stopPropagation();
+      window.location.href = `tel:${client.phone}`;
+    }}
+    className="text-xs text-green-400 text-left"
+  >
+    📞 {client.phone}
+  </button>
+)}
   </div>
 
   {/* RIGHT SIDE → STACKED ACTIONS */}
@@ -1002,33 +1025,18 @@ if (!user) {
   </div>
 </div>
 {isLocked && (
-  <div>
-    <div className="mt-2 text-xs text-blue-400 font-medium">
-      🔒 Free trial only – upgrade to access
-    </div>
+  <div className="mt-2">
+    <p className="text-xs text-blue-400 font-medium mb-2">
+      🔒 Upgrade to unlock this client
+    </p>
 
-    <div className="mt-3 space-y-2 text-sm text-gray-300">
-      {/* DOB */}
-      {client.date_of_birth && (
-        <p>
-          🎂 {new Date(client.date_of_birth).toLocaleDateString()}
-        </p>
-      )}
-
-      {/* PHONE */}
-      {client.phone && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            window.location.href = `tel:${client.phone}`;
-          }}
-          className="text-green-400 underline"
-        >
-          📞 {client.phone}
-        </button>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={() => router.push("/upgrade")}
+      className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition"
+    >
+      Upgrade Now
+    </button>
   </div>
 )}
 
