@@ -527,7 +527,7 @@ if (!user) {
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
 
     {/* 🔒 STICKY UPGRADE BAR */}
-    <div className="sticky top-0 z-50 px-6 pt-4">
+    <div className="sticky top-0 z-30 px-6 pt-4">
       {access && (
         <div className="px-4 py-2 rounded-lg flex justify-between items-center text-sm bg-[var(--card)] border border-[var(--border)] shadow-md">
           
@@ -550,7 +550,7 @@ if (!user) {
         </div>
       )}
     </div>
-    <div className="p-6 pt-4"></div>
+    <div className="p-6 pt-4">
       <div className="flex justify-between items-center mb-6">
   <div className="flex gap-2">
     <input
@@ -562,6 +562,7 @@ if (!user) {
 
     {/* EXISTING ADD CLIENT BUTTON */}
     <button type="button" onClick={() => {
+      console.log("CLICK WORKING");
     if (isFreeUser && clients.length >= 1) {
       alert("Free plan allows 1 client only. Upgrade to add more.");
       return;
@@ -758,20 +759,11 @@ if (!user) {
           </button>
         </div>
       )}
-{/* 🗺️ CLIENT MAP */}
-<div
-  onClick={() => {
-    if (!hasProAccess) router.push("/upgrade");
-  }}
-  className={`mb-8 rounded-xl overflow-hidden relative cursor-pointer ${
-    !hasProAccess ? "brightness-75" : ""
-  }`}
->
 
   {/* 🔒 LOCK OVERLAY */}
   {!hasProAccess && (
-   <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
-      <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg">
+   <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50 pointer-events-none">
+      <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg pointer-events-auto">
 
   <p className="font-semibold text-sm mb-2">
     🔒 You're Missing Route Planning
@@ -788,7 +780,7 @@ if (!user) {
   <button
   type="button"
   onClick={() => router.push("/upgrade")}
-  className="bg-blue-600 px-4 py-2 rounded text-xs hover:bg-blue-700 transition"
+  className="pointer-events-auto bg-blue-600 px-4 py-2 rounded text-xs"
 >
     Unlock Map & Routes
   </button>
@@ -962,9 +954,7 @@ if (!user) {
 
 {/* PHONE (click to call) */}
 {client.phone && (
-  <button
-    type="button"
-    onClick={(e) => {
+  <button type="button" onClick={(e) => {
       e.stopPropagation();
       window.location.href = `tel:${client.phone}`;
     }}
@@ -976,12 +966,11 @@ if (!user) {
   </div>
 
   {/* RIGHT SIDE → STACKED ACTIONS */}
-  <div className="flex flex-col items-end gap-2 relative z-20">
+  <div className="flex flex-col items-end gap-2 relative z-30">
 
     {/* ➡️ OPEN */}
-    <button
-  type="button"
-  onClick={(e) => {
+    <button type="button" onClick={(e) => {
+      console.log("CLICK WORKING");
     e.preventDefault();
     e.stopPropagation();
 
@@ -991,6 +980,7 @@ if (!user) {
     }
 
     router.push(`/clients/${client.id}`);
+router.refresh();
   }}
   className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95"
 >
@@ -998,9 +988,7 @@ if (!user) {
 </button>
 
     {/* STATUS */}
-    <button
-      type="button"
-      onClick={(e) => {
+    <button type="button" onClick={(e) => {
         e.stopPropagation();
         if (isLocked) {
           router.push("/upgrade");
@@ -1045,14 +1033,16 @@ if (!user) {
 
       {!hasAssessment && (
         <button type="button" onClick={(e) => {
+          console.log("CLICK WORKING");
             e.stopPropagation();
             if (isLocked) {
     router.push("/upgrade");
     return;
   }
             router.push(`/assessments?client=${client.id}`);
+router.refresh();
           }}
-          className="text-xs bg-blue-600 px-2 py-1 rounded"
+          className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
         >
           Start Assessment
         </button>
@@ -1060,6 +1050,7 @@ if (!user) {
 
       {isAssessmentStarted && (
         <button type="button" onClick={(e) => {
+          console.log("CLICK WORKING");
             e.stopPropagation();
             if (isLocked) {
     router.push("/upgrade");
