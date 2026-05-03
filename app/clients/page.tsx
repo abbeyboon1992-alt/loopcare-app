@@ -6,6 +6,7 @@ declare global {
   }
 }
 import "leaflet/dist/leaflet.css";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
 import { supabase } from "@/lib/supabase";
@@ -541,13 +542,9 @@ if (!user) {
           </span>
 
           {access?.plan !== "pro" && (
-            <button
-  type="button"
-  onClick={() => router.push("/upgrade")}
-              className="bg-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-700 transition"
-            >
-              Upgrade
-            </button>
+            <Link href="/upgrade" className="bg-blue-600 px-3 py-1 rounded text-xs">
+  Upgrade
+</Link>
           )}
         </div>
       )}
@@ -785,13 +782,9 @@ if (!user) {
           Without this, you're working blind.
         </p>
 
-        <button
-  type="button"
-  onClick={() => router.push("/upgrade")}
-          className="bg-blue-600 px-4 py-2 rounded text-xs"
-        >
-          Unlock Map & Routes
-        </button>
+        <Link href="/upgrade" className="bg-blue-600 px-3 py-1 rounded text-xs">
+  Upgrade
+</Link>
 
       </div>
     </div>
@@ -987,18 +980,12 @@ zoomControl={!!hasProAccess}
   <div className="mt-3 flex gap-2 flex-wrap relative z-50">
 
     {/* ➡️ OPEN */}
-    <button type="button" onClick={() => {
-  if (isLocked) {
-    router.push("/upgrade");
-    return;
-  }
-
-  router.push(`/clients/${client.id}`);
-}}
+    <Link
+  href={isLocked ? "/upgrade" : `/clients/${client.id}`}
   className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95"
 >
   ➡️
-</button>
+</Link>
 
     {/* STATUS */}
     <button type="button" onClick={(e) => {
@@ -1045,19 +1032,12 @@ zoomControl={!!hasProAccess}
     <div className="mt-3 flex gap-2 flex-wrap relative z-50">
 
       {!hasAssessment && (
-        <button type="button" onClick={(e) => {
-          console.log("CLICK WORKING");
-            e.stopPropagation();
-            if (isLocked) {
-    router.push("/upgrade");
-    return;
-  }
-            router.push(`/assessments?client=${client.id}`);
-          }}
-          className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
-        >
-          Start Assessment
-        </button>
+        <Link
+  href={isLocked ? "/upgrade" : `/assessments?client=${client.id}`}
+  className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
+>
+  Start Assessment
+</Link>
       )}
 
       {isAssessmentStarted && (
