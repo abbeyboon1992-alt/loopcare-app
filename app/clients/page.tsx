@@ -922,7 +922,7 @@ if (!user) {
       {!hasAssessment && (
   <button
     type="button"
-    onClick={() => router.push(`/assessments?client=${client.id}`)}
+    onClick={() => router.push("/clients/map")}
     className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
   >
     Start Assessment
