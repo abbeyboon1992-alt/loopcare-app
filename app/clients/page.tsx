@@ -1,5 +1,4 @@
 "use client";
-export const dynamic = "force-dynamic";
 declare global {
   interface Window {
     google: any;
@@ -117,10 +116,9 @@ setClients(clientsData || []);
 };
 
 useEffect(() => {
-  if (!user) return;
-
+  if (!user?.id) return;
   loadClients();
-}, [user]);
+}, [user?.id]);
 
 useEffect(() => {
   console.log("ACCESS:", access);
@@ -129,11 +127,16 @@ useEffect(() => {
 useEffect(() => {
   let mounted = true;
 
-  supabase.auth.getSession().then(({ data: { session } }) => {
+  const initAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+
     if (!mounted) return;
+
     setUser(session?.user ?? null);
     setAuthLoading(false);
-  });
+  };
+
+  initAuth();
 
   const { data: listener } = supabase.auth.onAuthStateChange(
     (_event, session) => {
@@ -143,7 +146,7 @@ useEffect(() => {
 
   return () => {
     mounted = false;
-    listener.subscription.unsubscribe();
+    listener?.subscription.unsubscribe();
   };
 }, []);
 
@@ -484,7 +487,7 @@ if (!access) {
 }
 
 if (!user) {
-  return null; // ⬅️ IMPORTANT: don't render anything yet
+  return <div className="p-6 text-white">Loading user...</div>;
 }
  return (
   <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
@@ -505,7 +508,10 @@ if (!user) {
           {access?.plan !== "pro" && (
             <button
   type="button"
-  onClick={() => router.push("/upgrade")}
+  onClick={(e) => {
+  e.stopPropagation();
+  router.push("/upgrade");
+}}
   className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-700 transition relative z-50"
 >
   Upgrade Now
@@ -806,7 +812,6 @@ if (!user) {
   className={`bg-[var(--card)] p-4 sm:p-5 rounded-xl border shadow-sm ${
     isLocked ? "opacity-50 border-blue-600" : borderColor
   }`}
-  onClick={() => {}}
 >
     {/* HEADER */}
 <div className="flex justify-between items-start gap-4">
@@ -853,7 +858,7 @@ if (!user) {
   </div>
 
   {/* RIGHT SIDE → STACKED ACTIONS */}
-  <div className="mt-3 flex gap-2 flex-wrap relative z-[9999]">
+  <div className="mt-3 flex gap-2 flex-wrap">
 
     {/* ➡️ OPEN */}
     <button
@@ -912,7 +917,7 @@ if (!user) {
 )}
 
     {/* ACTIONS */}
-    <div className="mt-3 flex gap-2 flex-wrap relative z-[9999]">
+    <div className="mt-3 flex gap-2 flex-wrap">
 
       {!hasAssessment && (
   <button
