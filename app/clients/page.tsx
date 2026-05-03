@@ -25,6 +25,13 @@ const handleLogout = async () => {
 const [alerts, setAlerts] = useState<any[]>([]);
 
 const access = useAccess();
+const [accessReady, setAccessReady] = useState(false);
+
+useEffect(() => {
+  if (access) {
+    setAccessReady(true);
+  }
+}, [access]);
 const hasProAccess = !!(
   access?.plan === "pro" ||
   (access?.trial_end &&
@@ -471,18 +478,21 @@ const updateClientStatus = async (
   setShowInactiveModal(false);
 };
 const isTrialActive =
+  accessReady &&
   !!access?.trial_end &&
   !isNaN(new Date(access.trial_end as string).getTime()) &&
   new Date(access.trial_end as string).getTime() > Date.now();
 
-  const isFreeUser = access?.plan !== "pro" && !isTrialActive;
-  
+const isFreeUser =
+  accessReady &&
+  access?.plan !== "pro" &&
+  !isTrialActive;
 
 if (authLoading) {
   return <div className="p-6 text-white">Loading...</div>;
 }
 
-if (!access) {
+if (!accessReady) {
   return <div className="p-6 text-white">Loading access...</div>;
 }
 
@@ -561,13 +571,16 @@ if (!user) {
 {/* 🗺️ NEW MAP BUTTON */}
 <button
   type="button"
-  onClick={() => {
-    if (isFreeUser) {
-      router.push("/upgrade");
-    } else {
-      router.push("/clients/map");
-    }
-  }}
+  onClick={(e) => {
+  e.stopPropagation();
+  if (!accessReady) return;
+
+  if (isFreeUser) {
+    router.push("/upgrade");
+  } else {
+    router.push("/clients/map");
+  }
+}}
   className={`px-4 py-2 rounded text-sm flex items-center gap-2 ${
     isFreeUser
       ? "bg-gray-700 text-gray-300"
@@ -863,11 +876,15 @@ if (!user) {
     {/* ➡️ OPEN */}
     <button
   type="button"
-  onClick={() => {
+  onClick={(e) => {
+  e.stopPropagation();
+  if (!accessReady) return;
+
   if (isLocked) {
     router.push("/upgrade");
     return;
   }
+
   router.push(`/clients/${client.id}`);
 }}
   className="w-12 h-12 flex items-center justify-center bg-red-600 rounded"
@@ -922,7 +939,12 @@ if (!user) {
       {!hasAssessment && (
   <button
     type="button"
-    onClick={() => router.push(`/assessments?client=${client.id}`)}
+    onClick={(e) => {
+  e.stopPropagation();
+  if (!accessReady) return;
+
+  router.push(`/assessments?client=${client.id}`);
+}}
     className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
   >
     Start Assessment
