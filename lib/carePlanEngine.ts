@@ -1,5 +1,8 @@
 import { supabase } from "@/lib/supabase";
-
+import { clinicalGuidance } from "@/lib/clinicalGuidance";
+const getSectionFromAlert = (alert: AlertItem) => {
+  return alert.section_title || "Risks & Safety";
+};
 /* ---------------- TYPES ---------------- */
 
 type AlertItem = {
@@ -94,14 +97,24 @@ export function generateCarePlan(
   }
 
   alerts.forEach((alert: AlertItem) => {
-    const section = alert.section_title || "Risks & Safety";
+  const section = alert.section_title || "Risks & Safety";
 
-    addSection(section, {
-      care_need: alert.message,
-      outcome: "Risk monitored and managed",
-      actions: alert.action || alert.message,
-    });
+  const guidance = clinicalGuidance[alert.type];
+
+  addSection(section, {
+    care_need:
+      guidance?.explanation || alert.message,
+
+    outcome:
+      guidance?.outcome ||
+      "Risk monitored and managed",
+
+    actions:
+      guidance?.actions?.length
+        ? guidance.actions
+        : [alert.action || alert.message],
   });
+});
 
   return Object.values(sectionMap).map((s: any) => ({
     title: s.title,
@@ -127,13 +140,55 @@ export async function applyAlertsToCarePlan({
 
   if (!sections) return;
 
-  for (const section of sections) {
+  // 🔥 CREATE MAP
+const sectionMap = new Map(
+  sections.map((s: any) => [s.title, s])
+);
+
+// 🔥 AUTO-CREATE MISSING SECTIONS
+for (const alert of alerts) {
+  const sectionTitle = getSectionFromAlert(alert).trim().toLowerCase();
+
+  if (sectionMap.has(sectionTitle)) continue;
+
+  const guidance = clinicalGuidance[alert.type];
+
+  const newSection = {
+    client_id: clientId,
+    title: sectionTitle,
+    care_need:
+      guidance?.explanation || alert.message,
+    outcome:
+      guidance?.outcome || "Risk monitored and managed",
+    actions: (
+      guidance?.actions?.length
+        ? guidance.actions
+        : [alert.action || alert.message]
+    ).join("\n"),
+    system_generated: true,
+    created_at: new Date().toISOString(),
+  };
+
+  await supabase
+    .from("care_plan_section")
+    .insert(newSection);
+
+  sectionMap.set(sectionTitle, newSection);
+}
+
+  const allSections = Array.from(sectionMap.values());
+
+for (const section of allSections) {
     const matchingAlerts = alerts.filter(
-      (a) => a.section_title === section.title
-    );
+  (a) => getSectionFromAlert(a) === section.title
+);
+
 // 🔥 REMOVE ALL EXISTING ALERT LINES FIRST
-const existingLines = (section.actions || "")
-  .split("\n")
+const existingLines = (
+  Array.isArray(section.actions)
+    ? section.actions
+    : (section.actions || "").split("\n")
+)
   .map((l: string) => l.trim())
   .filter(Boolean);
 
@@ -148,7 +203,11 @@ const actionSet = new Set(
 );
 
 matchingAlerts.forEach((a) => {
-  const line = `[${a.type}] ${a.message}`;
+  const guidance = clinicalGuidance[a.type];
+
+const line = `[${a.type}] ${
+  guidance?.actions?.[0] || a.message
+}`;
   const key = line.toLowerCase();
 
   if (!actionSet.has(key)) {
@@ -157,10 +216,12 @@ matchingAlerts.forEach((a) => {
   }
 });
 
-    await supabase
-      .from("care_plan_section")
-      .update({ actions: actions.join("\n") })
-      .eq("id", section.id);
+    if (!section.id) continue;
+
+await supabase
+  .from("care_plan_section")
+  .update({ actions: actions.join("\n") })
+  .eq("id", section.id);
   }
 }
 
@@ -181,6 +242,11 @@ export async function removeResolvedActionsFromCarePlan({
     .eq("client_id", clientId);
 
   if (!sections) return;
+
+// 🔥 CREATE MAP FOR QUICK LOOKUP
+const sectionMap = new Map(
+  sections.map((s: any) => [s.title.trim().toLowerCase(), s])
+);
 
   const activeKeys = activeAlerts.map(
   (a) => `[${a.type}] ${a.message}`.toLowerCase()

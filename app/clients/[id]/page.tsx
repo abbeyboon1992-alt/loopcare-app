@@ -10,6 +10,7 @@ import { generateAssessmentAlerts, generateDiagnosisAlerts, saveAlerts } from "@
 import { removeResolvedActionsFromCarePlan } from "@/lib/carePlanEngine";
 import { syncTasksWithAlerts } from "@/lib/alertEngine";
 import { generateAutoFlags } from "@/lib/flagEngine";
+import { clinicalGuidance } from "@/lib/clinicalGuidance";
 import { generateFlagAlerts } from "@/lib/flagAlerts";
 import {
   LineChart,
@@ -24,8 +25,6 @@ import {
 export default function ClientProfilePage() {
   const params = useParams<{ id: string }>();
 const id = params?.id as string;
-
-if (!id) return null; 
   const router = useRouter();
   const [client, setClient] = useState<any>(null);
 const [visits, setVisits] = useState<any[]>([]);
@@ -276,7 +275,7 @@ const uniqueAlerts = combined.filter(
   };
 
   loadAssessment();
-}, [id]);
+}, [id, client]);
 
 const calculateRiskScore = () => {
   if (!alerts.length) return 0;
@@ -387,11 +386,11 @@ const createEscalationTasks = async () => {
   // 🔍 get existing tasks
   const { data: existing } = await supabase
     .from("tasks")
-    .select("title")
+    .select("section_title")
     .eq("client_id", id);
 
   const existingTitles =
-  existing?.map((t: any) => t.section_title) || [];
+  existing?.map((t: any) => t.title) || [];
 
   // ✅ filter new only
   const newTasks = escalationTasks
@@ -514,8 +513,8 @@ const getRealTrend = () => {
       .from("clients")
       .select("*")
       .eq("id", id as string)
-      .single();
-
+      .maybeSingle();
+if (!data) return;
     if (data) {
   setClient(data);
   setPreferences(data.preferences || "");
@@ -528,7 +527,7 @@ setLastUpdated(data.updated_at || null); // ✅ correct place
   diagnosis: Array.isArray(data.diagnosis)
     ? data.diagnosis
     : [data.diagnosis].filter(Boolean),
-  address: data.address,
+  address: data.address || "",
   contact_number: data.contact_number || "",
   keysafe_access: data.keysafe_access || "",
 });
@@ -737,7 +736,10 @@ const updateClient = async () => {
   // 🧠 SPLIT NAME (important because you have both)
   const first_name = form.name?.split(" ")[0] || "";
   const last_name = form.name?.split(" ").slice(1).join(" ") || "";
-
+if (!form.address || form.address.length < 10) {
+  alert("Please enter a full address, not just postcode");
+  return;
+}
   // 🔥 UPDATE
   const { data, error } = await supabase
     .from("clients")
@@ -1141,7 +1143,9 @@ if (canUseEscalation) {
 
   runEscalation();
 }, [alerts]);
-
+if (!id) {
+  return <div className="p-6">Invalid client</div>;
+}
 if (!client) {
   return <div className="p-6 text-[var(--text)]">Loading client...</div>;
 }
@@ -1159,16 +1163,19 @@ const hasCriticalAlert = alerts.some(
 
 const isEnforced =
   canUseEscalation && (hasNeglectRisk || hasCriticalAlert);
-  const explainAlert = (type: string) => {
-  const map: Record<string, string> = {
-    hydration: "Low hydration increases risk of UTIs, confusion, and falls.",
-    nutrition: "Poor nutrition can lead to weight loss and slower recovery.",
-    mobility: "Reduced mobility increases risk of pressure sores and falls.",
-    medication: "Missed medication can destabilise conditions.",
-    skin_pressure: "Skin breakdown can lead to serious pressure ulcers.",
-  };
+  const explainAlert = (type: string, severity?: string) => {
+  const guidance = clinicalGuidance[type];
 
-  return map[type] || "Monitor closely to prevent deterioration.";
+  if (guidance) {
+    return guidance.explanation;
+  }
+
+  // fallback
+  if (severity === "critical") {
+    return "Critical risk — immediate action required.";
+  }
+
+  return "Monitor closely to prevent deterioration.";
 };
 
   return (
@@ -1280,9 +1287,80 @@ const isEnforced =
   <div className="flex-1">
 
     {/* 🔹 NAME + ACTION ICONS */}
-    <div className="flex items-center justify-between">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
 
-      <h1 className="text-xl font-bold">{client.name}</h1>
+      <div className="flex-1">
+
+  {editing ? (
+    <div className="space-y-2">
+
+      {/* NAME */}
+      <input
+        value={form.name}
+        onChange={(e) =>
+          setForm({ ...form, name: e.target.value })
+        }
+        className="w-full p-2 rounded bg-[var(--bg)] border"
+        placeholder="Full name"
+      />
+
+      {/* CONTACT */}
+      <input
+        value={form.contact_number}
+        onChange={(e) =>
+          setForm({ ...form, contact_number: e.target.value })
+        }
+        className="w-full p-2 rounded bg-[var(--bg)] border"
+        placeholder="Contact number"
+      />
+
+      {/* KEYSAFE */}
+      <input
+        value={form.keysafe_access}
+        onChange={(e) =>
+          setForm({ ...form, keysafe_access: e.target.value })
+        }
+        className="w-full p-2 rounded bg-[var(--bg)] border"
+        placeholder="Keysafe code / access notes"
+      />
+
+      {/* ✅ ADDRESS (FORCE FULL ADDRESS) */}
+      <input
+        value={form.address}
+        onChange={(e) =>
+          setForm({ ...form, address: e.target.value })
+        }
+        className="w-full p-2 rounded bg-[var(--bg)] border"
+        placeholder="Full street address (e.g. 12 High Street, Macclesfield, SK10...)"
+      />
+
+      {/* SAVE + CANCEL */}
+      <div className="flex gap-2 mt-2">
+
+        <button
+          type="button"
+          onClick={updateClient}
+          className="bg-green-600 px-3 py-2 rounded text-sm"
+        >
+          Save
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="bg-gray-500 px-3 py-2 rounded text-sm"
+        >
+          Cancel
+        </button>
+
+      </div>
+
+    </div>
+  ) : (
+    <h1 className="text-xl font-bold">{client.name}</h1>
+  )}
+
+</div>
 
       {/* ✏️ EDIT + ❌ DELETE */}
       <div className="flex gap-2 ml-3">
@@ -1655,9 +1733,16 @@ ${alert.created_at && getAlertAgeDays(alert.created_at) >= 4
 
         <p className="text-gray-500">
           {isPro
-            ? explainAlert(alert.type)
-            : "🔒 Upgrade to see clinical explanation"}
+  ? explainAlert(alert.type, alert.severity)
+  : "🔒 Upgrade to see clinical explanation"}
         </p>
+        {isPro && clinicalGuidance[alert.type]?.actions && (
+  <ul className="text-[11px] text-blue-300 mt-1 list-disc ml-4">
+    {clinicalGuidance[alert.type].actions.map((a, i) => (
+      <li key={i}>{a}</li>
+    ))}
+  </ul>
+)}
 
         {alert.section_title && (
           <button
