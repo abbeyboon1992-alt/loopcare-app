@@ -768,7 +768,10 @@ if (!user) {
   className={`mb-8 rounded-xl relative h-[300px] ${
     !hasProAccess ? "brightness-75" : ""
   }`}
-  style={{ zIndex: 0 }}
+  style={{
+    zIndex: 0,
+    pointerEvents: hasProAccess ? "auto" : "none"
+  }}
 >
 
   {/* 🔒 LOCK OVERLAY */}
