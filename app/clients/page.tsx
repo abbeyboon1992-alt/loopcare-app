@@ -542,9 +542,13 @@ if (!user) {
           </span>
 
           {access?.plan !== "pro" && (
-            <Link href="/upgrade" className="bg-blue-600 px-3 py-1 rounded text-xs">
+            <button
+  type="button"
+  onClick={() => window.location.href = "/upgrade"}
+  className="bg-blue-600 px-3 py-1 rounded text-xs"
+>
   Upgrade
-</Link>
+</button>
           )}
         </div>
       )}
@@ -783,9 +787,13 @@ if (!user) {
           Without this, you're working blind.
         </p>
 
-        <Link href="/upgrade" className="bg-blue-600 px-3 py-1 rounded text-xs">
-  Upgrade
-</Link>
+        <button
+  type="button"
+  onClick={() => router.push("/upgrade")}
+  className="bg-blue-600 px-3 py-1 rounded text-xs"
+>
+  Unlock Map & Routes
+</button>
 
       </div>
     </div>
@@ -982,13 +990,20 @@ if (!user) {
   <div className="mt-3 flex gap-2 flex-wrap relative z-[9999]">
 
     {/* ➡️ OPEN */}
-    <Link
-  href={isLocked ? "/upgrade" : `/clients/${client.id}`}
+    <button
+  type="button"
+  onClick={() => {
+    if (isLocked) {
+      router.push("/upgrade");
+    } else {
+      window.location.href = `/clients/${client.id}`;
+    }
+  }}
   style={{ position: "relative", zIndex: 9999, background: "red" }}
-  className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95"
+  className="w-10 h-10 flex items-center justify-center text-lg rounded-full active:scale-95"
 >
   ➡️
-</Link>
+</button>
 
     {/* STATUS */}
     <button type="button" onClick={(e) => {
@@ -1035,24 +1050,29 @@ if (!user) {
     <div className="mt-3 flex gap-2 flex-wrap relative z-[9999]">
 
       {!hasAssessment && (
-        <Link
-  href={isLocked ? "/upgrade" : `/assessments?client=${client.id}`}
+        <button
+  type="button"
+  onClick={() => {
+    if (isLocked) {
+      router.push("/upgrade");
+    } else {
+      router.push(`/assessments?client=${client.id}`);
+    }
+  }}
   className="text-xs bg-blue-600 px-3 py-2 rounded min-h-[36px]"
 >
   Start Assessment
-</Link>
+</button>
       )}
 
       {isAssessmentStarted && (
-        <button type="button" onClick={(e) => {
-          console.log("CLICK WORKING");
-            e.stopPropagation();
-            if (isLocked) {
-    router.push("/upgrade");
-    return;
+        <button type="button" onClick={() => {
+  if (isLocked) {
+    window.location.href = "/upgrade";
+  } else {
+    window.location.href = `/assessments?client=${client.id}`;
   }
-            router.push(`/assessments?client=${client.id}`);
-          }}
+}}
           className="text-xs bg-yellow-600 px-2 py-1 rounded"
         >
           Continue Assessment
