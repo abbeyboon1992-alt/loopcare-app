@@ -319,22 +319,28 @@ await saveAlerts({
 const sections = generateCarePlan({ client, assessments: data });
 
 for (const section of sections) {
-  await supabase
+
+  const payload = {
+    client_id: id,
+    section_title: section.section_title,
+    care_need: section.care_need,
+    outcome: section.outcome,
+    actions: section.actions,
+    system_generated: true,
+    updated_at: new Date().toISOString(),
+  };
+
+  console.log("🧠 UPSERT (loadAssessment)", payload);
+
+  const { error } = await supabase
     .from("care_plan_section")
-    .upsert(
-      {
-        client_id: id,
-        section_title: section.section_title,
-        care_need: section.care_need,
-        outcome: section.outcome,
-        actions: section.actions,
-        system_generated: true,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "care_plan_section_unique"
-      }
-    );
+    .upsert(payload, {
+      onConflict: "care_plan_section_unique",
+    });
+
+  if (error) {
+    console.error("🚨 UPSERT ERROR (loadAssessment)", error, payload);
+  }
 }
 
     const { data: freshAlerts } = await supabase
