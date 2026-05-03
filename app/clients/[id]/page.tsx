@@ -71,7 +71,7 @@ const getLiveClinicalPreview = () => {
   }));
 
   const combined = [
-  ...dbAlerts.filter(a => a.source !== "diagnosis"),
+  ...dbAlerts,
   ...normalisedAI,
 ];
 
@@ -91,7 +91,7 @@ const getLiveClinicalPreview = () => {
     (a, b) => (order[b.severity] || 0) - (order[a.severity] || 0)
   );
 
-  return sorted.slice(0, 4);
+  return sorted.slice(0, 10);
 };
 const [summaryHistory, setSummaryHistory] = useState<any[]>([]);
 const [familyFeedback, setFamilyFeedback] = useState<any[]>([]);
