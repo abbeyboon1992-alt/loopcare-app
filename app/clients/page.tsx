@@ -1005,14 +1005,9 @@ if (!user && !authLoading) {
     <button
   type="button"
   onClick={() => {
-    if (isLocked) {
-      router.push("/upgrade");
-    } else {
-      window.location.href = `/clients/${client.id}`;
-    }
+    document.body.innerHTML = "<h1 style='color:white'>CLICK WORKED</h1>";
   }}
-  style={{ position: "relative", zIndex: 9999, background: "red" }}
-  className="w-10 h-10 flex items-center justify-center text-lg rounded-full active:scale-95"
+  className="w-10 h-10 bg-red-600"
 >
   ➡️
 </button>
