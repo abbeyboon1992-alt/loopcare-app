@@ -765,14 +765,15 @@ if (!user) {
 
   {/* 🗺️ CLIENT MAP */}
 <div
-  className={`mb-8 rounded-xl overflow-hidden relative h-[300px] ${
+  className={`mb-8 rounded-xl relative h-[300px] ${
     !hasProAccess ? "brightness-75" : ""
   }`}
+  style={{ zIndex: 0 }}
 >
 
   {/* 🔒 LOCK OVERLAY */}
   {!hasProAccess && (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-40 pointer-events-none">
+    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg pointer-events-auto">
 
         <p className="font-semibold text-sm mb-2">
@@ -888,7 +889,7 @@ if (!user) {
 </div>
 
 {/* CLIENT LIST */}
-<div className="space-y-5 mt-6">
+<div className="space-y-5 mt-6 relative z-20">
 {(clients || [])
   .filter((client: any) =>
     `${client.first_name} ${client.last_name}`
