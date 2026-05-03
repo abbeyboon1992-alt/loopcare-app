@@ -1006,6 +1006,7 @@ if (!user && !authLoading) {
   type="button"
   onClick={() => {
     console.log("CLICK WORKED");
+    router.push(`/clients/${client.id}`);
   }}
   className="w-10 h-10 bg-red-600"
 >
