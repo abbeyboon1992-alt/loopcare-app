@@ -760,14 +760,15 @@ if (!user) {
       )}
 
   {/* 🗺️ CLIENT MAP */}
-<div className={`... ${
-  !hasProAccess ? "brightness-75" : ""
-}`}
+<div
+  className={`mb-8 rounded-xl overflow-hidden relative h-[300px] ${
+    !hasProAccess ? "brightness-75" : ""
+  }`}
 >
 
   {/* 🔒 LOCK OVERLAY */}
   {!hasProAccess && (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-40">
+    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-40 pointer-events-none">
       <div className="bg-black/90 text-white px-5 py-5 rounded text-sm text-center max-w-xs shadow-lg pointer-events-auto">
 
         <p className="font-semibold text-sm mb-2">
@@ -803,10 +804,11 @@ if (!user) {
   center={[53.258, -2.125]}
   zoom={11}
   scrollWheelZoom={false}
-  dragging={!!hasProAccess}
-touchZoom={!!hasProAccess}
-doubleClickZoom={!!hasProAccess}
-zoomControl={!!hasProAccess}
+  dragging={false}
+  touchZoom={false}
+  doubleClickZoom={false}
+  zoomControl={false}
+  style={{ pointerEvents: hasProAccess ? "auto" : "none" }}
   attributionControl={false}
   className="h-72 sm:h-80 w-full rounded-lg"
 >
@@ -977,11 +979,12 @@ zoomControl={!!hasProAccess}
   </div>
 
   {/* RIGHT SIDE → STACKED ACTIONS */}
-  <div className="mt-3 flex gap-2 flex-wrap relative z-50">
+  <div className="mt-3 flex gap-2 flex-wrap relative z-[9999]">
 
     {/* ➡️ OPEN */}
     <Link
   href={isLocked ? "/upgrade" : `/clients/${client.id}`}
+  style={{ position: "relative", zIndex: 9999, background: "red" }}
   className="w-10 h-10 flex items-center justify-center text-lg bg-gray-700 rounded-full active:scale-95"
 >
   ➡️
@@ -1029,7 +1032,7 @@ zoomControl={!!hasProAccess}
 )}
 
     {/* ACTIONS */}
-    <div className="mt-3 flex gap-2 flex-wrap relative z-50">
+    <div className="mt-3 flex gap-2 flex-wrap relative z-[9999]">
 
       {!hasAssessment && (
         <Link
