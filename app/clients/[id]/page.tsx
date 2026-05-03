@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { logAlertAudit } from "@/lib/alertAudit";
-import { careTypes } from "@/lib/careTypes";
+import { careTypes, getAdditionalCareTypes } from "@/lib/careTypes";
 import { useAccess } from "@/app/context/AccessContext";
 import { generateAssessmentAlerts, generateDiagnosisAlerts, saveAlerts } from "@/lib/alertEngine";
 import { removeResolvedActionsFromCarePlan } from "@/lib/carePlanEngine";
@@ -12,6 +12,7 @@ import { syncTasksWithAlerts } from "@/lib/alertEngine";
 import { generateAutoFlags } from "@/lib/flagEngine";
 import { clinicalGuidance } from "@/lib/clinicalGuidance";
 import { generateFlagAlerts } from "@/lib/flagAlerts";
+import { generateCarePlan } from "@/lib/carePlanGenerator";
 import {
   LineChart,
   Line,
@@ -136,11 +137,16 @@ const groupedAlerts = {
   flags: safeAlerts.filter((a) => a.source === "flags"),
 };
 
+const timeoutRef = useRef<any>(null);
+
 const triggerFeedbackNotification = (feedback: any) => {
   setFeedbackNotification(feedback);
 
-  // auto hide after 6 seconds
-  setTimeout(() => {
+  if (timeoutRef.current) {
+    clearTimeout(timeoutRef.current);
+  }
+
+  timeoutRef.current = setTimeout(() => {
     setFeedbackNotification(null);
   }, 6000);
 };
@@ -183,7 +189,7 @@ mood: moodMap[v.mood as keyof typeof moodMap] ?? 0,
       };
     });
 };
-
+const hasLoadedAssessmentRef = useRef(false);
 const loadAlerts = async () => {
   if (!id) return;
 
@@ -226,7 +232,9 @@ const loadResolvedAlerts = async () => {
 };
 
 useEffect(() => {
-  if (!id || !client) return;
+  if (!id || !client || hasLoadedAssessmentRef.current) return;
+
+  hasLoadedAssessmentRef.current = true;
 
   const loadAssessment = async () => {
     const { data } = await supabase
@@ -239,13 +247,50 @@ useEffect(() => {
 
     setAssessments(data);
 
+    const baseType = client.care_type?.toLowerCase();
+
+const extraTypes = getAdditionalCareTypes(
+  Array.isArray(client.diagnosis)
+    ? client.diagnosis
+    : [client.diagnosis]
+);
+
+const allTypes = [baseType, ...extraTypes];
+
+const careConfigs = allTypes
+  .map((type) => {
+    if (!type || !(type in careTypes)) return null;
+    return careTypes[type as keyof typeof careTypes];
+  })
+  .filter(Boolean);
+let careTypeAlerts: any[] = [];
+
+careConfigs.forEach((config) => {
+  if (!config?.alerts) return;
+
+  Object.entries(config.alerts).forEach(([type, val]: any) => {
+    careTypeAlerts.push({
+      type,
+      message: val.message,
+      severity: val.severity,
+      source: "care_type",
+    });
+  });
+});
     const autoFlags = generateAutoFlags(data);
     const allFlags = [...new Set([...(data.flags || []), ...autoFlags])];
 
     const flagAlerts = generateFlagAlerts(allFlags);
     const assessmentAlerts = generateAssessmentAlerts(data);
 
-    const combined = [...assessmentAlerts, ...flagAlerts];
+    const diagnosisAlerts = generateDiagnosisAlerts(client);
+
+const combined = [
+  ...assessmentAlerts,
+  ...flagAlerts,
+  ...careTypeAlerts,
+  ...diagnosisAlerts, // ✅ ADD HERE
+];
 
 const uniqueAlerts = combined.filter(
   (a, i, self) =>
@@ -260,6 +305,27 @@ const uniqueAlerts = combined.filter(
   alerts: uniqueAlerts,
   clientId: id,
 });
+// ✅ FORCE CARE PLAN SYNC (keeps alerts + plan aligned)
+const sections = generateCarePlan({ client, assessments: data });
+
+for (const section of sections) {
+  await supabase
+    .from("care_plan_section")
+    .upsert(
+      {
+        client_id: id,
+        section_title: section.section_title,
+        care_need: section.care_need,
+        outcome: section.outcome,
+        actions: section.actions,
+        system_generated: true,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "client_id,section_title",
+      }
+    );
+}
 
     const { data: freshAlerts } = await supabase
       .from("alerts")
@@ -281,7 +347,12 @@ const uniqueAlerts = combined.filter(
   };
 
   loadAssessment();
-}, [id, client]);
+}, [id, client?.id]);
+
+const sections = useMemo(() => {
+  if (!client || !assessments) return [];
+  return generateCarePlan({ client, assessments });
+}, [client, assessments]);
 
 const calculateRiskScore = () => {
   if (!alerts.length) return 0;
@@ -392,7 +463,7 @@ const createEscalationTasks = async () => {
   // 🔍 get existing tasks
   const { data: existing } = await supabase
     .from("tasks")
-    .select("section_title")
+    .select("title")
     .eq("client_id", id);
 
   const existingTitles =
@@ -554,12 +625,6 @@ if (userData?.user) {
     console.log("❌ No organisation_id yet");
     return;
   }
-
-  const { data: org } = await supabase
-    .from("organisations")
-    .select("subscription_status")
-    .eq("id", profile.organisation_id)
-    .maybeSingle();
 }
     }
   };
@@ -593,7 +658,7 @@ if (userData?.user) {
   setSummaryHistory(parsed);
 };
 
-  const loadLatestSummary = async () => {
+const loadLatestSummary = async () => {
   if (!id) return;
 
   const { data } = await supabase
@@ -605,10 +670,12 @@ if (userData?.user) {
     .limit(1)
     .maybeSingle();
 
-  if (data?.note) {
+  try {
     if (data?.summary) {
-  setLatestSummary(JSON.parse(data.summary));
-}
+      setLatestSummary(JSON.parse(data.summary));
+    }
+  } catch (e) {
+    console.error("Invalid summary JSON", e);
   }
 };
 
@@ -663,11 +730,31 @@ const generateTasksFromCareType = async () => {
 
   if (!exists) return;
 
-  const careConfig =
-    careTypes[client.care_type as keyof typeof careTypes];
+ const baseType = client.care_type;
 
-  // 🔹 base tasks
-  let tasksToAdd: string[] = careConfig?.tasks || [];
+const extraTypes = getAdditionalCareTypes(
+  Array.isArray(client.diagnosis)
+    ? client.diagnosis
+    : [client.diagnosis]
+);
+
+const allTypes = [baseType, ...extraTypes];
+
+const careConfigs = allTypes
+  .map((type) => careTypes[type as keyof typeof careTypes])
+  .filter(Boolean);
+
+// 🔥 MERGE TASKS
+let tasksToAdd: string[] = [];
+
+careConfigs.forEach((config) => {
+  if (config?.tasks) {
+    tasksToAdd.push(...config.tasks);
+  }
+});
+
+// remove duplicates
+tasksToAdd = [...new Set(tasksToAdd)];
 
   // 🔥 ADD DIAGNOSIS-BASED TASKS
   const diagnosisList = Array.isArray(client.diagnosis)
@@ -703,12 +790,13 @@ const generateTasksFromCareType = async () => {
     existing?.map((t: any) => t.title) || [];
 
   const newTasks = tasksToAdd
-    .filter((task) => !existingTitles.includes(task))
-    .map((task) => ({
-      client_id: id,
-      title: task,
-      status: "pending",
-    }));
+  .filter((task) => !existingTitles.includes(task))
+  .map((task) => ({
+    client_id: id,
+    title: task,
+    status: "pending",
+    linked_alert_type: null, // ✅ prevents collision with alert tasks
+  }));
 
   if (newTasks.length === 0) return;
 
@@ -954,7 +1042,62 @@ const { data } = await supabase
   }
 };
 
+const syncCarePlanWithVisits = async (visits: any[]) => {
+  if (!visits.length || !id) return;
 
+  const last2 = visits.slice(0, 2);
+
+  const updates: any[] = [];
+
+  // ✅ HYDRATION IMPROVEMENT
+  if (last2.every(v => v.hydration === "adequate")) {
+    updates.push({
+      section: "Nutrition & Hydration",
+      outcome: "Hydration stable",
+      action: "Continue current support",
+    });
+  }
+
+  // ⚠️ HYDRATION DECLINE
+  if (last2.some(v => v.hydration === "poor")) {
+    updates.push({
+      section: "Nutrition & Hydration",
+      outcome: "Hydration declining",
+      action: "Increase fluid encouragement",
+    });
+  }
+
+  // ✅ MOOD IMPROVEMENT
+  if (last2.every(v => v.mood === "happy")) {
+    updates.push({
+      section: "Emotional Wellbeing",
+      outcome: "Mood stable",
+      action: "Maintain engagement",
+    });
+  }
+
+  // ⚠️ MOOD DECLINE
+  if (last2.some(v => v.mood === "low")) {
+    updates.push({
+      section: "Emotional Wellbeing",
+      outcome: "Mood concerns",
+      action: "Increase emotional support",
+    });
+  }
+
+  for (const u of updates) {
+    await supabase
+      .from("care_plan_section")
+      .update({
+        outcome: u.outcome,
+        actions: [u.action],
+        updated_at: new Date().toISOString(),
+      })
+      .eq("client_id", id)
+      .eq("section_title", u.section)
+      .eq("system_generated", true); // 🔥 CRITICAL
+  }
+};
 useEffect(() => {
   if (!id) return;
   loadAlerts();
@@ -1049,7 +1192,7 @@ await supabase
   .from("tasks")
   .delete()
   .eq("client_id", id)
-  .eq("section_title", alert.message);
+  .eq("linked_alert_type", alert.type);
 
           await logAlertAudit({
             alert,
@@ -1091,31 +1234,12 @@ await syncTasksWithAlerts({
   clientId: id as string,
   activeAlerts: freshAlerts || [],
 });
+await syncCarePlanWithVisits(visits);
   };
+  
 
   autoUpdateAlerts();
 }, [visits]);
-
-useEffect(() => {
-  if (!client || !id) return;
-
-const runDiagnosisAlerts = async () => {
-  if (!client || !client.id) return;
-
-  const diagnosisAlerts = generateDiagnosisAlerts(client);
-
-  await saveAlerts({
-  alerts: diagnosisAlerts,
-  clientId: id as string,
-});
-
-  loadAlerts();
-};
-
-  generateTasksFromCareType();
-  runDiagnosisAlerts();
-}, [client]);
-
 
 useEffect(() => {
   if (!id) return;
@@ -1130,13 +1254,15 @@ useEffect(() => {
         table: "alerts",
         filter: `client_id=eq.${id}`,
       },
-      (payload) => {
-  clearTimeout((window as any).alertsTimeout);
+      () => {
+        if (alertsTimeoutRef.current) {
+          clearTimeout(alertsTimeoutRef.current);
+        }
 
-  (window as any).alertsTimeout = setTimeout(() => {
-    loadAlerts();
-  }, 300);
-}
+        alertsTimeoutRef.current = setTimeout(() => {
+          loadAlerts();
+        }, 300);
+      }
     )
     .subscribe();
 
@@ -1193,6 +1319,39 @@ useEffect(() => {
   loadResolvedAlerts(); // ✅ ADD THIS
 }, [id]);
 
+useEffect(() => {
+  if (!client || !id) return;
+
+  const saveCarePlan = async () => {
+    const sections = generateCarePlan({
+      client,
+      assessments,
+    });
+
+    for (const section of sections) {
+      await supabase
+        .from("care_plan_section")
+        .upsert(
+          {
+            client_id: id,
+            section_title: section.section_title,
+            care_need: section.care_need,
+            outcome: section.outcome,
+            actions: section.actions,
+            source: section.sources?.[0] || "system",
+            system_generated: true,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "client_id,section_title",
+          }
+        );
+    }
+  };
+
+  saveCarePlan();
+}, [client, assessments, id]);
+
     useEffect(() => {
   if (window.location.hash === "#alerts") {
     setTimeout(() => {
@@ -1209,6 +1368,61 @@ useEffect(() => {
     }, 300);
   }
 }, []);
+const syncAlertsWithCarePlan = async () => {
+  if (!id) return;
+
+  const { data: sections } = await supabase
+    .from("care_plan_section")
+    .select("*")
+    .eq("client_id", id);
+
+  if (!sections) return;
+
+  const { data: existingAlerts } = await supabase
+    .from("alerts")
+    .select("*")
+    .eq("client_id", id)
+    .eq("status", "active");
+
+  for (const section of sections) {
+    const isRisk =
+      section.outcome?.toLowerCase().includes("risk") ||
+      section.outcome?.toLowerCase().includes("declin") ||
+      section.outcome?.toLowerCase().includes("concern");
+
+    const existing = existingAlerts?.find(
+      (a) => a.type === section.section_title
+    );
+
+    // 🚨 CREATE ALERT
+    if (isRisk && !existing) {
+      await supabase.from("alerts").insert([
+        {
+          client_id: id,
+          type: section.section_title,
+          message: `⚠ ${section.section_title} requires attention`,
+          severity: "medium",
+          source: "care_plan",
+          status: "active",
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    }
+
+    // ✅ RESOLVE ALERT
+    if (!isRisk && existing) {
+      await supabase
+        .from("alerts")
+        .update({
+          status: "resolved",
+          closed_at: new Date().toISOString(),
+          resolution_source: "care_plan_sync",
+        })
+        .eq("id", existing.id);
+    }
+  }
+};
+const alertsTimeoutRef = useRef<any>(null);
 
 useEffect(() => {
   if (!alerts.length) return;
@@ -1875,33 +2089,28 @@ const isEnforced =
   <p className="text-xs text-gray-500">No risks</p>
 ) : (
   (() => {
-    const visibleAlerts =
-      plan === "free" && !isTrialActive
-        ? [
-            ...alerts.filter((a) => a.severity === "critical"),
-            ...alerts
-              .filter((a) => a.severity !== "critical")
-              .slice(0, 2),
-          ]
-        : alerts;
+  const critical = alerts.filter(a => a.severity === "critical");
+  const nonCritical = alerts.filter(a => a.severity !== "critical");
 
-    return visibleAlerts.map((alert) => (
-      <div
-        key={alert.id}
-        onClick={() =>
-          setExpandedRiskId(
-            expandedRiskId === alert.id ? null : alert.id
-          )
-        }
-        className={`cursor-pointer flex flex-col text-xs py-2 border-b border-[var(--border)]
-${alert.severity === "low" ? "opacity-40" : ""}
-${alert.created_at && getAlertAgeDays(alert.created_at) >= 4
-  ? "bg-red-900/40"
-  : alert.created_at && getAlertAgeDays(alert.created_at) >= 2
-  ? "bg-yellow-900/30"
-  : ""}
-`}
-      >
+  const visibleAlerts =
+    plan === "free" && !isTrialActive
+      ? [...critical, ...nonCritical.slice(0, 2)]
+      : alerts;
+
+  return visibleAlerts.map((alert) => (
+    <div
+      key={alert.id}
+      className={`cursor-pointer flex flex-col text-xs py-2 border-b border-[var(--border)]
+      ${alert.severity === "low" ? "opacity-40" : ""}
+      ${
+        alert.created_at && getAlertAgeDays(alert.created_at) >= 4
+          ? "bg-red-900/40"
+          : alert.created_at && getAlertAgeDays(alert.created_at) >= 2
+          ? "bg-yellow-900/30"
+          : ""
+      }`}
+    >
+
         <div className="flex items-center gap-2">
           <span className="truncate">
   {alert.type === "neglect_risk" && "🚨 "}
@@ -1965,7 +2174,7 @@ ${alert.created_at && getAlertAgeDays(alert.created_at) >= 4
   )}
 
   {/* RESOLVE */}
- {alert.source !== "visit_auto" && isPro && (
+ {alert.source !== "visit" && isPro && (
   <button
     onClick={async (e) => {
       e.stopPropagation();

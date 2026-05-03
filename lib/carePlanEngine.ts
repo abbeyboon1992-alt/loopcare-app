@@ -29,92 +29,237 @@ export function generateCarePlan(
   const sectionMap: Record<string, any> = {};
 
   const addSection = (title: string, data: any) => {
-    if (!sectionMap[title]) {
-      sectionMap[title] = {
-        title,
+    const key = title.trim();
+
+    if (!sectionMap[key]) {
+      sectionMap[key] = {
+        title: key,
         care_need: [],
         outcome: new Set(),
         actions: new Set(),
       };
     }
 
-    if (data.care_need) sectionMap[title].care_need.push(data.care_need);
-    if (data.outcome) sectionMap[title].outcome.add(data.outcome);
+    if (data.care_need) sectionMap[key].care_need.push(data.care_need);
+    if (data.outcome) sectionMap[key].outcome.add(data.outcome);
 
     if (data.actions) {
       const actions = Array.isArray(data.actions)
         ? data.actions
         : [data.actions];
 
-      actions.forEach((a: string) =>
-        sectionMap[title].actions.add(a)
-      );
+      actions.forEach((a: string) => {
+        if (a && a.trim()) sectionMap[key].actions.add(a);
+      });
     }
   };
 
+  /* ---------------- CORE ASSESSMENT → CARE ---------------- */
+
+  // 🧠 COGNITION
+  if (form.cognition && form.cognition !== "no impairment") {
+    addSection("Cognitive Wellbeing", {
+      care_need: `Cognition: ${form.cognition}`,
+      outcome: "Maintain safety and orientation",
+      actions: [
+        form.communication === "non-verbal" && "Use non-verbal communication",
+        form.communication === "needs support" && "Provide communication support",
+        form.capacity !== "has capacity" && "Follow MCA decisions",
+        form.communication_support,
+      ],
+    });
+  }
+
+  // 🥤 HYDRATION
+  if (["reduced", "poor", "refused"].includes(form.hydration)) {
+    addSection("Nutrition & Hydration", {
+      care_need: `Hydration: ${form.hydration}`,
+      outcome: "Maintain hydration",
+      actions: [
+        "Encourage fluids",
+        form.hydration === "poor" && "Monitor intake closely",
+      ],
+    });
+  }
+
+  // 🍽 CHOKING
+  if (["moderate", "high"].includes(form.choking)) {
+    addSection("Nutrition & Hydration", {
+      care_need: "Choking risk",
+      outcome: "Ensure safe swallowing",
+      actions: [
+        `IDDSI: ${form.iddsi}`,
+        `Fluids: ${form.fluid_level}`,
+        "Supervise meals",
+      ],
+    });
+  }
+
+  // 🚶 MOBILITY
   if (form.mobility) {
     addSection("Mobility & Moving", {
       care_need: `Mobility: ${form.mobility}`,
       outcome: "Maintain safe mobility",
-      actions:
-        form.mobility === "dependent"
-          ? "Full assistance required"
-          : "Monitor mobility",
+      actions: [
+        form.mobility === "dependent" && "Full assistance required",
+        form.falls_risk === "high" && "Falls prevention plan",
+      ],
     });
   }
 
-  if (form.nutrition || form.hydration) {
-    addSection("Nutrition & Hydration", {
-      care_need: `Nutrition: ${form.nutrition || "unknown"}`,
-      outcome: "Maintain adequate intake",
-      actions:
-        form.nutrition === "poor"
-          ? "Encourage meals and fluids"
-          : "Monitor intake",
+  // 🛠 EQUIPMENT
+  if (form.equipment?.length) {
+    addSection("Mobility & Moving", {
+      care_need: "Mobility equipment required",
+      outcome: "Ensure safe mobility",
+      actions: [`Use equipment: ${form.equipment.join(", ")}`],
     });
   }
 
-  if (form.skin) {
+  // 🔧 EQUIPMENT SERVICING
+  if (form.equipment_serviced) {
+    Object.entries(form.equipment_serviced).forEach(([item, status]: any) => {
+      if (status !== "yes") {
+        addSection("Mobility & Moving", {
+          care_need: `${item} requires servicing`,
+          outcome: "Ensure safe equipment",
+          actions: [`Arrange servicing for ${item}`],
+        });
+      }
+    });
+  }
+
+  // 🧻 CONTINENCE
+  if (form.toileting?.includes("incontinent")) {
+    addSection("Personal Care (ADLs)", {
+      care_need: "Continence needs",
+      outcome: "Maintain dignity",
+      actions: [
+        `Support: ${form.continence_ability}`,
+        form.pad_type,
+      ],
+    });
+  }
+
+  // 🩹 SKIN
+  if (form.skin && form.skin !== "intact") {
     addSection("Personal Care (ADLs)", {
       care_need: `Skin: ${form.skin}`,
       outcome: "Maintain skin integrity",
-      actions:
-        form.skin !== "intact"
-          ? "Reposition regularly"
-          : "Routine monitoring",
+      actions: [
+        form.repositioning_required && `Reposition: ${form.repositioning_required}`,
+        form.wound_care_plan,
+      ],
     });
   }
 
-  if (form.falls_risk) {
-    addSection("Mobility & Moving", {
-      care_need: `Falls risk: ${form.falls_risk}`,
-      outcome: "Prevent falls",
-      actions:
-        form.falls_risk === "high"
-          ? "Supervise mobility"
-          : "Monitor risk",
+  // 💊 MEDICATION
+  if (form.medication_ability !== "independent") {
+    addSection("Medication Support", {
+      care_need: "Medication support required",
+      outcome: "Ensure compliance",
+      actions: [
+        `Support: ${form.medication_ability}`,
+        form.prn_protocol,
+      ],
     });
   }
+
+  if (form.medication_compliance_risk === "high") {
+    addSection("Medication Support", {
+      care_need: "High medication risk",
+      outcome: "Prevent missed medication",
+      actions: ["Monitor administration closely"],
+    });
+  }
+
+  // 🚨 NEWS2
+  if (form.news2_score >= 5) {
+    addSection("Medical Conditions & Overview", {
+      care_need: "Clinical deterioration risk",
+      outcome: "Prevent escalation",
+      actions: [
+        `NEWS2: ${form.news2_score}`,
+        form.escalation_plan || "Escalate to GP",
+      ],
+    });
+  }
+
+  // 🧓 FRAILTY
+  if (form.frailty_score >= 7) {
+    addSection("Medical Conditions & Overview", {
+      care_need: "Severe frailty",
+      outcome: "Prevent deterioration",
+      actions: ["Close monitoring required"],
+    });
+  }
+
+  // 🚨 SAFEGUARDING
+  if (form.safeguarding === "concern") {
+    addSection("Risks & Safety", {
+      care_need: "Safeguarding concern",
+      outcome: "Ensure safety",
+      actions: [
+        "Follow safeguarding protocol",
+        form.safeguarding_outcome,
+      ],
+    });
+  }
+
+  // ❤️ MENTAL HEALTH
+  if (form.mental_health_status && form.mental_health_status !== "stable") {
+    addSection("Emotional Wellbeing", {
+      care_need: `Mental health: ${form.mental_health_status}`,
+      outcome: "Support wellbeing",
+      actions: [
+        form.mental_health_impact,
+        "Provide reassurance",
+      ],
+    });
+  }
+
+  // 🔥 DEAD FIELDS NOW ACTIVE
+  if (form.early_warning_signs) {
+    addSection("Medical Conditions & Overview", {
+      care_need: "Early warning signs",
+      outcome: "Detect deterioration early",
+      actions: [form.early_warning_signs],
+    });
+  }
+
+  if (form.escalation_plan) {
+    addSection("Medical Conditions & Overview", {
+      care_need: "Escalation plan",
+      outcome: "Ensure response",
+      actions: [form.escalation_plan],
+    });
+  }
+
+  if (form.baseline_status) {
+    addSection("Medical Conditions & Overview", {
+      care_need: "Baseline condition",
+      outcome: "Maintain baseline",
+      actions: [form.baseline_status],
+    });
+  }
+
+  /* ---------------- ALERTS (KEEP YOUR SYSTEM) ---------------- */
 
   alerts.forEach((alert: AlertItem) => {
-  const section = alert.section_title || "Risks & Safety";
+    const section = getSectionFromAlert(alert);
 
-  const guidance = clinicalGuidance[alert.type];
+    const guidance = clinicalGuidance[alert.type];
 
-  addSection(section, {
-    care_need:
-      guidance?.explanation || alert.message,
-
-    outcome:
-      guidance?.outcome ||
-      "Risk monitored and managed",
-
-    actions:
-      guidance?.actions?.length
+    addSection(section, {
+      care_need: guidance?.explanation || alert.message,
+      outcome: guidance?.outcome || "Risk monitored and managed",
+      actions: guidance?.actions?.length
         ? guidance.actions
         : [alert.action || alert.message],
+    });
   });
-});
+
+  /* ---------------- FINAL FORMAT ---------------- */
 
   return Object.values(sectionMap).map((s: any) => ({
     title: s.title,
@@ -147,7 +292,7 @@ const sectionMap = new Map(
 
 // 🔥 AUTO-CREATE MISSING SECTIONS
 for (const alert of alerts) {
-  const sectionTitle = getSectionFromAlert(alert).trim().toLowerCase();
+  const sectionTitle = getSectionFromAlert(alert).trim();
 
   if (sectionMap.has(sectionTitle)) continue;
 

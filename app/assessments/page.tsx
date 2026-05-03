@@ -11,6 +11,7 @@ import { generateRisks } from "@/lib/riskEngine";
 import { saveAlerts, generateAssessmentAlerts } from "@/lib/alertEngine";
 import { generateTasks } from "@/lib/taskEngine";
 import React from "react";
+import { syncTasksWithCarePlan } from "@/lib/carePlanTaskEngine";
 import { assessmentVisibility } from "@/lib/assessmentVisibility";
 import { useParams } from "next/navigation";
 
@@ -1837,6 +1838,7 @@ await applyAlertsToCarePlan({
   clientId: id as string,
   alerts: allAlerts,
 });
+await syncTasksWithCarePlan(form.client_id);
 
 await removeResolvedActionsFromCarePlan({
   clientId: form.client_id,

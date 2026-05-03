@@ -9,6 +9,8 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { masterTasks } from "@/data/masterTasks";
 import carePlanPrompts from "@/data/carePlanPrompts.json";
+import { resolveCompletedTasksFromVisit } from "@/lib/carePlanTaskEngine";
+import { syncTasksWithCarePlan } from "@/lib/carePlanTaskEngine";
 
 export default function VisitSessionPage() {
   const router = useRouter();
@@ -1131,8 +1133,20 @@ await processVisit({
   data: {
     ...data,
     duration: seconds,
-    autoTasks: autoAddedTasks, // ✅ ADD THIS
+    autoTasks: autoAddedTasks,
   },
+});
+
+// ✅ NEW — resolve tasks from visit outcomes
+await resolveCompletedTasksFromVisit(client.id, data);
+
+// ✅ THEN sync care plan (uses updated task state)
+await syncTasksWithCarePlan({
+  clientId: client.id,
+  completedTasks: data.tasks.map(t => t.title),
+  missedTasks: missedTasks.map(t => t.title),
+  autoTasks: autoAddedTasks.map(t => t.title),
+  observations: data,
 });
 
 const resolvedTypes = getResolvedAlertTypes();
