@@ -622,6 +622,7 @@ const hasSmartAlertsAccess = canAccessFeature(
 );
 const [mcaList, setMcaList] = useState<any[]>([]);
 const [biList, setBiList] = useState<any[]>([]);
+const [bestInterest, setBestInterest] = useState<any>(null);
 const initialSectionRef = useRef<string | null>(null);
 
 useEffect(() => {
@@ -815,6 +816,9 @@ useEffect(() => {
   setForm((prev: any) => ({
   ...prev,
   ...data,
+  // ✅ ensure correct types
+    cognition: data.cognition || "",
+    communication: data.communication || "",
     cognition_evidence: data.cognition_evidence === true,
 nutrition_evidence: data.nutrition_evidence === true,
 mobility_evidence: data.mobility_evidence === true,
@@ -865,6 +869,13 @@ safeguarding_source: Array.isArray(data.safeguarding_source)
         : {},
   }));
 }
+setForm((prev: any) => ({
+  ...prev,
+  cognition: data.cognition || "",
+  capacity: data.capacity || "",
+  mca_completed: data.mca_completed || false,
+  best_interest_completed: data.best_interest_completed || false,
+}));
     setHasLoaded(true); // ✅ LOCK AFTER FIRST LOAD
     if (error) {
       console.error("Load error:", error.message);
@@ -907,15 +918,22 @@ useEffect(() => {
 
     if (data) setMcaList(data);
   };
-  const loadBI = async () => {
-    const { data } = await supabase
-      .from("best_interest_decisions")
-      .select("*")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
+ const loadBI = async () => {
+  if (!clientId) return;
 
-    if (data) setBiList(data);
-  };
+  const { data } = await supabase
+    .from("best_interest_decisions")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+
+  if (!data || data.length === 0) return;
+
+  setBiList(data);
+
+  // 🔥 THIS IS THE KEY FIX
+  setBestInterest(data[0]); // latest record
+};
   loadMCA();
   loadBI();
 }, [clientId]);
@@ -2992,6 +3010,24 @@ return (
     onChange={(e) => handleInput("decision_type", e.target.value)}
     className="w-full p-3 rounded bg-[var(--card)]"
   />
+
+  {bestInterest && (
+  <div className="mt-3 p-3 bg-green-900/20 border border-green-700 rounded text-xs">
+    ⚖️ Best Interest Completed
+
+    <p><strong>Decision:</strong> {bestInterest.decision}</p>
+    <p><strong>Outcome:</strong> {bestInterest.outcome}</p>
+
+    <button
+      onClick={() =>
+        router.push(`/best-interest?client=${clientId}&edit=${bestInterest.id}`)
+      }
+      className="text-blue-400 underline mt-2"
+    >
+      View / Edit
+    </button>
+  </div>
+)}
 </div>
   </>
 )}
