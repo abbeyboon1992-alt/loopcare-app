@@ -17,6 +17,7 @@ type AlertItem = {
 };
 
 const ALERT_SECTION_MAP: Record<string, string> = {
+  
   hydration: "Nutrition & Hydration",
   hydration_low: "Nutrition & Hydration",
   hydration_critical: "Nutrition & Hydration",
@@ -24,6 +25,23 @@ const ALERT_SECTION_MAP: Record<string, string> = {
 skin_improving: "Personal Care (ADLs)",
 cognition_improving: "Cognitive Wellbeing",
 mobility_improving: "Mobility & Moving",
+// 🔥 MISSING TYPES (ADD THESE)
+weight_monitoring_required: "Nutrition & Hydration",
+mobility_monitoring_required: "Mobility & Moving",
+skin_monitoring_required: "Personal Care (ADLs)",
+hydration_monitoring_required: "Nutrition & Hydration",
+
+
+early_warning: "Medical Conditions & Overview",
+deterioration: "Medical Conditions & Overview",
+clinical: "Medical Conditions & Overview",
+capacity: "Cognitive Wellbeing",
+attention: "Cognitive Wellbeing",
+
+low_mood: "Emotional Wellbeing",
+risk: "Risks & Safety",
+
+general: "Risks & Safety",
 
   nutrition: "Nutrition & Hydration",
   bowel_risk: "Nutrition & Hydration",
@@ -80,8 +98,17 @@ hydration_risk: "Nutrition & Hydration",
 cognitive_decline: "Cognitive Wellbeing",
 };
 
+// ✅ ENSURE EVERY ALERT HAS A SECTION
+const withSection = (alert: AlertItem): AlertItem => ({
+  ...alert,
+  section_title:
+    alert.section_title ||
+    ALERT_SECTION_MAP[alert.type] ||
+    ALERT_SECTION_MAP.default,
+});
+
 const RESOLVE_RULES: Record<string, string[]> = {
-  hydration_good: ["hydration_low", "hydration_critical"],
+  hydration_good: ["hydration_low", "hydration_critical", "hydration_risk"],
   nutrition_good: ["nutrition"],
   medication_taken: ["medication", "medication_refused"],
   mobility_stable: ["mobility", "mobility_decline", "falls_risk"],
@@ -423,7 +450,7 @@ export function generateDiagnosisAlerts(client: any) {
   diagnosisList.forEach((diag: string) => {
     if (!diag) return;
 
-    const clean = diag.toLowerCase().replace(/[^a-z]/g, "");
+    const clean = diag.toLowerCase();
 
     const match = Object.keys(diagnosisAlertMap).find((key) =>
       clean.includes(key)
@@ -434,12 +461,13 @@ export function generateDiagnosisAlerts(client: any) {
     diagnosisAlertMap[match].forEach((alert: any) => {
       const type = alert.type;
 
-alerts.push({
-  ...alert,
-  type,
-  source: "diagnosis",
-  section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
-});
+alerts.push(
+  withSection({
+    ...alert,
+    type,
+    source: "diagnosis",
+  })
+);
     });
   });
   return alerts;
@@ -460,16 +488,14 @@ const buildAlert = (
     triggered_by?: string;
   }
 ): AlertItem => {
-  return {
-    type,
-    message,
-    severity,
-    action,
-    source,
-    triggered_by,
-    section_title:
-      ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
-  };
+  return withSection({
+  type,
+  message,
+  severity,
+  action,
+  source,
+  triggered_by,
+});
 };
 export function generateVisitAlerts({
   client,
@@ -480,13 +506,15 @@ export function generateVisitAlerts({
   const alerts: AlertItem[] = [];
 
 const addAlert = (alert: AlertItem) => {
+  const finalAlert = withSection(alert);
+
   const exists = alerts.some(
     (a: any) =>
-      a.type === alert.type &&
-      a.source === alert.source
+      a.type === finalAlert.type &&
+      a.source === finalAlert.source
   );
 
-  if (!exists) alerts.push(alert);
+  if (!exists) alerts.push(finalAlert);
 };
   // 🔗 ASSESSMENT → VISIT ENFORCEMENT
 
@@ -603,8 +631,6 @@ addAlert(
     severity: "low",
     message: "Hydration adequate",
     source: "improvement",
-    section_title:
-      ALERT_SECTION_MAP["hydration"] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -617,16 +643,14 @@ if (visitData.safeguarding === "concern") {
     type,
     action: "Report immediately and follow safeguarding procedure",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 
   addAlert({
-    message: "Safeguarding concern",
-    severity: "critical",
-    type,
-    source: "assessments",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
-  });
+  message: "Safeguarding concern",
+  severity: "critical",
+  type,
+  source: "assessment", // 🔥 FIX
+});
 }
 if (nutrition === "good") {
   addAlert({
@@ -634,7 +658,6 @@ if (nutrition === "good") {
     severity: "low",
     message: "Nutrition adequate",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["nutrition"],
   });
 }
 if (visitData.medication === "taken") {
@@ -643,7 +666,6 @@ if (visitData.medication === "taken") {
     severity: "low",
     message: "Medication taken",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["medication"],
   });
 }
 if (mobility === "stable") {
@@ -652,7 +674,6 @@ if (mobility === "stable") {
     severity: "low",
     message: "Mobility stable",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["mobility"],
   });
 }
 if (visitData.fall === false) {
@@ -661,7 +682,6 @@ if (visitData.fall === false) {
     severity: "low",
     message: "No falls reported",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["falls"],
   });
 }
 if (cognition === "clear") {
@@ -670,7 +690,6 @@ if (cognition === "clear") {
     severity: "low",
     message: "Cognition stable",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["cognition"],
   });
 }
 if (mood === "good") {
@@ -679,7 +698,6 @@ if (mood === "good") {
     severity: "low",
     message: "Mood stable",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["mood"],
   });
 }
 if (visitData.pain === "none") {
@@ -688,7 +706,6 @@ if (visitData.pain === "none") {
     severity: "low",
     message: "Pain controlled",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["pain"],
   });
 }
 if (visitData.breathing === "normal") {
@@ -697,7 +714,6 @@ if (visitData.breathing === "normal") {
     severity: "low",
     message: "Breathing normal",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["respiratory"],
   });
 }
 if (visitData.safeguarding === "none") {
@@ -706,7 +722,6 @@ if (visitData.safeguarding === "none") {
     severity: "low",
     message: "No safeguarding concerns",
     source: "improvement",
-    section_title: ALERT_SECTION_MAP["safeguarding"],
   });
 }
 
@@ -719,7 +734,6 @@ if (visitData.pain === "high") {
     type,
     action: "Administer medication and monitor closely",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -732,7 +746,6 @@ if (visitData.behaviour === "agitated") {
     type,
     action: "Use de-escalation techniques and monitor",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -745,7 +758,6 @@ if (visitData.breathing === "laboured") {
     type,
     action: "Monitor closely and escalate if worsening",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -758,7 +770,6 @@ if (visitData.fall === true) {
     type,
     action: "Check for injury and escalate immediately",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -771,7 +782,6 @@ if (visitData.no_response === true) {
     type,
     action: "Follow welfare check protocol immediately",
     source: "visit",
-    section_title: ALERT_SECTION_MAP.default,
   });
 }
 
@@ -784,7 +794,6 @@ if (visitData.no_response === true) {
     type,
     action: "Encourage meals and monitor intake",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -797,7 +806,6 @@ if (visitData.hydration === "none") {
     type,
     action: "Escalate if continues, encourage fluids urgently",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -810,7 +818,6 @@ if (visitData.medication === "missed") {
     type,
     action: "Record reason and inform if repeated",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -823,7 +830,6 @@ if (visitData.cognition === "confused") {
     type,
     action: "Monitor closely and report changes",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -836,7 +842,6 @@ if (visitData.mobility === "decline") {
     type,
     action: "Review mobility plan and assist safely",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -848,7 +853,6 @@ addAlert({
   message: "DNACPR in place",
   action: "Ensure all staff aware before care",
   source: "visit",
-  section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
 });
 }
 
@@ -860,7 +864,6 @@ if (client.allergies) {
     message: `Allergy: ${client.allergies}`,
     action: "Avoid allergen exposure",
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -874,7 +877,6 @@ addAlert({
   ...alertConfig.medication_refused,
   type,
   source: "visit",
-  section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
 });
   }
 
@@ -888,7 +890,6 @@ addAlert({
   ...alertConfig.mood_low,
   type,
   source: "visit",
-  section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
 });
   }
 
@@ -901,7 +902,6 @@ addAlert({
   severity: "high",
   type,
   source: "visit",
-  section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
 });
 }
 
@@ -913,7 +913,6 @@ if (visitData.toileting === "diarrhoea") {
     severity: "medium",
     type,
     source: "visit",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 
@@ -929,7 +928,6 @@ if (visitData.skin) {
       severity: "critical",
       type: "skin_pressure",
       source: "visit",
-      section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
     });
   }
 
@@ -941,7 +939,6 @@ if (visitData.skin) {
       severity: "high",
       type: "skin_pressure",
       source: "visit",
-      section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
     });
   }
 
@@ -953,7 +950,6 @@ if (visitData.skin) {
       severity: "medium",
       type: "skin_pressure",
       source: "visit",
-      section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
     });
   }
 
@@ -965,7 +961,6 @@ if (visitData.skin) {
       severity: "medium",
       type: "skin_pressure",
       source: "visit",
-      section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
     });
   }
 
@@ -977,19 +972,14 @@ if (visitData.skin) {
       severity: "high",
       type: "skin_pressure",
       source: "visit",
-      section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
     });
   }
   else if (skin === "intact") {
-  const type = "skin_healed";
-
   addAlert({
-    message: "Skin intact",
+    type: "skin_healed",
     severity: "low",
-    type,
+    message: "Skin intact",
     source: "improvement",
-    section_title:
-      ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
   });
 }
 }
@@ -1041,8 +1031,6 @@ const existingSet = new Set(
     (a: any) => `${a.type}-${a.message}-${a.source}`
   )
 );
-  // ✅ ADD THIS LINE
-  const improvements = await generateImprovementAlerts({ clientId });
 
   // 🔄 AUTO RESOLVE
   for (const [trigger, targets] of Object.entries(RESOLVE_RULES)) {
@@ -1071,7 +1059,6 @@ const existingSet = new Set(
     console.log("⛔ DUPLICATE BLOCKED:", key);
     continue;
   }
-    if (Object.keys(RESOLVE_RULES).includes(alert.type)) continue;
 
     const section =
       alert.section_title ||
@@ -1084,6 +1071,7 @@ const existingSet = new Set(
 
     if (isEvent) {
   if (existingSet.has(key)) continue;
+// ✅ NOW GENERATE IMPROVEMENTS (AFTER SAVE)
 
   const res = await supabase.from("alerts").insert({
         client_id: clientId,
@@ -1128,24 +1116,25 @@ const existingSet = new Set(
     console.log("✅ ALERT SAVED:", alert.type);
     existingSet.add(key);
   }
+  // ✅ GENERATE IMPROVEMENTS AFTER ALL SAVES
+const improvements = await generateImprovementAlerts({ clientId });
 
-  // ✅ NOW THIS WORKS
-  if (improvements.length) {
-    await supabase.from("alerts").upsert(
-      improvements.map((a: any) => ({
-        client_id: clientId,
-        organisation_id: organisation_id || null,
-        type: a.type,
-        severity: a.severity,
-        message: a.message,
-        action: a.action,
-        status: "active",
-        source: "improvement",
-        section_title: a.section_title,
-      })),
-      { onConflict: "client_id,type" }
-    );
-  }
+if (improvements.length) {
+  await supabase.from("alerts").upsert(
+    improvements.map((a: any) => ({
+      client_id: clientId,
+      organisation_id: organisation_id || null,
+      type: a.type,
+      severity: a.severity,
+      message: a.message,
+      action: a.action,
+      status: "active",
+      source: "improvement",
+      section_title: a.section_title,
+    })),
+    { onConflict: "client_id,type" }
+  );
+}
 }
 
 export async function escalateAlerts({
@@ -1205,14 +1194,16 @@ if (hours >= 24 && !type.includes("_escalated")) {
 
 if (!existingEscalation) {
   await supabase.from("alerts").insert({
-    client_id: clientId,
-    type: `${type}_escalated`,
-    severity: "critical",
-    message: `${type} has occurred multiple times — escalation required`,
-    action: "Review care plan and escalate to GP/manager",
-    status: "active",
-    source: "system",
-  });
+  client_id: clientId,
+  type: `${type}_escalated`,
+  severity: "critical",
+  message: `${type} has occurred multiple times — escalation required`,
+  action: "Review care plan and escalate to GP/manager",
+  status: "active",
+  source: "system",
+  section_title:
+    ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
+});
 }
 
       console.log("🚨 ESCALATION CREATED:", type);
@@ -1243,36 +1234,38 @@ export async function generatePredictiveAlerts({
   const predictive: AlertItem[] = [];
 
   if ((counts["hydration_low"] || 0) >= 2) {
-    predictive.push({
-      type: "hydration_risk",
-      severity: "medium",
-      message: "Pattern of low hydration emerging",
-      action: "Increase monitoring and encourage fluids",
-      source: "predictive",
-      section_title: "Nutrition & Hydration",
-    });
+    predictive.push(
+  withSection({
+    type: "hydration_risk",
+    severity: "medium",
+    message: "Pattern of low hydration emerging",
+    action: "Increase monitoring and encourage fluids",
+    source: "predictive",
+  })
+);
   }
 
   if ((counts["falls_event"] || 0) >= 2) {
-    predictive.push({
-      type: "falls_risk",
+    predictive.push(
+  withSection({
+    type: "falls_risk",
       severity: "high",
       message: "Increasing falls risk trend",
       action: "Review mobility plan urgently",
       source: "predictive",
-      section_title: "Mobility & Moving",
-    });
+    }));
   }
 
   if ((counts["confusion"] || 0) >= 2) {
-    predictive.push({
+    predictive.push(
+      withSection({
       type: "cognitive_decline",
       severity: "high",
       message: "Increasing confusion pattern detected",
       action: "Review cognitive status and escalate",
       source: "predictive",
       section_title: "Cognitive Wellbeing",
-    });
+    }));
   }
 
   return predictive;
@@ -1309,14 +1302,15 @@ export async function generateImprovementAlerts({
     hydrationResolved.length >= 2 &&
     !alreadyExists("hydration_improving")
   ) {
-    improvements.push({
-      type: "hydration_improving",
-      severity: "low",
-      message: "Hydration improving over recent visits",
-      action: "Continue encouraging fluid intake",
-      source: "improvement",
-      section_title: "Nutrition & Hydration",
-    });
+    improvements.push(
+  withSection({
+    type: "hydration_improving",
+    severity: "low",
+    message: "Hydration improving over recent visits",
+    action: "Continue encouraging fluid intake",
+    source: "improvement",
+  })
+);
   }
 
   // 🟢 SKIN
@@ -1330,14 +1324,15 @@ export async function generateImprovementAlerts({
     skinResolved.length >= 2 &&
     !alreadyExists("skin_improving")
   ) {
-    improvements.push({
+    improvements.push(
+      withSection({
       type: "skin_improving",
       severity: "low",
       message: "Skin condition improving",
       action: "Continue pressure care and monitoring",
       source: "improvement",
-      section_title: "Personal Care (ADLs)",
-    });
+    })
+  );
   }
 
   // 🟢 COGNITION
@@ -1356,14 +1351,15 @@ export async function generateImprovementAlerts({
     recentConfusion.length === 0 &&
     !alreadyExists("cognition_improving")
   ) {
-    improvements.push({
+    improvements.push(
+      withSection({
       type: "cognition_improving",
       severity: "low",
       message: "No recent confusion observed",
       action: "Maintain current support approach",
       source: "improvement",
       section_title: "Cognitive Wellbeing",
-    });
+    }));
   }
 
   return improvements;
@@ -1504,53 +1500,58 @@ export function generateFlagAlerts(flags: string[] = []): AlertItem[] {
   flags.forEach((flag) => {
     switch (flag) {
       case "clinical_deterioration":
-        alerts.push({
-          type: "clinical",
-          severity: "critical",
-          message: "Clinical deterioration detected",
-          source: "assessment",
-          section_title: "Medical Conditions & Overview",
-        });
+        alerts.push(
+          withSection({
+            type: "clinical",
+            severity: "critical",
+            message: "Clinical deterioration detected",
+            source: "assessment",
+          })
+        );
         break;
 
       case "malnutrition_risk":
-        alerts.push({
-          type: "nutrition",
-          severity: "high",
-          message: "High malnutrition risk",
-          source: "assessment",
-          section_title: "Nutrition & Hydration",
-        });
+        alerts.push(
+          withSection({
+            type: "nutrition",
+            severity: "high",
+            message: "High malnutrition risk",
+            source: "assessment",
+          })
+        );
         break;
 
       case "falls_risk":
-        alerts.push({
-          type: "falls_risk",
-          severity: "high",
-          message: "High falls risk",
-          source: "assessment",
-          section_title: "Mobility & Moving",
-        });
+        alerts.push(
+          withSection({
+            type: "falls_risk",
+            severity: "high",
+            message: "High falls risk",
+            source: "assessment",
+          })
+        );
         break;
 
       case "safeguarding":
-        alerts.push({
-          type: "safeguarding",
-          severity: "critical",
-          message: "Safeguarding concern",
-          source: "assessment",
-          section_title: "Risks & Safety",
-        });
+        alerts.push(
+          withSection({
+            type: "safeguarding",
+            severity: "critical",
+            message: "Safeguarding concern",
+            source: "assessment",
+          })
+        );
         break;
 
       case "medication_risk":
-        alerts.push({
-          type: "medication",
-          severity: "high",
-          message: "Medication compliance risk",
-          source: "assessment",
-          section_title: "Medication Support",
-        });
+        alerts.push(
+          withSection({
+            type: "medication",
+            severity: "high",
+            message: "Medication compliance risk",
+            source: "assessment",
+          })
+        );
         break;
     }
   });
@@ -1570,8 +1571,17 @@ const combinedFlags = [...new Set([...autoFlags, ...manualFlags])];
 const alerts: AlertItem[] = [];
 
 const addAlert = (alert: AlertItem) => {
-  const exists = alerts.some((a: any) => a.type === alert.type);
-  if (!exists) alerts.push(alert);
+  const finalAlert = withSection(alert);
+
+  const exists = alerts.some(
+    (a: any) =>
+      a.type === finalAlert.type &&
+      a.source === finalAlert.source
+  );
+
+  if (!exists) {
+    alerts.push(finalAlert);
+  }
 };
 
 // 🔥 FLAGS → ALERTS
@@ -1585,8 +1595,7 @@ addAlert({
   message: "Risk of dehydration",
   severity: "high",
   type,
-  source: "assessments",
-  section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
+  source: "assessment",
 });
   }
 
@@ -1597,29 +1606,32 @@ addAlert({
     message: "High falls risk",
     severity: "high",
     type,
-    source: "assessments",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
+    source: "assessment",
   });
 }
 
 if (assessments.early_warning_signs) {
-  alerts.push({
+  alerts.push(
+  withSection({
     type: "early_warning",
     severity: "high",
     message: "Early warning signs identified",
     action: "Monitor closely and follow escalation plan",
     source: "assessment",
-  });
+  })
+);
 }
 
 if (assessments.risk_trend === "declining") {
-  alerts.push({
+  alerts.push(
+    withSection({
     type: "deterioration",
     severity: "critical",
     message: "Client condition declining",
     action: "Immediate clinical review required",
     source: "assessment",
-  });
+    })
+  );
 }
 
   if (assessments.mood === "distressed") {
@@ -1629,8 +1641,7 @@ if (assessments.risk_trend === "declining") {
     message: "Emotional distress observed",
     severity: "high",
     type,
-    source: "assessments",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
+    source: "assessment",
   });
 }
 
@@ -1641,8 +1652,7 @@ if (assessments.risk_trend === "declining") {
     message: "Safeguarding concern",
     severity: "critical",
     type,
-    source: "assessments",
-    section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
+    source: "assessment",
   });
 }
   
@@ -1657,8 +1667,7 @@ addAlert({
   message: "No MCA assessments recorded",
   severity: "high",
   type,
-  source: "assessments",
-  section_title: ALERT_SECTION_MAP[type] || ALERT_SECTION_MAP.default,
+  source: "assessment",
 });
 }
 if (
@@ -1669,7 +1678,7 @@ if (
     message: "Best interest decision required",
     severity: "critical",
     type: "best_interest_missing",
-    source: "assessments",
+    source: "assessment",
   });
 }
 return alerts;

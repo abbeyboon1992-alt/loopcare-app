@@ -899,7 +899,7 @@ useEffect(() => {
   if (!clientId) return;
   const loadMCA = async () => {
     const { data } = await supabase
-      .from("mca_assessment")
+      .from("mca_assessments")
       .select("*")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false });
