@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { canAccessFeature } from "@/lib/featureAccess";
+import { createReferral } from "@/lib/referralEngine";
 import { supabase } from "@/lib/supabase";
 import EvidenceBlock from "@/components/assessment/evidenceBlock";
 import { mergeAlerts } from "@/lib/mergeAlerts";
@@ -3262,12 +3263,15 @@ return (
   />
 </div>
 
+  <div>
+  <label className="text-sm text-[var(--muted)]">BMI</label>
   <input
-  type="number"
-  value={bmi || ""}
-  readOnly
-  className="w-full p-3 text-base rounded bg-[var(--card)]"
-/>
+    type="number"
+    value={bmi || ""}
+    readOnly
+    className="w-full p-3 mt-1 text-base rounded bg-[var(--card)]"
+  />
+</div>
 
   {bmiCategory === "underweight" && (
   <div className="bg-red-600 p-3 rounded">
@@ -3462,16 +3466,30 @@ disabled={viewMode}
 
               <button
               type="button"
-  onClick={() =>
-  createReferral({
-    client_id: form.client_id,
-    referral_type: "Equipment Service",
-    details: `${item} requires servicing`,
-    organisation_id: organisationId || undefined,
-    status: "pending",
-  })
-}
-  disabled={viewMode}
+  onClick={async () => {
+  try {
+    console.log("CLICKED", {
+      client_id: form.client_id,
+      organisationId,
+      item,
+    });
+
+    const result = await createReferral({
+      client_id: form.client_id,
+      referral_type: "Equipment Service",
+      details: `${item} requires servicing`,
+      organisation_id: organisationId ?? undefined,
+      status: "pending",
+    });
+
+    console.log("RESULT:", result);
+
+    alert("Referral created");
+  } catch (err) {
+    console.error("REFERRAL ERROR:", err);
+    alert("Failed to create referral");
+  }
+}}
   className="bg-black px-3 py-1 rounded text-sm disabled:opacity-50"
 >
   Book Service
