@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import { generateRisks } from "@/lib/riskEngine";
 import { saveAlerts, generateAssessmentAlerts } from "@/lib/alertEngine";
 import { generateTasks } from "@/lib/taskEngine";
+import { useMemo } from "react"; 
 import React from "react";
 import { syncTasksWithCarePlan } from "@/lib/carePlanTaskEngine";
 import { assessmentVisibility } from "@/lib/assessmentVisibility";
@@ -80,6 +81,8 @@ function Section({
       onChange([...current, opt]);
     }
   };
+  
+  
   return (
     <div className="mb-6">
       <p className="mb-2">{title}</p>
@@ -269,6 +272,70 @@ news2_score: 0,
 bmi_category: "",
 waterlow_medication_risk: "",
 });
+const safeForm = {
+  ...form,
+
+  // 🔒 ensure arrays exist
+  equipment: form.equipment || [],
+  medications: form.medications || [],
+  flags: form.flags || [],
+
+  // 🔒 ensure objects exist
+  equipment_serviced: form.equipment_serviced || {},
+  equipment_last_service: form.equipment_last_service || {},
+  baseline_observations: form.baseline_observations || {},
+
+  // 🔒 prevent input lock
+  weight: form.weight ?? "",
+  height: form.height ?? "",
+  resp_rate: form.resp_rate ?? "",
+  oxygen_sats: form.oxygen_sats ?? "",
+  temperature: form.temperature ?? "",
+  pulse: form.pulse ?? "",
+};
+useEffect(() => {
+  if (!form.client_id) return;
+
+  const loadAssessment = async () => {
+    const { data, error } = await supabase
+      .from("assessments")
+      .select("*")
+      .eq("client_id", form.client_id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Load error:", error);
+      return;
+    }
+
+    if (data) {
+      setForm({
+        ...data,
+
+        // ✅ CRITICAL: enforce safe defaults
+        equipment: data.equipment || [],
+        equipment_serviced: data.equipment_serviced || {},
+        equipment_last_service: data.equipment_last_service || {},
+
+        baseline_observations: data.baseline_observations || {},
+
+        medications: data.medications || [],
+
+        flags: data.flags || [],
+
+        // ensure numbers don’t break inputs
+        weight: data.weight ?? "",
+        height: data.height ?? "",
+        resp_rate: data.resp_rate ?? "",
+        oxygen_sats: data.oxygen_sats ?? "",
+        temperature: data.temperature ?? "",
+        pulse: data.pulse ?? "",
+      });
+    }
+  };
+
+  loadAssessment();
+}, [form.client_id]);
   
 const params = useParams();
 const id = Array.isArray(params?.id) ? params.id[0] : params?.id; 
@@ -1376,6 +1443,7 @@ const bmi = (() => {
   if (h <= 0) return 0;
   return Number((w / (h * h)).toFixed(1));
 })();
+const score = useMemo(() => calculateScore(), [form]);
 const bmiCategory = (() => {
   if (!bmi) return "";
   if (bmi < 18.5) return "underweight";
@@ -1438,7 +1506,8 @@ useEffect(() => {
   // 🧠 ADVANCED CLINICAL RISK SCORING
 const calculateScore = () => {
   let score = 0;
-  // 🔹 BASIC RISKS (keep your existing logic)
+
+  // 🔹 BASIC RISKS
   if (form.hydration === "poor" || form.hydration === "refused") score += 3;
   if (form.nutrition === "poor" || form.nutrition === "refused") score += 3;
   if (form.falls_risk === "high") score += 3;
@@ -1454,26 +1523,18 @@ const calculateScore = () => {
   if (form.eating === "dependent") score += 2;
   if (form.pain === "severe") score += 2;
 
-  // 🔥 MUST SCORE OVERRIDE (nutrition clinical priority)
-  if (form.must_score) {
-    const must = Number(form.must_score || 0);
+  // MUST
+  const must = Number(form.must_score || 0);
+  if (must >= 2) score += 6;
+  else if (must === 1) score += 3;
 
-if (must >= 2) score += 6; // high risk
-else if (must === 1) score += 3;
-  }
+  // weight loss
+  if (form.unplanned_weight_loss === "yes") score += 4;
 
-  // 🔥 UNPLANNED WEIGHT LOSS
-  if (form.unplanned_weight_loss === "yes") {
-    score += 4;
-  }
-
-  // 🔥 BMI CHECK
-  if (form.bmi) {
-    const bmi = Number(form.bmi);
-
-    if (bmi < 18.5) score += 4; // underweight = high risk
-    if (bmi > 30) score += 1; // mild obesity flag
-  }
+  // BMI
+  const bmi = Number(form.bmi);
+  if (bmi < 18.5) score += 4;
+  if (bmi > 30) score += 1;
 
   return score;
 };
@@ -1745,13 +1806,13 @@ const generateFlagAlerts = (flags: string[]) => {
     message: f.replace(/_/g, " "),
   }));
 };
-const generateAISummary = (form: any) => {
+const generateAISummary = (form: any, score: number) => {
   return `
 Client has ${form.mobility || "unknown"} mobility,
 ${form.nutrition || "unknown"} nutrition,
 and ${form.falls_risk || "unknown"} falls risk.
 
-Overall risk score: ${calculateScore()}.
+Overall risk score: ${score}.
 `;
 };
   const handleSubmit = async () => {
@@ -1798,7 +1859,7 @@ const combinedFlags = [...new Set([...autoFlags, ...manualFlags])];
   skin_source: form.skin_source || [],
   medication_source: form.medication_source || [],
   safeguarding_source: form.safeguarding_source || [],
-  ai_summary: generateAISummary(form),
+  ai_summary: generateAISummary(form, riskScore),
 ai_last_updated: new Date().toISOString(),
 mca_completed: form.mca_completed,
 best_interest_completed: form.best_interest_completed,
@@ -2344,60 +2405,81 @@ const compareToBaseline = (field: string, current: any) => {
   return null;
 };
 
-const FamilyPDFView = () => (
-  <div className="bg-white text-black p-6 space-y-4 text-sm">
-    <h1 className="text-xl font-bold mb-2">
-      Care Summary
-    </h1>
+const FamilyPDFView = () => {
+  const scoreValue = calculateScore();
 
-    {form.ai_summary && (
-  <div className="bg-blue-900/20 border border-blue-500 p-3 rounded mb-4">
-    <h2 className="font-semibold mb-2">🧠 AI Summary</h2>
-    <p className="text-sm whitespace-pre-line">{form.ai_summary}</p>
+  const riskLabel =
+  scoreValue >= 10
+    ? "Higher level of support needed"
+    : scoreValue >= 5
+    ? "Some additional support needed"
+    : "Low level of support needed";
+
+  const riskColor =
+    scoreValue >= 10
+      ? "text-red-600"
+      : scoreValue >= 5
+      ? "text-yellow-600"
+      : "text-green-600";
+
+  return (
+    <div className="bg-white text-black p-6 space-y-4 text-sm">
+      <h1 className="text-xl font-bold mb-2">Care Summary</h1>
+
+      {form.ai_summary && (
+        <div className="bg-blue-100 border border-blue-400 p-3 rounded mb-4">
+          <h2 className="font-semibold mb-2">🧠 AI Summary</h2>
+          <p className="whitespace-pre-line">{form.ai_summary}</p>
+        </div>
+      )}
+
+      <p>
+        This summary explains the current care needs and support in place in a
+        clear and simple way.
+      </p>
+
+      <div className="space-y-2">
+        <div><strong>Mobility:</strong> {getFriendly("mobility", form.mobility)}</div>
+        <div><strong>Eating & Drinking:</strong> {getFriendly("nutrition", form.nutrition)}</div>
+        <div><strong>Skin:</strong> {getFriendly("skin", form.skin)}</div>
+        <div><strong>Falls Risk:</strong> {getFriendly("falls_risk", form.falls_risk)}</div>
+        <div><strong>Cognition:</strong> {getFriendly("cognition", form.cognition)}</div>
+        <div><strong>Medication Support:</strong> {getFriendly("medication_ability", form.medication_ability)}</div>
+        <div><strong>Safety:</strong> {getFriendly("safeguarding", form.safeguarding)}</div>
+      </div>
+
+      {form.early_warning_signs && (
+  <div className="text-yellow-400 text-sm">
+    ⚠️ Early warning signs recorded
+    <div className="text-xs text-yellow-300 mt-1">
+      {form.early_warning_signs}
+    </div>
   </div>
 )}
 
-    <p>
-      This summary explains the current care needs and support in place.
-    </p>
-
-    <div>
-      <strong>Mobility:</strong> {getFriendly("mobility", form.mobility)}
-    </div>
-
-    <div>
-      <strong>Eating & Drinking:</strong>{" "}
-      {getFriendly("nutrition", form.nutrition)}
-    </div>
-
-    <div>
-      <strong>Skin:</strong> {getFriendly("skin", form.skin)}
-    </div>
-
-    <div>
-      <strong>Falls Risk:</strong>{" "}
-      {getFriendly("falls_risk", form.falls_risk)}
-    </div>
-
-    <div>
-      <strong>Safety:</strong>{" "}
-      {getFriendly("safeguarding", form.safeguarding)}
-    </div>
-
-    <div className="mt-4">
-      <strong>Overall Risk Level:</strong>{" "}
-      {calculateScore() >= 10
-        ? "Higher level of support needed"
-        : calculateScore() >= 5
-        ? "Some additional support needed"
-        : "Low level of support needed"}
-    </div>
-
-    <div className="mt-6 text-xs text-gray-600">
-      This report is designed to help families understand care needs in a simple way.
+      {form.escalation_plan && (
+  <div className="text-blue-400 text-sm">
+    📞 Escalation plan available
+    <div className="text-xs text-blue-300 mt-1">
+      {form.escalation_plan}
     </div>
   </div>
-);
+)}
+
+      <div className="mt-4">
+        <strong>Overall Risk Level:</strong>{" "}
+        <span className={`font-semibold ${riskColor}`}>
+          {riskLabel}
+        </span>
+      </div>
+
+      <div className="mt-6 text-xs text-gray-600">
+        This report is designed to help families understand care needs in a simple,
+        reassuring way. Speak to the care provider if you have any concerns.
+      </div>
+    </div>
+  );
+};
 
 return (
   <>
@@ -2676,9 +2758,10 @@ return (
     </p>
 
     {compareToBaseline("mobility", form.mobility) && (
-  <p className="text-xs text-yellow-400">
-    {compareToBaseline("mobility", form.mobility)}
-  </p>
+  <div className="text-xs text-yellow-400 bg-yellow-900/20 p-2 rounded">
+    ⚠️ Change from normal:
+    <div>{compareToBaseline("mobility", form.mobility)}</div>
+  </div>
 )}
 
     <p className="text-sm mb-2">
@@ -2699,9 +2782,9 @@ return (
 
     <p className="text-sm mt-3">
       <strong>Risk Level:</strong>{" "}
-      {calculateScore() >= 10
+      {score >= 10
         ? "High"
-        : calculateScore() >= 5
+        : score >= 5
         ? "Moderate"
         : "Low"}
     </p>
@@ -2713,7 +2796,7 @@ return (
   <div className="space-y-3 max-h-[300px] overflow-y-auto">
     {timeline.map((item, i) => (
       <div
-        key={`${item.type}-${item.date}-${i}`}
+        key={`${item.type}-${item.date}-${item.id || i}`}
         className="border-l-2 border-[var(--border)]-600 pl-3"
       >
         <p className="text-xs text-[var(--muted)]">
@@ -2931,7 +3014,7 @@ return (
         <Section
     title="Cognition"
     options={["no impairment", "mild", "moderate", "severe"]}
-    value={form.cognition || ""}
+    value={form?.cognition || ""}
     onChange={(v) => handleInput("cognition", v)}
     disabled={viewMode}
   />
@@ -4240,20 +4323,20 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
 )}
   <h2 className="font-semibold mb-2">Risk Score</h2>
 
-  {calculateScore() >= 10 && (
+  {score >= 10 && (
   <p className="text-red-400 text-sm mt-2">
     ⚠️ High risk — ensure all sections are fully completed
   </p>
 )}
 
   <p className="text-2xl font-bold">
-    {calculateScore()}
+    {score}
   </p>
 
   <p className="text-sm text-[var(--muted)]">
-    {calculateScore() >= 10
+    {score >= 10
       ? "High Risk"
-      : calculateScore() >= 5
+      : score >= 5
       ? "Moderate Risk"
       : "Low Risk"}
   </p>
