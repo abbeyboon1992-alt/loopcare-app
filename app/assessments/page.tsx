@@ -293,14 +293,16 @@ const safeForm = {
   temperature: form.temperature ?? "",
   pulse: form.pulse ?? "",
 };
+
 useEffect(() => {
-  if (!form.client_id) return;
+  if (!clientId || hasLoadedRef.current) return;
+  hasLoadedRef.current = true;
 
   const loadAssessment = async () => {
     const { data, error } = await supabase
       .from("assessments")
       .select("*")
-      .eq("client_id", form.client_id)
+      .eq("client_id", clientId)
       .maybeSingle();
 
     if (error) {
@@ -308,34 +310,48 @@ useEffect(() => {
       return;
     }
 
-    if (data) {
-      setForm({
-        ...data,
+    if (!data) return;
 
-        // ✅ CRITICAL: enforce safe defaults
-        equipment: data.equipment || [],
-        equipment_serviced: data.equipment_serviced || {},
-        equipment_last_service: data.equipment_last_service || {},
+    setHasSavedAssessment(true);
 
-        baseline_observations: data.baseline_observations || {},
+    setForm((prev: any) => ({
+      ...prev,
+      ...data,
 
-        medications: data.medications || [],
+      // ✅ HARDEN DATA (CRITICAL)
+      equipment: Array.isArray(data.equipment) ? data.equipment : [],
+      equipment_serviced:
+        typeof data.equipment_serviced === "object" && data.equipment_serviced
+          ? data.equipment_serviced
+          : {},
+      equipment_last_service:
+        typeof data.equipment_last_service === "object" && data.equipment_last_service
+          ? data.equipment_last_service
+          : {},
 
-        flags: data.flags || [],
+      medications: Array.isArray(data.medications) ? data.medications : [],
+      flags: Array.isArray(data.flags) ? data.flags : [],
 
-        // ensure numbers don’t break inputs
-        weight: data.weight ?? "",
-        height: data.height ?? "",
-        resp_rate: data.resp_rate ?? "",
-        oxygen_sats: data.oxygen_sats ?? "",
-        temperature: data.temperature ?? "",
-        pulse: data.pulse ?? "",
-      });
-    }
+      // ✅ sources always arrays
+      cognition_source: Array.isArray(data.cognition_source) ? data.cognition_source : [],
+      nutrition_source: Array.isArray(data.nutrition_source) ? data.nutrition_source : [],
+      mobility_source: Array.isArray(data.mobility_source) ? data.mobility_source : [],
+      skin_source: Array.isArray(data.skin_source) ? data.skin_source : [],
+      medication_source: Array.isArray(data.medication_source) ? data.medication_source : [],
+      safeguarding_source: Array.isArray(data.safeguarding_source) ? data.safeguarding_source : [],
+
+      // ✅ booleans
+      cognition_evidence: data.cognition_evidence === true,
+      nutrition_evidence: data.nutrition_evidence === true,
+      mobility_evidence: data.mobility_evidence === true,
+      skin_evidence: data.skin_evidence === true,
+      medication_evidence: data.medication_evidence === true,
+      safeguarding_evidence: data.safeguarding_evidence === true,
+    }));
   };
 
   loadAssessment();
-}, [form.client_id]);
+}, [clientId]);
   
 const params = useParams();
 const id = Array.isArray(params?.id) ? params.id[0] : params?.id; 
@@ -857,16 +873,12 @@ const updateMedication = (index: number, field: string, value: string) => {
   );
 };
 useEffect(() => {
-  if (clientId) {
-    setForm((prev: any) => {
-      if (prev.client_id === clientId) return prev;
+  if (!clientId) return;
 
-      return {
-        ...prev,
-        client_id: clientId,
-      };
-    });
-  }
+  setForm((prev: any) => ({
+    ...prev,
+    client_id: clientId,
+  }));
 }, [clientId]);
 const hasLoadedRef = useRef(false);
 useEffect(() => {
@@ -936,13 +948,6 @@ safeguarding_source: Array.isArray(data.safeguarding_source)
         : {},
   }));
 }
-setForm((prev: any) => ({
-  ...prev,
-  cognition: data.cognition || "",
-  capacity: data.capacity || "",
-  mca_completed: data.mca_completed || false,
-  best_interest_completed: data.best_interest_completed || false,
-}));
     setHasLoaded(true); // ✅ LOCK AFTER FIRST LOAD
     if (error) {
       console.error("Load error:", error.message);
