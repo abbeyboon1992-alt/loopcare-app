@@ -1443,6 +1443,40 @@ const bmi = (() => {
   if (h <= 0) return 0;
   return Number((w / (h * h)).toFixed(1));
 })();
+const calculateScore = () => {
+  let score = 0;
+
+  // 🔹 BASIC RISKS
+  if (form.hydration === "poor" || form.hydration === "refused") score += 3;
+  if (form.nutrition === "poor" || form.nutrition === "refused") score += 3;
+  if (form.falls_risk === "high") score += 3;
+  if (form.falls === "multiple falls") score += 4;
+  if (form.skin === "pressure sore") score += 4;
+  if (form.safeguarding === "concern") score += 5;
+  if (form.capacity === "lacks capacity") score += 2;
+  if (form.cognition === "moderate" || form.cognition === "severe") score += 2;
+  if (form.communication === "non-verbal") score += 2;
+  if (form.environment === "unsafe") score += 3;
+  if (form.washing === "dependent") score += 2;
+  if (form.dressing === "dependent") score += 2;
+  if (form.eating === "dependent") score += 2;
+  if (form.pain === "severe") score += 2;
+
+  // MUST
+  const must = Number(form.must_score || 0);
+  if (must >= 2) score += 6;
+  else if (must === 1) score += 3;
+
+  // weight loss
+  if (form.unplanned_weight_loss === "yes") score += 4;
+
+  // BMI
+  const bmi = Number(form.bmi);
+  if (bmi < 18.5) score += 4;
+  if (bmi > 30) score += 1;
+
+  return score;
+};
 const score = useMemo(() => calculateScore(), [form]);
 const bmiCategory = (() => {
   if (!bmi) return "";
@@ -1503,41 +1537,7 @@ useEffect(() => {
   };
   loadClient();
 }, [clientId])
-  // 🧠 ADVANCED CLINICAL RISK SCORING
-const calculateScore = () => {
-  let score = 0;
 
-  // 🔹 BASIC RISKS
-  if (form.hydration === "poor" || form.hydration === "refused") score += 3;
-  if (form.nutrition === "poor" || form.nutrition === "refused") score += 3;
-  if (form.falls_risk === "high") score += 3;
-  if (form.falls === "multiple falls") score += 4;
-  if (form.skin === "pressure sore") score += 4;
-  if (form.safeguarding === "concern") score += 5;
-  if (form.capacity === "lacks capacity") score += 2;
-  if (form.cognition === "moderate" || form.cognition === "severe") score += 2;
-  if (form.communication === "non-verbal") score += 2;
-  if (form.environment === "unsafe") score += 3;
-  if (form.washing === "dependent") score += 2;
-  if (form.dressing === "dependent") score += 2;
-  if (form.eating === "dependent") score += 2;
-  if (form.pain === "severe") score += 2;
-
-  // MUST
-  const must = Number(form.must_score || 0);
-  if (must >= 2) score += 6;
-  else if (must === 1) score += 3;
-
-  // weight loss
-  if (form.unplanned_weight_loss === "yes") score += 4;
-
-  // BMI
-  const bmi = Number(form.bmi);
-  if (bmi < 18.5) score += 4;
-  if (bmi > 30) score += 1;
-
-  return score;
-};
 
 const calculateFlags = (form: any) => {
   const flags: string[] = [];
