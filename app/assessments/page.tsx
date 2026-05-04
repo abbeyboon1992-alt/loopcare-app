@@ -3228,31 +3228,39 @@ return (
 <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mt-4 space-y-3">
   <p className="text-sm font-semibold">Weight & Nutritional Risk</p>
 
+  {/* WEIGHT */}
+<div>
+  <label className="text-sm text-[var(--muted)]">Weight (kg)</label>
   <input
-  type="number"
-  inputMode="decimal"
-  value={form.weight ?? ""}
-  onChange={(e) =>
-    handleInput(
-      "weight",
-      e.target.value === "" ? "" : Number(e.target.value)
-    )
-  }
-  className="w-full p-3 text-base rounded bg-[var(--card)]"
-/>
+    type="number"
+    inputMode="decimal"
+    value={form.weight ?? ""}
+    onChange={(e) =>
+      handleInput(
+        "weight",
+        e.target.value === "" ? "" : Number(e.target.value)
+      )
+    }
+    className="w-full p-3 mt-1 text-base rounded bg-[var(--card)]"
+  />
+</div>
 
+{/* HEIGHT */}
+<div>
+  <label className="text-sm text-[var(--muted)]">Height (cm)</label>
   <input
-  type="number"
-  inputMode="decimal"
-  value={form.height ?? ""}
-  onChange={(e) =>
-    handleInput(
-      "height",
-      e.target.value === "" ? "" : Number(e.target.value)
-    )
-  }
-  className="w-full p-3 text-base rounded bg-[var(--card)]"
-/>
+    type="number"
+    inputMode="decimal"
+    value={form.height ?? ""}
+    onChange={(e) =>
+      handleInput(
+        "height",
+        e.target.value === "" ? "" : Number(e.target.value)
+      )
+    }
+    className="w-full p-3 mt-1 text-base rounded bg-[var(--card)]"
+  />
+</div>
 
   <input
   type="number"
