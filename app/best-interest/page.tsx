@@ -18,7 +18,6 @@ function BestInterestPageContent() {
   const [linkedMcaId, setLinkedMcaId] = useState<string | null>(null);
 
   const [form, setForm] = useState<any>({
-  client_id: clientId,
   decision: "",
   people_consulted: "",
   wishes: "",
@@ -80,8 +79,9 @@ if (editingId) {
   const res = await supabase
     .from("best_interest_decisions")
 .insert({
-  organisation_id: orgId, // 🔥 ADD THIS
-  linked_mca_id: linkedMcaId,// 🔥 THIS IS THE LINK
+  client_id: clientId, // 🔥 ADD THIS (CRITICAL)
+  organisation_id: orgId,
+  linked_mca_id: linkedMcaId,
   decision: form.decision,
       people_consulted: form.people_consulted
         ? form.people_consulted.split(",").map((p: string) => p.trim())
@@ -100,11 +100,18 @@ if (editingId) {
 
     // 🔗 UPDATE MAIN assessments
     await supabase
-      .from("assessments")
-      .update({
-        best_interest_completed: "yes",
-      })
-      .eq("client_id", clientId);
+  .from("assessments")
+  .upsert(
+    {
+      client_id: clientId,
+      best_interest_required: "yes",
+      best_interest_completed: true, // ✅ BOOLEAN
+      best_interest_completed_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "client_id",
+    }
+  );
 
       // 🔥 RE-RUN ALERT ENGINE AFTER BEST INTEREST SAVE
 const { data: updatedAssessment } = await supabase
@@ -129,7 +136,7 @@ await injectBestInterestIntoCarePlan({ clientId });
     setSaving("saved");
 
     setTimeout(() => {
-      router.push(`/assessments?client=${clientId}`);
+      router.push(`/assessments?client=${clientId}&section=cognition`);
     }, 1200);
   };
 
