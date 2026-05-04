@@ -17,7 +17,7 @@ type AlertItem = {
 };
 
 const ALERT_SECTION_MAP: Record<string, string> = {
-  
+  decision_made: "Cognitive Wellbeing",
   hydration: "Nutrition & Hydration",
   hydration_low: "Nutrition & Hydration",
   hydration_critical: "Nutrition & Hydration",
@@ -108,6 +108,7 @@ const withSection = (alert: AlertItem): AlertItem => ({
 });
 
 const RESOLVE_RULES: Record<string, string[]> = {
+  decision_made: ["best_interest_missing"],
   hydration_good: ["hydration_low", "hydration_critical", "hydration_risk"],
   nutrition_good: ["nutrition"],
   medication_taken: ["medication", "medication_refused"],
@@ -1680,6 +1681,16 @@ if (
     type: "best_interest_missing",
     source: "assessment",
   });
+  // 🧠 BEST INTEREST COMPLETED
+if (assessments.best_interest_completed === "yes") {
+  addAlert({
+    type: "decision_made",
+    severity: "low",
+    message: "Decision made under MCA (Best Interest)",
+    action: "Ensure care plan reflects decision",
+    source: "assessment",
+  });
+}
 }
 return alerts;
 }
@@ -1839,5 +1850,108 @@ ${updatedActions}
       .eq("id", section.id);
 
     console.log("📌 ALERTS INJECTED INTO:", section.section_title);
+  }
+}
+export async function injectBestInterestIntoCarePlan({
+  clientId,
+}: {
+  clientId: string;
+}) {
+  if (!clientId) return;
+
+  // 🔥 GET LATEST BEST INTEREST
+  const { data: decision } = await supabase
+    .from("best_interest_decisions")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!decision) return;
+
+  // 🔗 GET LINKED MCA (optional but powerful)
+  let mcaText = "";
+  if (decision.linked_mca_id) {
+    const { data: mca } = await supabase
+      .from("mca_assessments")
+      .select("decision, has_capacity")
+      .eq("id", decision.linked_mca_id)
+      .maybeSingle();
+
+    if (mca) {
+      mcaText = `
+MCA Decision:
+${mca.decision || ""}
+
+Capacity:
+${mca.has_capacity ? "Has capacity" : "Lacks capacity"}
+`;
+    }
+  }
+
+  // 🧠 BUILD STRUCTURED CONTENT
+  const content = `
+Care Need:
+Client lacks capacity for decision making
+
+Outcome:
+Safe and lawful decision made in best interest
+
+Actions:
+🧠 Decision:
+${decision.decision || ""}
+
+👥 People Consulted:
+${Array.isArray(decision.people_consulted)
+  ? decision.people_consulted.join(", ")
+  : ""}
+
+💭 Wishes & Feelings:
+${decision.wishes || ""}
+
+🧬 Beliefs & Values:
+${decision.beliefs_values || ""}
+
+🪶 Least Restrictive Option:
+${decision.least_restrictive_option || ""}
+
+⚖️ Rationale:
+${decision.rationale || ""}
+
+${mcaText}
+`;
+
+  // 🔥 CHECK IF SECTION EXISTS
+  const { data: existing } = await supabase
+    .from("care_plan_section")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("title", "Decision Making & Capacity")
+    .maybeSingle();
+
+  if (existing) {
+    // 🔄 UPDATE
+    await supabase
+      .from("care_plan_section")
+      .update({
+        actions: content,
+        content,
+      })
+      .eq("id", existing.id);
+
+    console.log("🧠 UPDATED BI CARE PLAN SECTION");
+  } else {
+    // ➕ CREATE
+    await supabase.from("care_plan_section").insert({
+      client_id: clientId,
+      title: "Decision Making & Capacity",
+      care_need: "Client lacks capacity for decision making",
+      outcome: "Decision made in best interest",
+      actions: content,
+      content,
+    });
+
+    console.log("🧠 CREATED BI CARE PLAN SECTION");
   }
 }

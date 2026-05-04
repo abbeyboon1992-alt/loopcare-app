@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
-import { generateAssessmentAlerts, saveAlerts } from "@/lib/alertEngine";
+import { generateAssessmentAlerts, saveAlerts, injectBestInterestIntoCarePlan } from "@/lib/alertEngine";
 
 function BestInterestPageContent() {
   const router = useRouter();
@@ -42,6 +42,13 @@ function BestInterestPageContent() {
     setSaving("saving");
 
     const { data: userData } = await supabase.auth.getUser();
+    const { data: profile } = await supabase
+  .from("user_profiles")
+  .select("organisation_id")
+  .eq("user_id", userData?.user?.id)
+  .single();
+
+const orgId = profile?.organisation_id;
 
     // 💾 SAVE BEST INTEREST
    let error = null;
@@ -51,18 +58,20 @@ if (editingId) {
   const res = await supabase
     .from("best_interest_decisions")
     .update({
-  linked_mca_id: linkedMcaId, // 🔥 KEEP LINK CONSISTENT
+  organisation_id: orgId,
+  linked_mca_id: linkedMcaId,
   decision: form.decision,
-      people_consulted: form.people_consulted
-        ? form.people_consulted.split(",").map((p: string) => p.trim())
-        : [],
-      wishes: form.wishes,
-      beliefs_values: form.beliefs_values,
-      least_restrictive_option: form.least_restrictive_option,
-      outcome: form.outcome,
-      rationale: form.rationale,
-      updated_at: new Date().toISOString(),
-    })
+  people_consulted: form.people_consulted
+    ? form.people_consulted.split(",").map((p: string) => p.trim())
+    : [],
+  wishes: form.wishes,
+  beliefs_values: form.beliefs_values,
+  least_restrictive_option: form.least_restrictive_option,
+  outcome: form.outcome,
+  rationale: form.rationale,
+  updated_at: new Date().toISOString(),
+  updated_by: userData?.user?.id, // ✅ HERE
+})
     .eq("id", editingId);
 
   error = res.error;
@@ -70,9 +79,9 @@ if (editingId) {
   // ➕ CREATE NEW
   const res = await supabase
     .from("best_interest_decisions")
-    .insert({
-  client_id: clientId,
-  linked_mca_id: linkedMcaId, // 🔥 THIS IS THE LINK
+.insert({
+  organisation_id: orgId, // 🔥 ADD THIS
+  linked_mca_id: linkedMcaId,// 🔥 THIS IS THE LINK
   decision: form.decision,
       people_consulted: form.people_consulted
         ? form.people_consulted.split(",").map((p: string) => p.trim())
@@ -83,6 +92,7 @@ if (editingId) {
       outcome: form.outcome,
       rationale: form.rationale,
       created_by: userData?.user?.id,
+      updated_by: userData?.user?.id,
     });
 
   error = res.error;
@@ -107,12 +117,14 @@ if (updatedAssessment) {
   const alerts = generateAssessmentAlerts(updatedAssessment);
 
   await saveAlerts({
-    clientId,
-    organisation_id: "",
-    visit_id: null,
-    alerts,
-  });
+  clientId,
+  organisation_id: orgId,
+  visit_id: null,
+  alerts,
+});
+await injectBestInterestIntoCarePlan({ clientId });
 }
+
 
     setSaving("saved");
 
@@ -137,6 +149,7 @@ if (updatedAssessment) {
 
     if (data) {
       setEditingId(data.id);
+      setLinkedMcaId(data.linked_mca_id || null);
 
       setForm({
         client_id: clientId,
@@ -167,7 +180,7 @@ useEffect(() => {
   }, 2000);
 
   return () => clearTimeout(timeout);
-}, [form]);
+}, [form, editingId]);
 
 useEffect(() => {
   if (!clientId) return;

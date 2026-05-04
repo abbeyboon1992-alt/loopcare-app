@@ -202,7 +202,8 @@ mental_health_impact: "",
 medication_review_date: "",
 controlled_drugs: "",
 best_interest_required: "",
-best_interest_completed: "",
+best_interest_completed: false,
+mca_completed: false,
 communication_support: "",
 fluid_level: "",
 nutrition_notes: "",
@@ -920,6 +921,22 @@ useEffect(() => {
 }, [clientId]);
 useEffect(() => {
   if (!clientId) return;
+
+  const hasMCA = mcaList.length > 0;
+
+  const hasBI =
+    form.best_interest_required === "yes"
+      ? biList.length > 0
+      : true;
+
+  setForm((prev: any) => ({
+    ...prev,
+    mca_completed: hasMCA,
+    best_interest_completed: hasBI,
+  }));
+}, [mcaList, biList]);
+useEffect(() => {
+  if (!clientId) return;
   const loadMeds = async () => {
     const { data } = await supabase
       .from("medications")
@@ -1459,8 +1476,24 @@ const age = calculateAge(form.date_of_birth);
 // ✅ SECTION COMPLETION LOGIC (SMART + CONDITIONAL)
 
 const sectionChecks = {
-  cognition: () =>
-    form.capacity && form.cognition && form.communication,
+  cognition: () => {
+  if (!form.capacity || !form.cognition || !form.communication) {
+    return false;
+  }
+
+  if (
+    form.capacity === "lacks capacity" ||
+    form.capacity === "fluctuating"
+  ) {
+    if (!form.mca_completed) return false;
+
+    if (form.best_interest_required === "yes") {
+      if (!form.best_interest_completed) return false;
+    }
+  }
+
+  return true;
+},
 
   nutrition: () =>
     form.hydration && form.nutrition,
@@ -1508,10 +1541,31 @@ const sectionChecks = {
 const getSectionStatus = (sectionId: string) => {
   switch (sectionId) {
     case "cognition": {
-      if (!form.capacity && !form.cognition && !form.communication) return "empty";
-      if (form.capacity && form.cognition && form.communication) return "complete";
-      return "in_progress";
+  if (!form.capacity && !form.cognition && !form.communication) {
+    return "empty";
+  }
+
+  const baseComplete =
+    form.capacity && form.cognition && form.communication;
+
+  if (!baseComplete) return "in_progress";
+
+  if (
+    form.capacity === "lacks capacity" ||
+    form.capacity === "fluctuating"
+  ) {
+    if (!form.mca_completed) return "attention";
+
+    if (
+      form.best_interest_required === "yes" &&
+      !form.best_interest_completed
+    ) {
+      return "attention";
     }
+  }
+
+  return "complete";
+}
 
     case "nutrition": {
       if (!form.hydration && !form.nutrition) return "empty";
@@ -1728,6 +1782,8 @@ const combinedFlags = [...new Set([...autoFlags, ...manualFlags])];
   safeguarding_source: form.safeguarding_source || [],
   ai_summary: generateAISummary(form),
 ai_last_updated: new Date().toISOString(),
+mca_completed: form.mca_completed,
+best_interest_completed: form.best_interest_completed,
 };
 
 const { data, error } = await supabase
