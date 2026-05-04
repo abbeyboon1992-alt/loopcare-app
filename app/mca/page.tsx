@@ -84,11 +84,11 @@ function MCAPageContent() {
         client_id: clientId,
         decision: data.decision || "",
         impairment: data.impairment || "",
-        understands: data.understands ? "yes" : "no",
-        retains: data.retains ? "yes" : "no",
-        weighs: data.weighs ? "yes" : "no",
-        communicates: data.communicates ? "yes" : "no",
-        has_capacity: data.has_capacity ? "yes" : "no",
+        understands: data.understands === true ? "yes" : data.understands === false ? "no" : "",
+retains: data.retains === true ? "yes" : data.retains === false ? "no" : "",
+weighs: data.weighs === true ? "yes" : data.weighs === false ? "no" : "",
+communicates: data.communicates === true ? "yes" : data.communicates === false ? "no" : "",
+has_capacity: data.has_capacity === true ? "yes" : data.has_capacity === false ? "no" : "",
         assessor_name: data.assessor_name || "",
         assessor_role: data.assessor_role || "",
         notes: data.notes || "",
@@ -111,7 +111,7 @@ useEffect(() => {
   }, 2000);
 
   return () => clearTimeout(timeout);
-}, [form]);
+}, [form, editingId]);
 
   // 🧠 AUTO DETERMINE CAPACITY
   useEffect(() => {
@@ -147,6 +147,13 @@ const [savedMcaId, setSavedMcaId] = useState<string | null>(null);
     setSaving("saving");
 
     const { data: userData } = await supabase.auth.getUser();
+    const { data: profile } = await supabase
+  .from("user_profiles")
+  .select("organisation_id")
+  .eq("user_id", userData?.user?.id)
+  .single();
+
+const orgId = profile?.organisation_id;
 
     // 💾 SAVE MCA
     let error = null;
@@ -176,6 +183,7 @@ if (editingId) {
   .from("mca_assessments")
   .insert({
     client_id: clientId,
+    organisation_id: orgId, 
     decision: form.decision,
     impairment: form.impairment,
     understands: form.understands === "yes",
