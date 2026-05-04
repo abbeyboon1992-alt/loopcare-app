@@ -313,6 +313,12 @@ useEffect(() => {
     if (!data) return;
 
     setHasSavedAssessment(true);
+    if (!data) {
+  setForm((prev: any) => ({
+    ...prev,
+    client_id: id,
+  }));
+}
 
     setForm((prev: any) => ({
       ...prev,
@@ -1482,7 +1488,10 @@ const calculateScore = () => {
 
   return score;
 };
-const score = useMemo(() => calculateScore(), [form]);
+const score = useMemo(() => {
+  if (!form) return 0;
+  return calculateScore();
+}, [form]);
 const bmiCategory = (() => {
   if (!bmi) return "";
   if (bmi < 18.5) return "underweight";
@@ -1623,87 +1632,125 @@ const sectionChecks = {
 };
 
 const getSectionStatus = (sectionId: string) => {
+  const hasValue = (val: any) => {
+    if (val === null || val === undefined) return false;
+    if (typeof val === "string") return val.trim() !== "";
+    if (typeof val === "number") return true;
+    if (Array.isArray(val)) return val.length > 0;
+    if (typeof val === "object") return Object.keys(val).length > 0;
+    return false;
+  };
+
   switch (sectionId) {
     case "cognition": {
-  if (!form.capacity && !form.cognition && !form.communication) {
-    return "empty";
-  }
+      const hasCapacity = hasValue(form.capacity);
+      const hasCognition = hasValue(form.cognition);
+      const hasCommunication = hasValue(form.communication);
 
-  const baseComplete =
-    form.capacity && form.cognition && form.communication;
+      if (!hasCapacity && !hasCognition && !hasCommunication) {
+        return "empty";
+      }
 
-  if (!baseComplete) return "in_progress";
+      if (!(hasCapacity && hasCognition && hasCommunication)) {
+        return "in_progress";
+      }
 
-  if (
-    form.capacity === "lacks capacity" ||
-    form.capacity === "fluctuating"
-  ) {
-    if (!form.mca_completed) return "attention";
+      if (
+        form.capacity === "lacks capacity" ||
+        form.capacity === "fluctuating"
+      ) {
+        if (!form.mca_completed) return "attention";
 
-    if (
-      form.best_interest_required === "yes" &&
-      !form.best_interest_completed
-    ) {
-      return "attention";
+        if (
+          form.best_interest_required === "yes" &&
+          !form.best_interest_completed
+        ) {
+          return "attention";
+        }
+      }
+
+      return "complete";
     }
-  }
-
-  return "complete";
-}
 
     case "nutrition": {
-      if (!form.hydration && !form.nutrition) return "empty";
-      if (form.hydration && form.nutrition) return "complete";
+      const hasHydration = hasValue(form.hydration);
+      const hasNutrition = hasValue(form.nutrition);
+
+      if (!hasHydration && !hasNutrition) return "empty";
+      if (hasHydration && hasNutrition) return "complete";
       return "in_progress";
     }
 
     case "mobility": {
-      if (!form.mobility && !form.falls_risk) return "empty";
-      if (form.mobility && form.falls_risk) return "complete";
+      const hasMobility = hasValue(form.mobility);
+      const hasFalls = hasValue(form.falls_risk);
+
+      if (!hasMobility && !hasFalls) return "empty";
+      if (hasMobility && hasFalls) return "complete";
       return "in_progress";
     }
 
     case "toileting": {
-      if (!form.toileting || form.toileting.length === 0) return "complete";
+      const hasToileting = hasValue(form.toileting);
+
+      if (!hasToileting) return "empty";
 
       if (form.toileting.includes("incontinent")) {
-        return form.continence_ability ? "complete" : "in_progress";
+        return hasValue(form.continence_ability)
+          ? "complete"
+          : "in_progress";
       }
 
       return "complete";
     }
 
     case "medication": {
-      if (medications.length === 0) return "complete";
-      return form.medication_ability ? "complete" : "in_progress";
+      if (medications.length === 0) return "empty";
+
+      return hasValue(form.medication_ability)
+        ? "complete"
+        : "in_progress";
     }
 
     case "safeguarding": {
-      if (!form.safeguarding) return "empty";
-      if (form.safeguarding === "concern" && !form.safeguarding_notes)
+      if (!hasValue(form.safeguarding)) return "empty";
+
+      if (
+        form.safeguarding === "concern" &&
+        !hasValue(form.safeguarding_outcome) // ✅ FIXED FIELD
+      ) {
         return "attention";
+      }
+
       return "complete";
     }
 
     case "clinical": {
-      if (!form.dnacpr && !form.pain) return "empty";
-      if (form.dnacpr && form.pain) return "complete";
+      const hasDnacpr = hasValue(form.dnacpr);
+      const hasPain = hasValue(form.pain);
+
+      if (!hasDnacpr && !hasPain) return "empty";
+      if (hasDnacpr && hasPain) return "complete";
       return "in_progress";
     }
 
     case "daily": {
-      if (!form.washing && !form.dressing && !form.eating) return "empty";
-      if (form.washing && form.dressing && form.eating) return "complete";
+      const hasWashing = hasValue(form.washing);
+      const hasDressing = hasValue(form.dressing);
+      const hasEating = hasValue(form.eating);
+
+      if (!hasWashing && !hasDressing && !hasEating) return "empty";
+      if (hasWashing && hasDressing && hasEating) return "complete";
       return "in_progress";
     }
 
     case "medical": {
-      if (!form.medical_conditions) return "empty";
+      if (!hasValue(form.medical_conditions)) return "empty";
       return "complete";
     }
 
     case "review": {
-      if (!form.last_reviewed) return "attention"; // 👈 important
+      if (!hasValue(form.last_reviewed)) return "attention";
       return "complete";
     }
 
@@ -1725,8 +1772,19 @@ const getSectionProgress = (sectionId: string) => {
 const calculateSectionConfidence = (sectionId: string) => {
   let score = 0;
 
-  const hasValue = (val: any) =>
-    Array.isArray(val) ? val.length > 0 : !!val;
+  const hasValue = (val: any) => {
+  if (val === null || val === undefined) return false;
+
+  if (typeof val === "string") return val.trim() !== "";
+
+  if (typeof val === "number") return true;
+
+  if (Array.isArray(val)) return val.length > 0;
+
+  if (typeof val === "object") return Object.keys(val).length > 0;
+
+  return false;
+};
 
   const sources = form[`${sectionId}_source`] || [];
   const hasEvidence = form[`${sectionId}_evidence`] === true;
@@ -1793,6 +1851,9 @@ const getProgress = () => {
   const scores = sections.map((section) => {
     const status = getSectionStatus(section);
 
+    // 🔒 ignore completely empty sections
+    if (status === "empty") return null;
+
     if (status === "complete") return 1;
     if (status === "in_progress") return 0.5;
     if (status === "attention") return 0.25;
@@ -1800,10 +1861,15 @@ const getProgress = () => {
     return 0;
   });
 
-  const total = scores.reduce((a: number, b: number) => a + b, 0);
+  const validScores = scores.filter((s) => s !== null);
 
-  return Math.round((total / sections.length) * 100);
+  if (validScores.length === 0) return 0;
+
+  const total = validScores.reduce((a: number, b: number) => a + b, 0);
+
+  return Math.round((total / validScores.length) * 100);
 };
+
 const generateFlagAlerts = (flags: string[]) => {
   return flags.map((f) => ({
     type: f,
@@ -2485,7 +2551,7 @@ const FamilyPDFView = () => {
     </div>
   );
 };
-
+const baseline = form.baseline_observations ?? {};
 return (
   <>
     {!access || typeof access !== "object" ? (
@@ -2528,7 +2594,7 @@ return (
       Assessment (v{form.version_number || 1})
     </h1>
 
-    {hasSavedAssessment && form.locked && (
+    {hasSavedAssessment && viewMode && form.locked === true && (
       <div className="bg-yellow-600 p-3 rounded mt-3">
         <p className="mb-2 text-sm">🔒 assessments locked</p>
 
@@ -2557,7 +2623,7 @@ return (
 
   {/* RIGHT */}
   <div className="flex items-center gap-2">
-    {hasSavedAssessment && form.locked && viewMode && (
+    {hasSavedAssessment && viewMode && form.locked === true && (
       <>
         <button
           type="button"
@@ -2627,7 +2693,7 @@ return (
     {getProgress()}% complete
   </p>
 </div>
-{prompts.length > 0 && (
+{accountType === "team" && prompts.length > 0 && (
   <div className="bg-yellow-600 p-4 rounded mb-4">
     <h2 className="font-semibold mb-2">
       ⚠️ Suggested Updates from Visits
@@ -2716,7 +2782,7 @@ return (
     </p>
   </div>
 )}
-{viewMode && (
+{viewMode && plan === "pro" && (
   <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6">
     <div className="bg-red-900/20 border border-red-500 p-4 rounded mb-6">
   <h2 className="font-semibold mb-2">🚨 Clinical Priority Flags</h2>
@@ -3032,8 +3098,7 @@ return (
   disabled={viewMode}
 />
 
-{form.communication &&
-  ["needs support", "non-verbal"].includes(form.communication) && (
+{(form.capacity || !viewMode) && (
   <>
     <CommunicationBox
       value={form.communication_support}
@@ -4003,7 +4068,7 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   <Section
     title="Baseline Mobility"
     options={["independent", "needs support", "dependent", "bed bound"]}
-    value={form.baseline_observations?.mobility || ""}
+    value={baseline.mobility || ""}
     onChange={(v) =>
       handleInput("baseline_observations", {
         ...form.baseline_observations,
@@ -4016,7 +4081,7 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   <Section
     title="Baseline Nutrition"
     options={["adequate", "reduced", "poor", "refused"]}
-    value={form.baseline_observations?.nutrition || ""}
+    value={baseline.nutrition || ""}
     onChange={(v) =>
       handleInput("baseline_observations", {
         ...form.baseline_observations,
@@ -4029,7 +4094,7 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   <Section
     title="Baseline Cognition"
     options={["no impairment", "mild", "moderate", "severe"]}
-    value={form.baseline_observations?.cognition || ""}
+    value={baseline.cognition || ""}
     onChange={(v) =>
       handleInput("baseline_observations", {
         ...form.baseline_observations,
