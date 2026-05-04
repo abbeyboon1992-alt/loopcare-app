@@ -797,10 +797,8 @@ if (!user) {
   const hasBestInterestAlert = clientAlerts.some((a) => a.type === "best_interest_missing");
   const hasSafeguarding = clientAlerts.some((a) => a.type === "safeguarding");
 
-  const mcaComplete = assessments.mca_completed === true;
-  const bestInterestComplete =
-    assessments.best_interest_completed === true ||
-    assessments.best_interest_completed === "yes";
+  const mcaComplete = !!assessments.mca_completed;
+  const bestInterestComplete = !!assessments.best_interest_completed;
 
   const hasAssessment = Object.keys(assessments).length > 0;
 
@@ -983,7 +981,7 @@ if (!user) {
     </span>
   )}
 
-  {!bestInterestComplete && hasBestInterestAlert && (
+  {assessments.best_interest_required === "yes" && !bestInterestComplete && (
     <span className="text-xs bg-orange-600 px-2 py-1 rounded">
       ⚖️ Best Interest
     </span>

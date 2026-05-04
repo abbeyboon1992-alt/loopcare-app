@@ -275,6 +275,9 @@ useEffect(() => {
 
     if (!data) return;
 
+  console.log("🧠 MCA STATUS:", data.mca_completed);
+console.log("⚖️ BI STATUS:", data.best_interest_completed);
+
     setAssessments(data);
 
     const baseType = client.care_type?.toLowerCase();
@@ -2111,6 +2114,34 @@ const isEnforced =
       : client.diagnosis}
   </p>
 )}
+</div>
+{/* 🧠 MCA / BEST INTEREST STATUS */}
+<div className="flex flex-wrap gap-2 mt-2">
+
+  {/* MCA */}
+  {assessments?.mca_completed ? (
+    <span className="text-xs bg-green-600 px-2 py-1 rounded">
+      🧠 MCA Complete
+    </span>
+  ) : (
+    <span className="text-xs bg-yellow-600 px-2 py-1 rounded">
+      🧠 MCA Required
+    </span>
+  )}
+
+  {/* BEST INTEREST */}
+  {assessments?.best_interest_required === "yes" && (
+    assessments?.best_interest_completed ? (
+      <span className="text-xs bg-green-600 px-2 py-1 rounded">
+        ⚖️ Best Interest Complete
+      </span>
+    ) : (
+      <span className="text-xs bg-red-600 px-2 py-1 rounded">
+        ⚖️ Best Interest Required
+      </span>
+    )
+  )}
+
 </div>
 {/* ▶ START / CONTINUE ASSESSMENT */}
 <button
