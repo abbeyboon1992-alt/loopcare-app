@@ -74,6 +74,7 @@ general: "Risks & Safety",
   blood_sugar: "Nutrition & Hydration",
 
   respiratory: "Medical Conditions & Overview",
+  respiratory_oxygen_missing_flow: "Medical Conditions & Overview",
   seizure: "Medical Conditions & Overview",
   pain: "Medical Conditions & Overview",
   fluid_retention: "Medical Conditions & Overview",
@@ -441,6 +442,7 @@ const diagnosisAlertMap: Record<string, any[]> = {
 
 export function generateDiagnosisAlerts(client: any) {
   const alerts: AlertItem[] = [];
+  
 
   if (!client?.diagnosis) return alerts;
 
@@ -1634,7 +1636,36 @@ if (assessments.risk_trend === "declining") {
     })
   );
 }
+// 🔴 RESPIRATORY — OXYGEN SAFETY
+if (
+  assessments.respiratory_support === "oxygen" &&
+  !assessments.oxygen_flow_rate
+) {
+  addAlert({
+    type: "respiratory_oxygen_missing_flow",
+    severity: "high",
+    message: "Oxygen in use but flow rate not documented",
+    action: "Record oxygen flow rate (L/min)",
+    source: "assessment",
+    section_title: "Medical Conditions & Overview",
+  });
+}
+if (
+  assessments.respiratory_support === "oxygen" &&
+  !assessments.target_sats
+) {
+  addAlert({
+    type: "respiratory_target_missing",
+    severity: "medium",
+    message: "Target oxygen saturation not set",
+    action: "Define safe saturation range",
+    source: "assessment",
+  });
+}
 
+if (assessments.on_oxygen === "yes" && !assessments.respiratory_support) {
+  // mismatch alert
+}
   if (assessments.mood === "distressed") {
   const type = "mental_health";
 

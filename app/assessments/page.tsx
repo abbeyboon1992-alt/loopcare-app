@@ -3779,7 +3779,7 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
 </div>
 
 <Section
-  title="mental_health Status"
+  title="Mental Health Status"
   options={["stable", "low mood", "anxious", "distressed"]}
   value={form.mental_health_status || ""}
   onChange={(v) => handleInput("mental_health_status", v)}
@@ -3793,20 +3793,8 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
   onChange={(v) => handleInput("mental_health_impact", v)}
   disabled={viewMode}
 />
-
-<input
-  type="number"
-  inputMode="decimal"
-  value={form.respiratory_status ?? ""}
-  onChange={(e) =>
-    handleInput(
-      "respiratory_status",
-      e.target.value === "" ? "" : Number(e.target.value)
-    )
-  }
-  className="w-full p-3 text-base rounded bg-[var(--card)]"
-/>
-
+<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4 space-y-3">
+  <p className="text-sm font-semibold">🫁 Respiratory Management</p>
 <Section
   title="Respiratory Support"
   options={["none", "inhaler", "oxygen", "nebuliser"]}
@@ -3814,6 +3802,94 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
   onChange={(v) => handleInput("respiratory_support", v)}
   disabled={viewMode}
 />
+{form.respiratory_support === "oxygen" && (
+  <div className="bg-blue-900/20 border border-blue-500 p-3 rounded space-y-3">
+
+    <input
+      type="number"
+      placeholder="Oxygen Flow Rate (L/min)"
+      value={form.oxygen_flow_rate ?? ""}
+      onChange={(e) =>
+        handleInput(
+          "oxygen_flow_rate",
+          e.target.value === "" ? "" : Number(e.target.value)
+        )
+      }
+      className="w-full p-3 rounded bg-[var(--card)]"
+    />
+    <Section
+  title="Oxygen Usage"
+  options={[
+    "continuous",
+    "PRN (as needed)",
+    "night only",
+  ]}
+  value={form.oxygen_usage || ""}
+  onChange={(v) => handleInput("oxygen_usage", v)}
+  disabled={viewMode}
+/>
+
+    <Section
+      title="Oxygen Delivery Method"
+      options={["nasal cannula", "mask", "venturi mask"]}
+      value={form.oxygen_delivery || ""}
+      onChange={(v) => handleInput("oxygen_delivery", v)}
+      disabled={viewMode}
+    />
+
+    <Section
+      title="Target Oxygen Saturation"
+      options={["88–92% (COPD)", "94–98% (normal)"]}
+      value={form.target_sats || ""}
+      onChange={(v) => handleInput("target_sats", v)}
+      disabled={viewMode}
+    />
+
+  </div>
+)}
+{form.respiratory_support === "nebuliser" && (
+  <div className="bg-yellow-900/20 border border-yellow-500 p-3 rounded space-y-3">
+
+    <input
+      type="text"
+      placeholder="Medication (e.g. Salbutamol)"
+      value={form.nebuliser_medication || ""}
+      onChange={(e) =>
+        handleInput("nebuliser_medication", e.target.value)
+      }
+      className="w-full p-3 rounded bg-[var(--card)]"
+    />
+
+    <input
+      type="text"
+      placeholder="Frequency (e.g. PRN / 4x daily)"
+      value={form.nebuliser_frequency || ""}
+      onChange={(e) =>
+        handleInput("nebuliser_frequency", e.target.value)
+      }
+      className="w-full p-3 rounded bg-[var(--card)]"
+    />
+
+  </div>
+)}
+{form.respiratory_support === "inhaler" && (
+  <div className="bg-green-900/20 border border-green-500 p-3 rounded">
+
+    <Section
+      title="Inhaler Support Required"
+      options={[
+        "independent",
+        "needs prompting",
+        "needs assistance",
+      ]}
+      value={form.inhaler_support || ""}
+      onChange={(v) => handleInput("inhaler_support", v)}
+      disabled={viewMode}
+    />
+
+  </div>
+)}
+</div>
 <EvidenceBlock
   section="medication"
   form={form}
@@ -3834,15 +3910,22 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
   <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4 space-y-3">
   <p className="text-sm font-semibold">🔥 Pressure Ulcer Risk (Waterlow)</p>
 
+ <div>
+  <label className="text-sm text-[var(--muted)]">
+    Age (auto-calculated)
+  </label>
   <input
-  type="number"
-  value={age || ""}
-  readOnly
-  className="w-full p-3 text-base rounded bg-[var(--card)] cursor-not-allowed"
-/>
+    type="number"
+    value={age || ""}
+    readOnly
+    className="w-full p-3 text-base mt-1 rounded bg-[var(--card)] cursor-not-allowed"
+  />
+</div>
 
 
-
+<label className="text-sm text-[var(--muted)]">
+  Waterlow Score
+</label>
   <Section
     title="Medication Risk (e.g. steroids, cytotoxics)"
     options={["no", "yes"]}
@@ -3888,30 +3971,37 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
 <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4 space-y-3">
   <p className="text-sm font-semibold">🫁 Early Warning Score (NEWS2)</p>
 
+  <div>
+  <label className="text-sm text-[var(--muted)]">
+    Respiratory Rate (breaths per minute)
+  </label>
   <input
     type="number"
-  inputMode="decimal"
-    placeholder="Respiratory Rate"
+    inputMode="decimal"
     value={form.resp_rate || ""}
     onChange={(e) =>
-  handleInput("resp_rate", e.target.value ? Number(e.target.value) : "")
-}
-    disabled={viewMode}
-    className="w-full p-3 text-base rounded bg-[var(--card)]"
+      handleInput("resp_rate", e.target.value ? Number(e.target.value) : "")
+    }
+    className="w-full p-3 text-base mt-1 rounded bg-[var(--card)]"
   />
-
+</div>
+  <div>
+  <label className="text-sm text-[var(--muted)]">
+    Oxygen Saturation (SpO2 %)
+  </label>
   <input
-  type="number"
-  inputMode="decimal"
-  value={form.oxygen_sats ?? ""}
-  onChange={(e) =>
-    handleInput(
-      "oxygen_sats",
-      e.target.value === "" ? "" : Number(e.target.value)
-    )
-  }
-  className="w-full p-3 text-base rounded bg-[var(--card)]"
-/>
+    type="number"
+    inputMode="decimal"
+    value={form.oxygen_sats ?? ""}
+    onChange={(e) =>
+      handleInput(
+        "oxygen_sats",
+        e.target.value === "" ? "" : Number(e.target.value)
+      )
+    }
+    className="w-full p-3 text-base mt-1 rounded bg-[var(--card)]"
+  />
+</div>
 
   <Section
     title="Oxygen Scale"
@@ -3924,36 +4014,53 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
   <Section
     title="On Oxygen"
     options={["no", "yes"]}
-    value={form.on_oxygen || "no"}
-    onChange={(v) => handleInput("on_oxygen", v)}
+    value={
+  form.respiratory_support === "oxygen" ? "yes" : form.on_oxygen || "no"
+}
+onChange={(v) => handleInput("on_oxygen", v)}
     disabled={viewMode}
   />
+  {form.on_oxygen === "yes" && !form.respiratory_support && (
+  <div className="bg-red-600/20 border border-red-500 p-2 rounded">
+    ⚠️ Oxygen recorded in observations but no respiratory support plan set
+  </div>
+)}
 
+  <div>
+  <label className="text-sm text-[var(--muted)]">
+    Temperature (°C)
+  </label>
   <input
-  type="number"
-  inputMode="decimal"
-  value={form.temperature ?? ""}
-  onChange={(e) =>
-    handleInput(
-      "temperature",
-      e.target.value === "" ? "" : Number(e.target.value)
-    )
-  }
-  className="w-full p-3 text-base rounded bg-[var(--card)]"
-/>
+    type="number"
+    inputMode="decimal"
+    value={form.temperature ?? ""}
+    onChange={(e) =>
+      handleInput(
+        "temperature",
+        e.target.value === "" ? "" : Number(e.target.value)
+      )
+    }
+    className="w-full p-3 text-base mt-1 rounded bg-[var(--card)]"
+  />
+</div>
 
+  <div>
+  <label className="text-sm text-[var(--muted)]">
+    Pulse (bpm)
+  </label>
   <input
-  type="number"
-  inputMode="decimal"
-  value={form.pulse ?? ""}
-  onChange={(e) =>
-    handleInput(
-      "pulse",
-      e.target.value === "" ? "" : Number(e.target.value)
-    )
-  }
-  className="w-full p-3 text-base rounded bg-[var(--card)]"
-/>
+    type="number"
+    inputMode="decimal"
+    value={form.pulse ?? ""}
+    onChange={(e) =>
+      handleInput(
+        "pulse",
+        e.target.value === "" ? "" : Number(e.target.value)
+      )
+    }
+    className="w-full p-3 text-base mt-1 rounded bg-[var(--card)]"
+  />
+</div>
 
   <Section
     title="Consciousness (ACVPU)"
@@ -3963,13 +4070,17 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
     disabled={viewMode}
   />
 
+  <div>
+  <label className="text-sm text-[var(--muted)]">
+    NEWS2 Score
+  </label>
   <input
     type="number"
-  inputMode="decimal"
     value={form.news2_score || 0}
     readOnly
-    className="w-full p-3 text-base rounded bg-[var(--card)]"
+    className="w-full p-3 text-base mt-1 rounded bg-[var(--card)]"
   />
+</div>
 
   {form.news2_score >= 7 && (
     <div className="bg-red-600 p-2 rounded">
@@ -4002,19 +4113,23 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
 </div>
 </div>
 
-<input
-  type="number"
-  inputMode="decimal"
-  placeholder="Frailty Score (1–9)"
-  value={form.frailty_score ?? ""}
-  onChange={(e) =>
-    handleInput(
-      "frailty_score",
-      e.target.value === "" ? "" : Number(e.target.value)
-    )
-  }
-  className="w-full p-3 text-base rounded bg-[var(--card)]"
-/>
+<div>
+  <label className="text-sm text-[var(--muted)]">
+    Clinical Frailty Score (1–9)
+  </label>
+  <input
+    type="number"
+    inputMode="decimal"
+    value={form.frailty_score ?? ""}
+    onChange={(e) =>
+      handleInput(
+        "frailty_score",
+        e.target.value === "" ? "" : Number(e.target.value)
+      )
+    }
+    className="w-full p-3 text-base mt-1 rounded bg-[var(--card)]"
+  />
+</div>
       <Section
   title="DNACPR Status"
   options={["in place", "not in place", "unknown"]}
@@ -4131,12 +4246,17 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   />
 </div>
 
-<input
-  type="date"
-  value={fromISODate(form.last_deterioration)}
-  onChange={(e) => handleInput("last_deterioration", e.target.value)}
-  className="w-full p-3 rounded bg-[var(--card)]"
-/>
+<div className="mb-4">
+  <label className="text-sm text-[var(--muted)]">
+    Last Deterioration Date
+  </label>
+  <input
+    type="date"
+    value={fromISODate(form.last_deterioration)}
+    onChange={(e) => handleInput("last_deterioration", e.target.value)}
+    className="w-full p-3 mt-1 rounded bg-[var(--card)]"
+  />
+</div>
 
 <TextAreaField
   value={form.baseline_status}
