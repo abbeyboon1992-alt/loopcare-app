@@ -4300,27 +4300,44 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
     disabled={viewMode}
   />
 
-  <Section
-  title="Referral Made"
-  options={["no", "yes"]}
-  value={form.safeguarding_referral_made || ""}
-  onChange={(v) => handleInput("safeguarding_referral_made", v)}
-  disabled={viewMode}
-/>
+  {form.safeguarding === "concern" && (
+  <>
+    <Section
+      title="Referral Made"
+      options={["no", "yes"]}
+      value={form.safeguarding_referral_made || ""}
+      onChange={(v) => handleInput("safeguarding_referral_made", v)}
+      disabled={viewMode}
+    />
 
-<input
-  type="date"
-  value={fromISODate(form.safeguarding_date)}
-  onChange={(e) => handleInput("safeguarding_date", e.target.value)}
-  className="w-full p-3 rounded bg-[var(--card)]"
-/>
+    {form.safeguarding_referral_made === "yes" && (
+      <>
+        <div className="mb-4">
+          <label className="text-sm text-[var(--muted)]">
+            Safeguarding Referral Date
+          </label>
+          <input
+            type="date"
+            value={fromISODate(form.safeguarding_date)}
+            onChange={(e) =>
+              handleInput("safeguarding_date", e.target.value)
+            }
+            className="w-full p-3 mt-1 rounded bg-[var(--card)]"
+          />
+        </div>
 
-<TextAreaField
-  value={form.safeguarding_outcome}
-  onChange={(val) => handleInput("safeguarding_outcome", val)}
-  placeholder="Outcome of safeguarding referral"
-  disabled={viewMode}
-/>
+        <TextAreaField
+          value={form.safeguarding_outcome}
+          onChange={(val) =>
+            handleInput("safeguarding_outcome", val)
+          }
+          placeholder="Outcome of safeguarding referral"
+          disabled={viewMode}
+        />
+      </>
+    )}
+  </>
+)}
 
   {form.safeguarding === "concern" && (
   <div className="mt-4 space-y-4">
@@ -4339,89 +4356,104 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
 {showSafeguardingForm && (
   <div className="space-y-4 p-4 bg-[var(--card)] rounded-lg border border-red-500/30">
     <h3 className="text-lg font-bold text-red-400">Log New Concern</h3>
+    <p className="text-xs text-[var(--muted)]">
+  Record safeguarding concerns clearly and accurately. This may be used for formal reporting.
+</p>
     
-    {/* Category Selection */}
-    <div>
-      <label className="block text-sm mb-1">Category of Concern</label>
-      <select 
-  className="w-full p-2 rounded bg-[var(--card)] border border-[#475569]"
-  value={safeguardingForm.category}
-  onChange={(e) => handleSafeguardingInput("category", e.target.value)}
->
-  <option value="">Select Category...</option>
+    {/* CATEGORY + URGENCY GROUP */}
+<div className="bg-[var(--bg)] p-3 rounded space-y-3">
 
-  {CATEGORY_OPTIONS.map(opt => (
-  <option key={opt.value} value={opt.value}>
-    {opt.label}
-  </option>
-))}
-</select>
+  {/* Category Selection */}
+  <div>
+    <label className="block text-sm mb-1">Category of Concern</label>
+    <select 
+      className="w-full p-2 rounded bg-[var(--card)] border border-[#475569]"
+      value={safeguardingForm.category}
+      onChange={(e) => handleSafeguardingInput("category", e.target.value)}
+    >
+      <option value="">Select Category...</option>
 
-{safeguardingForm.category === "Other" && (
-  <input
-    type="text"
-    placeholder="Specify category"
-    className="w-full p-2 mt-2 rounded bg-[var(--card)] border border-[#475569]"
-    value={safeguardingForm.other_category || ""}
-    onChange={(e) =>
-      handleSafeguardingInput("other_category", e.target.value)
-    }
-  />
-)}
-    </div>
+      {CATEGORY_OPTIONS.map(opt => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
 
-    {/* Urgency Selection */}
-    <Section 
-      title="Urgency Level"
-      options={["low", "medium", "high", "critical"]}
-      value={safeguardingForm.urgency}
-      onChange={(val) => handleSafeguardingInput("urgency", val as string)}
-    />
-
-    {/* Description Field */}
-    <div>
-      <label className="block text-sm mb-1">Description of Concern</label>
-      <textarea 
-        className="w-full p-2 rounded bg-[var(--card)] border border-[#475569] min-h-[100px]"
-        placeholder="Provide full details of the observation..."
-        value={safeguardingForm.description}
-        onChange={(e) => handleSafeguardingInput("description", e.target.value)}
-      />
-    </div>
-
-    <input
-  type="text"
-  placeholder="Photo URL (temporary)"
-  className="w-full p-2 rounded bg-[var(--card)] border border-[#475569]"
-  value={safeguardingForm.photo_urls}
-  onChange={(e) => handleSafeguardingInput("photo_urls", e.target.value)}
-/>
-
-    {/* Action Taken Field */}
-    <div>
-      <label className="block text-sm mb-1">Action Taken</label>
-      <input 
+    {safeguardingForm.category === "Other" && (
+      <input
         type="text"
-        className="w-full p-2 rounded bg-[var(--card)] border border-[#475569]"
-        placeholder="Who was notified? What immediate action was taken?"
-        value={safeguardingForm.action_taken}
-        onChange={(e) => handleSafeguardingInput("action_taken", e.target.value)}
+        placeholder="Specify category"
+        className="w-full p-2 mt-2 rounded bg-[var(--card)] border border-[#475569]"
+        value={safeguardingForm.other_category || ""}
+        onChange={(e) =>
+          handleSafeguardingInput("other_category", e.target.value)
+        }
       />
-    </div>
+    )}
+  </div>
 
+  {/* Urgency Selection */}
+  <Section 
+    title="Urgency Level"
+    options={["low", "medium", "high", "critical"]}
+    value={safeguardingForm.urgency}
+    onChange={(val) => handleSafeguardingInput("urgency", val as string)}
+  />
+
+</div>
+
+    {/* DESCRIPTION + ACTION GROUP */}
+<div className="bg-[var(--bg)] p-3 rounded space-y-3">
+
+  {/* Description Field */}
+  <div>
+    <label className="block text-sm mb-1">Description of Concern</label>
+    <textarea 
+      className="w-full p-2 rounded bg-[var(--card)] border border-[#475569] min-h-[100px]"
+      placeholder="Provide full details of the observation..."
+      value={safeguardingForm.description}
+      onChange={(e) =>
+        handleSafeguardingInput("description", e.target.value)
+      }
+    />
+  </div>
+
+  {/* Action Taken Field */}
+  <div>
+    <label className="block text-sm mb-1">Action Taken</label>
+    <input 
+      type="text"
+      className="w-full p-2 rounded bg-[var(--card)] border border-[#475569]"
+      placeholder="Who was notified? What immediate action was taken?"
+      value={safeguardingForm.action_taken}
+      onChange={(e) =>
+        handleSafeguardingInput("action_taken", e.target.value)
+      }
+    />
+  </div>
+
+  {/* Follow Up */}
+  <div>
+    <label className="block text-sm mb-1">Follow-up Plan</label>
     <textarea
-  placeholder="Follow up actions / plan"
-  className="w-full p-2 rounded bg-[var(--card)] border border-[#475569]"
-  value={safeguardingForm.follow_up}
-  onChange={(e) => handleSafeguardingInput("follow_up", e.target.value)}
-/>
+      className="w-full p-2 rounded bg-[var(--card)] border border-[#475569]"
+      placeholder="Follow up actions / plan"
+      value={safeguardingForm.follow_up}
+      onChange={(e) =>
+        handleSafeguardingInput("follow_up", e.target.value)
+      }
+    />
+  </div>
+
+</div>
 
     {/* THE SUBMIT BUTTON */}
-    {getProgress() < 100 && (
+    
   <div className="bg-yellow-600 p-3 rounded mt-4 text-sm">
     ⚠️ Some areas still need completing before safe care planning
   </div>
-)}
+
     <div className="flex justify-end gap-3 mt-4">
       <button 
         type="button"
@@ -4447,7 +4479,9 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
     </div> {/* pt-2 */}
   </div>
 )}
-
+<p className="text-sm font-semibold mt-6">
+  🏠 Environmental Risk
+</p>
   <div className="mt-6">
   <Section
     title="Environment Risk"
