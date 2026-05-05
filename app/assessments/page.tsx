@@ -4514,7 +4514,20 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   onChange={(v) => handleInput("washing", v)}
   disabled={viewMode}
 />
-
+{form.washing === "needs support" || form.washing === "dependent" ? (
+  <Section
+    title="Washing Support Type"
+    options={[
+      "prompting",
+      "supervision",
+      "physical assistance",
+      "full care",
+    ]}
+    value={form.washing_support_type || ""}
+    onChange={(v) => handleInput("washing_support_type", v)}
+    disabled={viewMode}
+  />
+) : null}
 <Section
   title="Dressing"
   options={["independent", "needs support", "dependent"]}
@@ -4522,7 +4535,20 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   onChange={(v) => handleInput("dressing", v)}
   disabled={viewMode}
 />
-
+{form.dressing === "needs support" || form.dressing === "dependent" ? (
+  <Section
+    title="Dressing Support Type"
+    options={[
+      "prompting",
+      "supervision",
+      "physical assistance",
+      "full care",
+    ]}
+    value={form.dressing_support_type || ""}
+    onChange={(v) => handleInput("dressing_support_type", v)}
+    disabled={viewMode}
+  />
+) : null}
 <Section
   title="Eating Ability"
   options={["independent", "needs support", "dependent"]}
@@ -4530,6 +4556,45 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   onChange={(v) => handleInput("eating", v)}
   disabled={viewMode}
 />
+{form.eating === "needs support" || form.eating === "dependent" ? (
+  <Section
+    title="eating Support Type"
+    options={[
+      "prompting",
+      "supervision",
+      "physical assistance",
+      "full care",
+    ]}
+    value={form.eating_support_type || ""}
+    onChange={(v) => handleInput("eating_support_type", v)}
+    disabled={viewMode}
+  />
+) : null}
+<Section
+  title="ADL Risk Factors"
+  options={[
+    "none",
+    "falls risk",
+    "refuses care",
+    "fatigue",
+    "pain limiting",
+  ]}
+  value={form.adl_risks || []}
+  onChange={(v) => handleInput("adl_risks", v)}
+  disabled={viewMode}
+  multi
+/>
+<TextAreaField
+  value={form.adl_key_info}
+  onChange={(val) => handleInput("adl_key_info", val)}
+  placeholder="Key care info only (e.g. prefers female carers, resistive at times, needs encouragement)"
+  disabled={viewMode}
+/>
+{form.adl_risks?.includes("refuses care") && (
+  <div className="bg-red-600/20 border border-red-500 p-2 rounded text-sm">
+    🚨 Refusal of care may require escalation or behaviour support plan
+  </div>
+)}
 </SectionWrapper>
 
 <SectionWrapper
@@ -4543,19 +4608,45 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   {getSectionProgress("medical")}%
 </span>
   </div>
-<input
-  placeholder="Medical conditions"
-  value={form.medical_conditions || ""}
-  onChange={(e) => handleInput("medical_conditions", e.target.value)}
-  className="w-full p-3 text-base mb-3 rounded bg-[var(--card)]"
-/>
-
-<input
-  placeholder="Allergies"
-  value={form.allergies || ""}
-  onChange={(e) => handleInput("allergies", e.target.value)}
-  className="w-full p-3 text-base mb-6 rounded bg-[var(--card)] text-white"
-/>
+<div className="mb-4">
+  <label className="text-sm text-[var(--muted)]">
+    Additional Clinical Information
+  </label>
+  <input
+    placeholder="e.g. recent infections, awaiting diagnosis, ongoing concerns"
+    value={form.medical_conditions || ""}
+    onChange={(e) => handleInput("medical_conditions", e.target.value)}
+    className="w-full p-3 mt-1 rounded bg-[var(--card)]"
+  />
+</div>
+<button
+  type="button"
+  onClick={() => router.push(`/clients/${form.client_id}/edit`)}
+  className="text-xs text-blue-400 underline mt-1"
+>
+  Edit diagnoses
+</button>
+{form.medical_conditions && form.medical_conditions.length > 0 && (
+  <p className="text-xs text-[var(--muted)]">
+    This will be used to generate alerts and care plan guidance
+  </p>
+)}
+<div className="mb-4">
+  <label className="text-sm text-[var(--muted)]">
+    Allergies
+  </label>
+  <input
+    placeholder="e.g. Penicillin, Nuts, None"
+    value={form.allergies || ""}
+    onChange={(e) => handleInput("allergies", e.target.value)}
+    className="w-full p-3 mt-1 rounded bg-[var(--card)] border border-red-500/30"
+  />
+</div>
+{form.allergies?.toLowerCase() === "none" && (
+  <p className="text-xs text-green-400">
+    ✓ No known allergies recorded
+  </p>
+)}
 </SectionWrapper>
 <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6 border border-yellow-500/30">
    
