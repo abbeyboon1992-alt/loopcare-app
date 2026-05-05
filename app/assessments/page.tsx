@@ -273,6 +273,7 @@ news2_score: 0,
 bmi_category: "",
 waterlow_medication_risk: "",
 });
+
 const safeForm = {
   ...form,
 
@@ -294,74 +295,8 @@ const safeForm = {
   temperature: form.temperature ?? "",
   pulse: form.pulse ?? "",
 };
+const baseline = form.baseline_observations ?? {};
 
-useEffect(() => {
-  if (!clientId || hasLoadedRef.current) return;
-  hasLoadedRef.current = true;
-
-  const loadAssessment = async () => {
-    const { data, error } = await supabase
-      .from("assessments")
-      .select("*")
-      .eq("client_id", clientId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Load error:", error);
-      return;
-    }
-
-    if (!data) return;
-
-    setHasSavedAssessment(true);
-    if (!data) {
-  setForm((prev: any) => ({
-    ...prev,
-    client_id: id,
-  }));
-}
-
-    setForm((prev: any) => ({
-      ...prev,
-      ...data,
-
-      // ✅ HARDEN DATA (CRITICAL)
-      equipment: Array.isArray(data.equipment) ? data.equipment : [],
-      equipment_serviced:
-        typeof data.equipment_serviced === "object" && data.equipment_serviced
-          ? data.equipment_serviced
-          : {},
-      equipment_last_service:
-        typeof data.equipment_last_service === "object" && data.equipment_last_service
-          ? data.equipment_last_service
-          : {},
-
-      medications: Array.isArray(data.medications) ? data.medications : [],
-      flags: Array.isArray(data.flags) ? data.flags : [],
-
-      // ✅ sources always arrays
-      cognition_source: Array.isArray(data.cognition_source) ? data.cognition_source : [],
-      nutrition_source: Array.isArray(data.nutrition_source) ? data.nutrition_source : [],
-      mobility_source: Array.isArray(data.mobility_source) ? data.mobility_source : [],
-      skin_source: Array.isArray(data.skin_source) ? data.skin_source : [],
-      medication_source: Array.isArray(data.medication_source) ? data.medication_source : [],
-      safeguarding_source: Array.isArray(data.safeguarding_source) ? data.safeguarding_source : [],
-
-      // ✅ booleans
-      cognition_evidence: data.cognition_evidence === true,
-      nutrition_evidence: data.nutrition_evidence === true,
-      mobility_evidence: data.mobility_evidence === true,
-      skin_evidence: data.skin_evidence === true,
-      medication_evidence: data.medication_evidence === true,
-      safeguarding_evidence: data.safeguarding_evidence === true,
-    }));
-  };
-
-  loadAssessment();
-}, [clientId]);
-  
-const params = useParams();
-const id = Array.isArray(params?.id) ? params.id[0] : params?.id; 
 // 🔥 ORG
 const [organisationId, setOrganisationId] = useState<string | null>(null);
 
@@ -382,6 +317,33 @@ const [referral, setReferral] = useState({
   type: "",
   details: "",
 });
+const handleCreateReferral = async () => {
+  if (!referral.type) {
+    alert("Select referral type");
+    return;
+  }
+
+  try {
+    await createReferral({
+      client_id: form.client_id,
+      referral_type: referral.type,
+      details: referral.details || "",
+      organisation_id: organisationId ?? undefined,
+      status: "pending",
+    });
+
+    alert("Referral created");
+
+    // reset
+    setReferral({
+      type: "",
+      details: "",
+    });
+  } catch (err) {
+    console.error(err);
+    alert("Failed to create referral");
+  }
+};
 const generatePDF = async () => {
   const element =
     pdfMode === "family"
@@ -1598,7 +1560,7 @@ const sectionChecks = {
   toileting: () => {
     if (!form.toileting || form.toileting.length === 0) return false;
 
-    if (form.toileting.includes("incontinent")) {
+    if (Array.isArray(form.toileting) && form.toileting.includes("incontinent")) {
       return form.continence_ability;
     }
 
@@ -1696,7 +1658,7 @@ const getSectionStatus = (sectionId: string) => {
 
       if (!hasToileting) return "empty";
 
-      if (form.toileting.includes("incontinent")) {
+      if (Array.isArray(form.toileting) && form.toileting.includes("incontinent")) {
         return hasValue(form.continence_ability)
           ? "complete"
           : "in_progress";
@@ -1888,7 +1850,7 @@ Overall risk score: ${score}.
 `;
 };
   const handleSubmit = async () => {
-  setLoading(true);
+  setLoading(false);
   const lowConfidenceSections = [
   "cognition",
   "nutrition",
@@ -2066,7 +2028,7 @@ const carePlan = generateCarePlan(form, alerts);
 
 // ✅ APPLY ALERTS TO CARE PLAN (CORRECT)
 await applyAlertsToCarePlan({
-  clientId: id as string,
+  clientId: form.client_id,
   alerts: allAlerts,
 });
 await syncTasksWithCarePlan(form.client_id);
@@ -2202,7 +2164,6 @@ const MultiSelectDropdown = ({
 
 const getImmediateAlerts = () => {
   const alerts = [];
-
   if (form.safeguarding_flag) {
   alerts.push("🚨 Safeguarding flag raised — immediate escalation required");
 }
@@ -2320,6 +2281,7 @@ if (form.medication_side_effects) {
   return alerts;
 };
 const daysSinceReview = safeDateDiffDays(form.last_reviewed);
+const immediateAlerts = getImmediateAlerts();
 const isOverdue =
   daysSinceReview !== null && daysSinceReview > 30;
   const SectionWrapper = ({
@@ -2443,19 +2405,6 @@ const friendlyText = {
     concern: "There is a safeguarding concern being managed",
   },
 };
-const createReferral = async (payload: {
-  client_id: string;
-  referral_type: string;
-  details: string;
-  organisation_id?: string;
-  status: string;
-}) => {
-  try {
-    await supabase.from("referrals").insert(payload);
-  } catch (e) {
-    console.log("Referral failed", e);
-  }
-};
 const getFriendly = (field: string, value: any) => {
   if (!value) return "Not recorded";
 
@@ -2552,7 +2501,6 @@ const FamilyPDFView = () => {
     </div>
   );
 };
-const baseline = form.baseline_observations ?? {};
 return (
   <>
     {!access || typeof access !== "object" ? (
@@ -2918,7 +2866,7 @@ return (
   onChange={(v) => handleInput("best_interest_required", v)}
   disabled={viewMode}
 />
-{(form.capacity === "lacks capacity" || form.capacity === "fluctuating") && (
+{["lacks capacity", "fluctuating"].includes(form.capacity) && (
   <div className="bg-red-600/20 border border-red-500 p-3 rounded mb-4">
     <p className="text-sm mb-2">
       ⚠️ Capacity concern identified — MCA assessments required
@@ -2958,16 +2906,13 @@ return (
       <div
         key={mca.id}
         onClick={() => {
-          setSelectedMcaId(mca.id);
+  const linkedBi = biList.find(
+    (bi) => bi.linked_mca_id === mca.id
+  );
 
-          const linkedBi = biList.find(
-            (bi) => bi.linked_mca_id === mca.id
-          );
-
-          if (linkedBi) {
-            setSelectedBiId(linkedBi.id);
-          }
-        }}
+  setSelectedMcaId(mca.id);
+  setSelectedBiId(linkedBi ? linkedBi.id : null);
+}}
         className={`bg-[var(--card)] p-3 rounded flex justify-between items-center cursor-pointer ${
           selectedMcaId === mca.id ? "border border-blue-400" : ""
         } ${
@@ -2982,7 +2927,9 @@ return (
             {mca.decision || "No decision recorded"}
           </p>
           <p className="text-xs text-[var(--muted)]">
-            {new Date(mca.created_at).toLocaleDateString()}
+            {mca.created_at
+  ? new Date(mca.created_at).toLocaleDateString()
+  : "No date"}
           </p>
         </div>
 
@@ -3059,7 +3006,9 @@ return (
             {bi.decision || "No decision recorded"}
           </p>
           <p className="text-xs text-[var(--muted)]">
-            {new Date(bi.created_at).toLocaleDateString()}
+            {bi.created_at
+  ? new Date(bi.created_at).toLocaleDateString()
+  : "No date"}
           </p>
         </div>
 
@@ -3099,7 +3048,7 @@ return (
   disabled={viewMode}
 />
 
-{(form.capacity || !viewMode) && (
+{form.capacity && (
   <>
     <CommunicationBox
       value={form.communication_support}
@@ -3351,7 +3300,6 @@ return (
   id="mobility"
   title="Mobility & Falls"
   progress={getSectionProgress("mobility")}
-  disabled={viewMode}
 >
   <Section
     title="Mobility Ability"
@@ -4014,9 +3962,7 @@ onChange={(e) => handleInput("mdt_last_meeting", e.target.value)}
   <Section
     title="On Oxygen"
     options={["no", "yes"]}
-    value={
-  form.respiratory_support === "oxygen" ? "yes" : form.on_oxygen || "no"
-}
+    value={form.on_oxygen || "no"}
 onChange={(v) => handleInput("on_oxygen", v)}
     disabled={viewMode}
   />
@@ -4558,7 +4504,7 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
 />
 {form.eating === "needs support" || form.eating === "dependent" ? (
   <Section
-    title="eating Support Type"
+    title="Eating Support Type"
     options={[
       "prompting",
       "supervision",
@@ -4642,39 +4588,55 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
     className="w-full p-3 mt-1 rounded bg-[var(--card)] border border-red-500/30"
   />
 </div>
-{form.allergies?.toLowerCase() === "none" && (
+{form.allergies?.toLowerCase?.() === "none" && (
   <p className="text-xs text-green-400">
     ✓ No known allergies recorded
   </p>
 )}
 </SectionWrapper>
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6 border border-yellow-500/30">
-   
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4">
-{form.flags?.length > 0 && (
-  <div className="bg-red-900/20 border border-red-500 p-4 rounded mb-4">
-    <h2 className="font-semibold mb-2">🚨 System Flags</h2>
 
-    {form.flags.map((f: string) => (
-      <p key={f} className="text-sm text-red-400">
-        • {f.replace("_", " ")}
-      </p>
-    ))}
-  </div>
-)}
+<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-6 border border-yellow-500/30">
+
+  {/* FLAGS */}
+  {Array.isArray(form.flags) && form.flags.length > 0 && (
+    <div className="bg-red-900/20 border border-red-500 p-4 rounded mb-4">
+      <h2 className="font-semibold mb-2">🚨 System Flags</h2>
+
+      {form.flags.map((f: string) => (
+        <p key={f} className="text-sm text-red-400">
+          • {f.replaceAll("_", " ")}
+        </p>
+      ))}
+    </div>
+  )}
+
+  {/* REVIEW WARNING */}
+  {form.requires_review && (
+    <div className="bg-yellow-600 p-3 rounded mb-4 text-sm">
+      ⚠️ This assessment requires review due to identified risks
+    </div>
+  )}
+
+  {/* RISK SCORE */}
   <h2 className="font-semibold mb-2">Risk Score</h2>
 
-  {score >= 10 && (
-  <p className="text-red-400 text-sm mt-2">
-    ⚠️ High risk — ensure all sections are fully completed
-  </p>
-)}
+  {typeof score === "number" && score >= 10 && (
+    <p className="text-red-400 text-sm mb-2">
+      ⚠️ High risk — ensure all sections are fully completed
+    </p>
+  )}
 
-  <p className="text-2xl font-bold">
-    {score}
-  </p>
+  <p className="text-2xl font-bold">{score}</p>
 
-  <p className="text-sm text-[var(--muted)]">
+  <p
+    className={`text-sm ${
+      score >= 10
+        ? "text-red-400"
+        : score >= 5
+        ? "text-yellow-400"
+        : "text-green-400"
+    }`}
+  >
     {score >= 10
       ? "High Risk"
       : score >= 5
@@ -4682,12 +4644,6 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
       : "Low Risk"}
   </p>
 </div>
-</div>
-{form.requires_review && (
-  <div className="bg-yellow-600 p-3 rounded mb-4 text-sm">
-    ⚠️ This assessment requires review due to identified risks
-  </div>
-)}
 <SectionWrapper
   id="review"
   title="Review & Compliance"
@@ -4701,7 +4657,7 @@ onChange={(e) => handleInput("salt_last_review", e.target.value)}
   </div>
 <div className="mb-4">
   <label className="text-sm text-[var(--muted)]">
-    assessments Last Reviewed Date
+    Assessment Last Reviewed Date
   </label>
   <input
     type="date"
@@ -4717,82 +4673,53 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
   </p>
 )}
 </SectionWrapper>
-{hasSmartAlertsAccess && (
+{/* ALERTS */}
+{hasSmartAlertsAccess && immediateAlerts.length > 0 && (
   <div className="bg-red-600 p-4 rounded mb-4">
     <h2 className="font-semibold mb-2">
-      🚨 Live Clinical Alerts
+      🚨 Immediate Actions Required
     </h2>
-
-    {getImmediateAlerts().map((a, i) => (
-      <p key={i} className="text-sm">
+      {immediateAlerts.map((a, i) => (
+      <div
+        key={i}
+        className="bg-red-900/20 border border-red-500 p-2 rounded mb-2 text-sm"
+      >
         • {a}
-      </p>
+      </div>
     ))}
   </div>
 )}
-{!hasSmartAlertsAccess && getImmediateAlerts().length > 0 && (
+{/* FREE USER */}
+{!hasSmartAlertsAccess && immediateAlerts.length > 0 && (
   <div className="bg-yellow-600 p-4 rounded mb-4">
-    <h2 className="font-semibold mb-2">
-      ⚠️ Risks detected
-    </h2>
+    <h2 className="font-semibold mb-2">⚠️ Risks detected</h2>
     <p className="text-sm">
-      Upgrade to view required actions and alerts.
+      Risks detected but actions are hidden. Upgrade to view required interventions and protect client safety.
     </p>
   </div>
 )}
-
-<div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4">
-  <h2 className="font-semibold mb-2">Log Referral</h2>
-
-  {hasSmartAlertsAccess && getImmediateAlerts().length > 0 && (
-  <div className="bg-red-600 p-4 rounded mb-4">
-    <h2 className="font-semibold mb-2">
-      Immediate Actions Required
-    </h2>
-
-    {getImmediateAlerts().map((a, i) => (
-      <p key={`alert-${i}`}>• {a}</p>
-    ))}
-
-    <select
-      value={referral.type || ""}
-      onChange={(e) =>
-        setReferral({ ...referral, type: e.target.value })
-      }
-    >
-      <option value="">Select referral</option>
-      <option value="DN">District Nurse</option>
-      <option value="OT">Occupational Therapy</option>
-      <option value="SALT">Speech & Language</option>
-      <option value="GP">GP</option>
-    </select>
-
-    <TextAreaField
-      value={referral.details}
-      onChange={(val) =>
-        setReferral({ ...referral, details: val })
-      }
-      placeholder="Referral notes"
-      disabled={viewMode}
-    />
-  </div>
-)}
-
+{/* REVIEW */}
 {!form.locked && form.status === "completed" && (
   <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4">
     <h2 className="font-semibold mb-2">Review Details</h2>
 
+    {score >= 10 && (
+      <p className="text-red-400 text-xs mb-2">
+        High risk — review recommended
+      </p>
+    )}
+
     <select
-      value={form.review_type || ""}
-      onChange={(e) => handleInput("review_type", e.target.value)}
-      className="w-full p-3 text-base mb-2 rounded bg-[var(--card)]"
-    >
-      <option value="">Select review type</option>
-      <option value="routine">Routine Review</option>
-      <option value="incident">Incident / Fall</option>
-      <option value="hospital">Post Hospital Discharge</option>
-      <option value="change">Change in Needs</option>
-    </select>
+  value={form.review_type || ""}
+  onChange={(e) => handleInput("review_type", e.target.value)}
+  className="w-full p-3 text-base mb-2 rounded bg-[var(--card)]"
+>
+  <option value="">Select review type</option>
+  <option value="routine">Routine Review</option>
+  <option value="incident">Incident / Fall</option>
+  <option value="hospital">Post Hospital Discharge</option>
+  <option value="change">Change in Needs</option>
+</select>
 
     <TextAreaField
   value={form.update_reason}
@@ -4800,6 +4727,43 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
   placeholder="Reason for update..."
   disabled={viewMode}
 />
+</div>
+)}
+{/* REFERRAL */}
+{hasSmartAlertsAccess && immediateAlerts.length > 0 && (
+  <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mb-4">
+    <h2 className="font-semibold mb-2">Log Referral</h2>
+
+    <select
+  value={referral.type || ""}
+  onChange={(e) =>
+    setReferral({ ...referral, type: e.target.value })
+  }
+  className="w-full p-3 text-base mb-2 rounded bg-[var(--card)]"
+>
+  <option value="">Select referral</option>
+  <option value="DN">District Nurse</option>
+  <option value="OT">Occupational Therapy</option>
+  <option value="SALT">Speech & Language</option>
+  <option value="GP">GP</option>
+</select>
+
+    <TextAreaField
+  value={referral.details}
+  onChange={(val) =>
+    setReferral({ ...referral, details: val })
+  }
+  placeholder="Referral notes"
+  disabled={viewMode}
+/>
+ <button
+      type="button"
+      onClick={handleCreateReferral}
+      disabled={viewMode || !referral.type}
+      className="bg-blue-600 px-3 py-2 rounded mt-2"
+    >
+      Create Referral
+    </button>
   </div>
 )}
       {/* SUBMIT */}
@@ -4807,26 +4771,28 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
     {!viewMode && (
   <button
   type="button"
-    onClick={() => {
-      setSaving("saving");
-      handleSubmit();
-    }}
-    className="w-full bg-green-600 py-3 rounded mt-6"
-  >
-    {loading ? "Saving..." : "Save assessments"}
+  onClick={() => {
+    setLoading(true);
+    handleSubmit();
+  }}
+  disabled={loading}
+  className="w-full bg-green-600 py-3 rounded mt-6 disabled:opacity-50"
+>
+    {loading ? "Saving..." : "Save assessment"}
   </button>
 )}
 
        <div className="bg-[var(--card)] p-3 sm:p-4 md:p-5 rounded-lg mt-6 border border-yellow-500">
-        <p className="text-sm text-[var(--muted)] mb-3">
-          Without upgrade:
-          • No automatic escalation alerts  
-          • No advanced risk scoring  
-          • No referral tracking automation  
-          • No compliance monitoring.
+  <p className="text-sm text-[var(--muted)] mb-2">
+  Without upgrade:
+</p>
 
-          Upgrade to enable full safety protection.
-        </p>
+<ul className="text-sm text-[var(--muted)] mb-3 list-disc ml-5 space-y-1">
+  <li>No automatic escalation alerts</li>
+  <li>No advanced risk scoring</li>
+  <li>No referral tracking automation</li>
+  <li>No compliance monitoring</li>
+</ul>
 
         <button
         type="button"
@@ -4836,21 +4802,20 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
           Unlock
         </button>
       </div>
-{pdfMode === "family" && (
+{pdfMode === "family" && form && (
   <div id="family-pdf" style={{ display: "none" }}>
     <FamilyPDFView />
   </div>
 )}
 </div>
-      </div>
-      )}
-    </>
+    )}
+</>
   );
-}
 export default function AssessmentPage() {
   return (
     <Suspense fallback={<div className="p-6">Loading...</div>}>
       <AssessmentPageContent />
     </Suspense>
   );
+}
 }
