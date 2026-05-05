@@ -1898,24 +1898,38 @@ ai_last_updated: new Date().toISOString(),
 mca_completed: form.mca_completed,
 best_interest_completed: form.best_interest_completed,
 };
+const toPgArray = (arr: any) => {
+  if (!Array.isArray(arr)) return null;
+  return `{${arr.map((v) => `"${v}"`).join(",")}}`;
+};
+
+const payload = {
+  ...cleanedForm,
+
+  client_id: form.client_id,
+  risk_score: riskScore,
+  ai_risk_score: aiRiskScore,
+  requires_review: flags.length > 0,
+  safeguarding_flag: flags.includes("safeguarding"),
+  status,
+  flags: combinedFlags,
+
+  locked: true,
+
+  toileting: toPgArray(form.toileting),
+  equipment: toPgArray(form.equipment),
+  cognition_source: toPgArray(form.cognition_source),
+
+  equipment_serviced: form.equipment_serviced || {},
+  equipment_last_service: form.equipment_last_service || {},
+  baseline_observations: form.baseline_observations || {},
+};
 
 const { data, error } = await supabase
   .from("assessments")
-  .upsert(
-    {
-      ...cleanedForm,
-client_id: form.client_id,
-risk_score: riskScore,
-ai_risk_score: aiRiskScore,
-requires_review: flags.length > 0,
-safeguarding_flag: flags.includes("safeguarding"),
-status,
-flags: combinedFlags,
-locked: true,
-    },
-    { onConflict: "client_id" }
-  );
+  .upsert(payload, { onConflict: "client_id" });
 
+console.log("UPSERT ERROR:", error);
   // 🔥 GENERATE ALERTS
   const diagnosisAlerts = generateDiagnosisAlerts(client.diagnosis || []);
 const rawAlerts = [
