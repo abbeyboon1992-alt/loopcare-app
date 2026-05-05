@@ -4811,11 +4811,11 @@ onChange={(e) => handleInput("last_reviewed", e.target.value)}
     )}
 </>
   );
+}
 export default function AssessmentPage() {
   return (
     <Suspense fallback={<div className="p-6">Loading...</div>}>
       <AssessmentPageContent />
     </Suspense>
   );
-}
 }
